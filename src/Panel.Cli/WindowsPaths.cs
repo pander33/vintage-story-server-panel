@@ -85,6 +85,13 @@ internal sealed record WindowsPaths(string ProgramRoot, string DataRoot)
 	public string PanelCommandLine => Quote(CurrentBinary("vs-panel-web"));
 
 	/// <summary>
+	/// Ярлык <c>.url</c> на адрес панели. Значок — из программы панели через <c>current</c>: путь
+	/// переживает обновление, а без значка ярлык показывал бы значок браузера по умолчанию.
+	/// </summary>
+	public string ShortcutContent(string address) =>
+		$"[InternetShortcut]\r\nURL={address}\r\nIconFile={CurrentBinary("vs-panel-web")}\r\nIconIndex=0\r\n";
+
+	/// <summary>
 	/// Путь в командной строке службы берётся в кавычки: без них путь с пробелом в
 	/// <c>Program Files</c> даёт уязвимость «незакавыченного пути службы».
 	/// </summary>

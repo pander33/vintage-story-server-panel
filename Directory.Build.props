@@ -20,4 +20,10 @@
     <SupportedOSPlatformVersion>1.0</SupportedOSPlatformVersion>
   </PropertyGroup>
 
+  <!-- Значок трёх поставляемых программ: .exe на Windows (Проводник, диспетчер задач, ярлыки).
+       На Linux ресурс Win32 в сборке ничего не меняет. Источник — scripts/icons.ps1. -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Panel.Web' Or '$(MSBuildProjectName)' == 'Panel.Agent' Or '$(MSBuildProjectName)' == 'Panel.Cli'">
+    <ApplicationIcon>$(MSBuildThisFileDirectory)assets\vs-panel.ico</ApplicationIcon>
+  </PropertyGroup>
+
 </Project>

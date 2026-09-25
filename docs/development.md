@@ -8,7 +8,7 @@
 
 ```bash
 dotnet build
-dotnet test                         # 1239 тестов, ни одному не нужен сервер
+dotnet test                         # 1240 тестов, ни одному не нужен сервер
 ```
 
 Нужен .NET SDK 10. Стиль — `.editorconfig`; проверка:
@@ -16,17 +16,54 @@ dotnet test                         # 1239 тестов, ни одному не 
 
 ### Поставка
 
-```bash
-VS_TELEMETRY_DIST=<каталог с vspaneltelemetry_*.zip> bash scripts/publish.sh linux-x64
-VS_TELEMETRY_DIST=<каталог с vspaneltelemetry_*.zip> bash scripts/publish.sh win-x64
+На Windows публикуйте из PowerShell в корне репозитория; Bash и WSL не нужны:
+
+```powershell
+.\scripts\publish.ps1 win-x64
 ```
 
-Self-contained single-file (ADR-09). Цели: `linux-x64`, `linux-arm64`, `win-x64`.
-Результат — `artifacts/<цель>`, готовый каталог установки с `install.sh` или
-`install.cmd`.
+Из `cmd.exe` запускайте тот же сценарий через штатный Windows PowerShell:
+
+```cmd
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\publish.ps1 win-x64
+```
+
+Нужен .NET SDK 10. Если PowerShell запрещает запуск `.ps1`, используйте приведённую
+команду с `-ExecutionPolicy Bypass` и в PowerShell. Чтобы включить мод телеметрии,
+перед публикацией задайте `VS_TELEMETRY_DIST` как обычный путь Windows к каталогу с
+`vspaneltelemetry_*.zip` (например, `$env:VS_TELEMETRY_DIST = 'D:\telemetry\dist'`).
+
+На Linux используйте Bash:
+
+```bash
+bash scripts/publish.sh linux-x64
+bash scripts/publish.sh linux-arm64
+```
+
+Для Linux мод добавляется так: `VS_TELEMETRY_DIST=/path/to/dist bash scripts/publish.sh linux-x64`.
+Цели проекта: `linux-x64`, `linux-arm64`, `win-x64`. Оба сценария создают
+self-contained single-file пакет (ADR-09) в `artifacts/<цель>`: три исполняемых файла,
+`VERSION`, `RID`, `install.sh` или `install.cmd` и, если задан каталог, `telemetry/`.
+Публикация заменяет только пакет своей цели; запуск `dotnet build` и `dotnet test`
+пакет в `artifacts` не обновляет. Перед установкой проверьте `artifacts/<цель>/VERSION`
+и время изменения исполняемых файлов.
 
 Без мода телеметрии (`VS_TELEMETRY_DIST`) панель ставится, но готовность серверов видит
 ограниченно: наблюдатель и автоперезапуск работают хуже.
+
+### Значок
+
+Исходник — `scripts/icons.ps1`: геометрия прежнего `brand-mark` и контур буквы из Georgia.
+На Windows команда `pwsh scripts/icons.ps1` (System.Drawing) пересобирает все форматы:
+- `Static/favicon.svg` — знак в панели, мастере установки, README и браузере;
+- `Static/favicon.ico` — стандартный `/favicon.ico` для браузеров, которые запрашивают
+  значок сайта без учёта ссылок на странице;
+- `assets/vs-panel.ico` — значок `vs-panel.exe`, `vs-panel-web.exe` и `vs-panel-agent.exe`
+  (`ApplicationIcon` в `Directory.Build.props`) и ярлыков «Vintage Story Panel»;
+- `Static/favicon-32.png` и `Static/apple-touch-icon.png` — для браузеров без SVG и для
+  ярлыка на телефоне.
+
+Сгенерированные файлы хранятся в репозитории. При смене знака правьте только скрипт.
 
 ## Два процесса, две роли
 

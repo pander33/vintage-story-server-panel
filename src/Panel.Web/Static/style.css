@@ -267,3 +267,7 @@ h2.group-title small{display:block;margin-top:5px;font-size:12px;font-weight:400
   header{padding-top:14px}
   .table-wrap{max-height:none}
 }
+
+/* Тот же знак, что в панели и файлах значков. Контейнер сохраняет размер шапки. */
+.brand .brand-mark{position:relative;display:block;flex:none;width:37px;height:37px;border-radius:0;background:none;letter-spacing:normal}
+.brand .brand-mark img{position:absolute;width:72px;height:72px;max-width:none;left:-17.5px;top:-17.5px}

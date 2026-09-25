@@ -22,6 +22,18 @@ public sealed class WindowsInstallTests : IDisposable
 		}
 	}
 
+	/// <summary>Ярлык берёт значок из программы активной версии: путь через <c>current</c> переживает обновление.</summary>
+	[Fact]
+	public void Ярлык_панели_со_значком_из_активной_версии()
+	{
+		var paths = new WindowsPaths(@"C:\Program Files\vs-panel", @"C:\ProgramData\vs-panel");
+
+		var text = paths.ShortcutContent("http://localhost:8080/");
+
+		var icon = Path.Combine(@"C:\Program Files\vs-panel", "current", "vs-panel-web.exe");
+		Assert.Equal($"[InternetShortcut]\r\nURL=http://localhost:8080/\r\nIconFile={icon}\r\nIconIndex=0\r\n", text);
+	}
+
 	/// <summary>Путь данных с обратными косыми чертами и кавычкой даёт корректный JSON с тем же путём.</summary>
 	[Fact]
 	public void Настройки_панели_Windows_с_настоящим_каталогом_данных()

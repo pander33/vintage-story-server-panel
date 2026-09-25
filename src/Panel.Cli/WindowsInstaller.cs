@@ -637,7 +637,7 @@ internal sealed class WindowsInstaller
 	/// <summary>Ярлыки на страницу панели в меню «Пуск» и на общем рабочем столе.</summary>
 	private void WriteShortcuts()
 	{
-		var content = $"[InternetShortcut]\r\nURL={PanelState.LocalAddress(this.host.PanelEnvironment())}\r\n";
+		var content = Paths.ShortcutContent(PanelState.LocalAddress(this.host.PanelEnvironment()));
 		foreach (var folder in ShortcutFolders())
 		{
 			try

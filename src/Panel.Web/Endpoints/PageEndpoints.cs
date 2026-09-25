@@ -35,6 +35,7 @@ public static class PageEndpoints
 
 	public static void MapPages(this IEndpointRouteBuilder routes)
 	{
+		routes.MapGet("/favicon.ico", () => TypedResults.Stream(Assets.GetFileInfo("favicon.ico").CreateReadStream(), "image/x-icon"));
 		routes.MapGet("/", (SetupService setup, CancellationToken ct) => IndexAsync(setup, ct));
 		routes.MapGet("/setup", (SetupService setup, CancellationToken ct) => SetupAsync(setup, ct));
 	}

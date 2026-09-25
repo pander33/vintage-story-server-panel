@@ -61,8 +61,8 @@ code, .mono { font-family: var(--mono); }
 .app-shell { min-height: 100vh; display: flex; }
 .sidebar { position: sticky; top: 0; width: 250px; height: 100vh; flex: none; display: flex; flex-direction: column; background: linear-gradient(180deg, #241b16, var(--bg)); border-right: 1px solid var(--border); padding: 30px 16px 18px; z-index: 20; }
 .brand { display: flex; align-items: center; gap: 12px; padding: 0 12px 44px; }
-.brand-mark { width: 37px; height: 37px; flex: none; border: 1px solid var(--accent-line); background: #3b2920; transform: rotate(45deg); display: grid; place-items: center; box-shadow: 0 0 0 5px #30231c; }
-.brand-mark span { font: 700 22px Georgia, serif; color: var(--accent); transform: rotate(-45deg); }
+.brand-mark { width: 37px; height: 37px; flex: none; position: relative; }
+.brand-mark img { position: absolute; width: 72px; height: 72px; max-width: none; left: -17.5px; top: -17.5px; }
 .brand strong { display: block; font-size: 12px; letter-spacing: .08em; line-height: 1.15; white-space: nowrap; }
 .brand strong span { color: var(--accent); }
 .brand small { display: block; color: var(--muted); letter-spacing: .29em; font-size: 8px; margin-top: 5px; }

@@ -3,3 +3,4 @@
 POST /api/server/console
 GET /api/settings/servers-root
 PUT /api/settings/servers-root
+GET /favicon.ico

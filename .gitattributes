@@ -15,4 +15,5 @@ deploy/windows/* text eol=crlf
 deploy/*.json text eol=lf
 
 *.png binary
+*.ico binary
 *.zip binary

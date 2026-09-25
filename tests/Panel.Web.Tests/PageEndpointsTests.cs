@@ -91,8 +91,9 @@ public sealed partial class PageEndpointsTests : IDisposable
 	{
 		string[] expected =
 		[
-			"backups.js", "content.js", "core.js", "index.html", "logs.js", "maintenance.js", "overview.js",
-			"panel.css", "players.js", "settings.js", "setup.html", "setup.js", "style.css",
+			"apple-touch-icon.png", "backups.js", "content.js", "core.js", "favicon-32.png", "favicon.ico", "favicon.svg",
+			"index.html", "logs.js", "maintenance.js", "overview.js", "panel.css", "players.js", "settings.js", "setup.html", "setup.js",
+			"style.css",
 		];
 
 		Assert.Equal(expected, PageEndpoints.Assets.GetDirectoryContents("").Select(file => file.Name).Order(StringComparer.Ordinal));
