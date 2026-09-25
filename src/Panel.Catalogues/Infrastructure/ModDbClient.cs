@@ -47,7 +47,7 @@ public sealed partial class ModDbClient
 
 	private const int maxResponseBytes = 4 * 1024 * 1024;
 
-	private const string userAgent = "VintageStoryPanel/0.4";
+	private const string userAgent = "VintageStoryPanel/0.2.0";
 
 	private static readonly string[] searchFields =
 		["modid", "name", "summary", "author", "urlalias", "side", "logo", "lastreleased", "modidstrs"];

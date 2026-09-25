@@ -124,7 +124,7 @@ public sealed class WindowsInstallTests : IDisposable
 			File.WriteAllText(Path.Combine(build, (installedNames ? installed : published) + ".exe"), "bin");
 		}
 
-		File.WriteAllText(Path.Combine(build, Artifact.VersionFile), "2.0.0\n");
+		File.WriteAllText(Path.Combine(build, Artifact.VersionFile), "0.2.0\n");
 		File.WriteAllText(Path.Combine(build, Artifact.RidFile), "win-x64\n");
 
 		var artifact = Artifact.Open(build, windows: true);
@@ -145,7 +145,7 @@ public sealed class WindowsInstallTests : IDisposable
 			File.WriteAllText(Path.Combine(build, published), "bin");
 		}
 
-		File.WriteAllText(Path.Combine(build, Artifact.VersionFile), "2.0.0\n");
+		File.WriteAllText(Path.Combine(build, Artifact.VersionFile), "0.2.0\n");
 
 		var artifact = Artifact.Open(build, windows: true);
 
@@ -218,7 +218,7 @@ public sealed class WindowsInstallTests : IDisposable
 		var findings = WindowsDoctor.CheckFiles(Paths, Paths.StateDirectory);
 
 		Assert.DoesNotContain(findings, finding => finding.Severity == Severity.Problem);
-		Assert.Contains(findings, finding => finding.Text.Contains("Активная версия 2.0.0", StringComparison.Ordinal));
+		Assert.Contains(findings, finding => finding.Text.Contains("Активная версия 0.2.0", StringComparison.Ordinal));
 	}
 
 	[Fact]
@@ -258,7 +258,7 @@ public sealed class WindowsInstallTests : IDisposable
 	private void Installed()
 	{
 		Directory.CreateDirectory(Paths.Current);
-		File.WriteAllText(Path.Combine(Paths.Current, Artifact.VersionFile), "2.0.0\n");
+		File.WriteAllText(Path.Combine(Paths.Current, Artifact.VersionFile), "0.2.0\n");
 		foreach (var (_, installed) in Artifact.Binaries)
 		{
 			File.WriteAllText(Path.Combine(Paths.Current, installed + ".exe"), "bin");

@@ -21,7 +21,7 @@ public sealed class InstallFilesTests : IDisposable
 		}
 	}
 
-	private void Build(string version = "2.0.0", bool installedNames = false)
+	private void Build(string version = "0.2.0", bool installedNames = false)
 	{
 		foreach (var (published, installed) in Artifact.Binaries)
 		{
@@ -42,7 +42,7 @@ public sealed class InstallFilesTests : IDisposable
 		var artifact = Artifact.Open(directory);
 
 		Assert.True(artifact.IsSuccess);
-		Assert.Equal("2.0.0", artifact.Value.Version);
+		Assert.Equal("0.2.0", artifact.Value.Version);
 		Assert.Equal("linux-x64", artifact.Value.Rid);
 		Assert.All(Artifact.Binaries, binary => Assert.True(File.Exists(artifact.Value.Source(binary))));
 	}

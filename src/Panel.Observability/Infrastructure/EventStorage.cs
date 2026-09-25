@@ -146,7 +146,7 @@ public sealed class NotificationSettingsFile
 /// </remarks>
 public sealed class NotificationSender
 {
-	private const string userAgent = "vs-panel/2.0.0";
+	private const string userAgent = "vs-panel/0.2.0";
 
 	private static readonly TimeSpan timeout = TimeSpan.FromSeconds(12);
 

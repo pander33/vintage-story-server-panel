@@ -53,7 +53,7 @@ internal static class WindowsDoctor
 		var leftovers = paths.LegacyProgram.Where(path => File.Exists(path) || Directory.Exists(path)).ToList();
 		if (leftovers.Count > 0)
 		{
-			findings.Add(new(Severity.Warning, $"Остались файлы прежней версии панели: {string.Join(", ", leftovers)}. Панель 2.0 их не использует; удалить можно вручную"));
+			findings.Add(new(Severity.Warning, $"Остались файлы прежней версии панели: {string.Join(", ", leftovers)}. Новая панель их не использует; удалить можно вручную"));
 		}
 
 		return findings;

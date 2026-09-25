@@ -25,7 +25,7 @@ public sealed class DoctorTests : IDisposable
 	private void Installed()
 	{
 		Directory.CreateDirectory(Paths.Current);
-		File.WriteAllText(Path.Combine(Paths.Current, Artifact.VersionFile), "2.0.0\n");
+		File.WriteAllText(Path.Combine(Paths.Current, Artifact.VersionFile), "0.2.0\n");
 		foreach (var (_, installed) in Artifact.Binaries)
 		{
 			File.WriteAllText(Path.Combine(Paths.Current, installed), "bin");
