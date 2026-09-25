@@ -1,0 +1,35 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Panel.Access/Panel.Access.csproj" />
+    <Project Path="src/Panel.Catalogues/Panel.Catalogues.csproj" />
+    <Project Path="src/Panel.Agent.Client/Panel.Agent.Client.csproj" />
+    <Project Path="src/Panel.Agent/Panel.Agent.csproj" />
+    <Project Path="src/Panel.Cli/Panel.Cli.csproj" />
+    <Project Path="src/Panel.Configuration/Panel.Configuration.csproj" />
+    <Project Path="src/Panel.Content/Panel.Content.csproj" />
+    <Project Path="src/Panel.Contracts/Panel.Contracts.csproj" />
+    <Project Path="src/Panel.Fleet/Panel.Fleet.csproj" />
+    <Project Path="src/Panel.Maintenance/Panel.Maintenance.csproj" />
+    <Project Path="src/Panel.Observability/Panel.Observability.csproj" />
+    <Project Path="src/Panel.Provisioning/Panel.Provisioning.csproj" />
+    <Project Path="src/Panel.Runtime/Panel.Runtime.csproj" />
+    <Project Path="src/Panel.SharedKernel/Panel.SharedKernel.csproj" />
+    <Project Path="src/Panel.Web/Panel.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Panel.Access.Tests/Panel.Access.Tests.csproj" />
+    <Project Path="tests/Panel.Agent.Tests/Panel.Agent.Tests.csproj" />
+    <Project Path="tests/Panel.Architecture.Tests/Panel.Architecture.Tests.csproj" />
+    <Project Path="tests/Panel.Catalogues.Tests/Panel.Catalogues.Tests.csproj" />
+    <Project Path="tests/Panel.Cli.Tests/Panel.Cli.Tests.csproj" />
+    <Project Path="tests/Panel.Configuration.Tests/Panel.Configuration.Tests.csproj" />
+    <Project Path="tests/Panel.Content.Tests/Panel.Content.Tests.csproj" />
+    <Project Path="tests/Panel.Contracts.Tests/Panel.Contracts.Tests.csproj" />
+    <Project Path="tests/Panel.Fleet.Tests/Panel.Fleet.Tests.csproj" />
+    <Project Path="tests/Panel.Maintenance.Tests/Panel.Maintenance.Tests.csproj" />
+    <Project Path="tests/Panel.Observability.Tests/Panel.Observability.Tests.csproj" />
+    <Project Path="tests/Panel.Provisioning.Tests/Panel.Provisioning.Tests.csproj" />
+    <Project Path="tests/Panel.Runtime.Tests/Panel.Runtime.Tests.csproj" />
+    <Project Path="tests/Panel.Web.Tests/Panel.Web.Tests.csproj" />
+  </Folder>
+</Solution>

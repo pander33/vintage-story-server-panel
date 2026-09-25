@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "default": "main",
+  "instances": {
+    "main": {
+      "name": "Основной сервер",
+      "unit": "vintagestory.service",
+      "data_dir": "/srv/vintagestory/data",
+      "mods_dir": "/srv/vintagestory/data/Mods",
+      "backup_dir": "/srv/vintagestory/backups",
+      "config_file": "/srv/vintagestory/data/serverconfig.json",
+      "world_dir": "/srv/vintagestory/data/Saves",
+      "logs_dir": "/srv/vintagestory/data/Logs",
+      "telemetry_file": "/srv/vintagestory/data/VsPanel/telemetry.json",
+      "game_events_file": "/srv/vintagestory/data/VsPanel/events.jsonl",
+      "mod_config_dir": "/srv/vintagestory/data/ModConfig",
+      "program_dir": "/opt/vintagestory",
+      "disk_warning_free_gb": 10,
+      "disk_warning_free_percent": 10,
+      "command_transport": "fifo",
+      "console_fifo": "/run/vintagestory-console.fifo",
+      "screen_session": "vintagestory_server",
+      "command_runner": "/opt/vintagestory/server.sh"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "layout": "windows",
+  "instances_file": "@DATA_ROOT@\\instances.json",
+  "instances_root": "@DATA_ROOT@\\servers",
+  "telemetry_dir": "@DATA_ROOT@\\telemetry",
+  "staging_dir": "@DATA_ROOT@\\state\\staging",
+  "panel_env_file": "@DATA_ROOT@\\vs-panel.env",
+  "run_dir": "@DATA_ROOT@\\run"
+}

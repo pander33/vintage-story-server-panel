@@ -1,0 +1,13 @@
+bin/
+obj/
+artifacts/
+*.user
+.vs/
+.idea/
+TestResults/
+fixtures/live/
+/CLAUDE.md
+/AGENTS.md
+/docs/findings.md
+/templates/vintage-panel-concept
+*graphify-out

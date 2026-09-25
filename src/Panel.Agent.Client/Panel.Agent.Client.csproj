@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Panel.SharedKernel\Panel.SharedKernel.csproj" />
+    <ProjectReference Include="..\Panel.Contracts\Panel.Contracts.csproj" />
+    <ProjectReference Include="..\Panel.Configuration\Panel.Configuration.csproj" />
+    <ProjectReference Include="..\Panel.Observability\Panel.Observability.csproj" />
+    <ProjectReference Include="..\Panel.Content\Panel.Content.csproj" />
+    <ProjectReference Include="..\Panel.Fleet\Panel.Fleet.csproj" />
+    <ProjectReference Include="..\Panel.Provisioning\Panel.Provisioning.csproj" />
+    <ProjectReference Include="..\Panel.Maintenance\Panel.Maintenance.csproj" />
+    <ProjectReference Include="..\Panel.Runtime\Panel.Runtime.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Panel.Contracts.Tests" />
+  </ItemGroup>
+
+</Project>

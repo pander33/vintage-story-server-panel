@@ -1,0 +1,23 @@
+<Project>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <PanelVersion>2.0.0-alpha</PanelVersion>
+    <Version>$(PanelVersion)</Version>
+    <NeutralLanguage>ru-RU</NeutralLanguage>
+  </PropertyGroup>
+
+  <!-- Панель общается с systemd, /proc и Unix-сокетами: эти вызовы допустимы только
+       в привилегированной сборке, поэтому предупреждения о платформе гасятся точечно,
+       а не глобально. См. архитектурные тесты. -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Panel.Agent'">
+    <SupportedOSPlatformVersion>1.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+</Project>

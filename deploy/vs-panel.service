@@ -1,0 +1,38 @@
+[Unit]
+Description=Vintage Story Panel
+After=network.target vs-panel-agent.service
+Requires=vs-panel-agent.service
+
+[Service]
+Type=exec
+User=vs-panel
+Group=vs-panel
+ExecStart=/opt/vs-panel/current/vs-panel-web
+EnvironmentFile=/etc/vs-panel.env
+Restart=always
+RestartSec=3
+
+# Остановка ждёт идущее обновление игры или модов: копия офлайн и замена программы
+# длятся до получаса, и прерванная посередине замена хуже ожидания. ShutdownTimeout
+# хоста в Program.cs чуть меньше, чтобы панель успела выйти сама.
+TimeoutStopSec=1900s
+
+# Панели не нужен sudo: привилегированные операции выполняет демон по сокету (ADR-02,
+# INV-51).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=false
+CapabilityBoundingSet=
+SystemCallFilter=@system-service
+ReadWritePaths=/var/lib/vs-panel
+
+[Install]
+WantedBy=multi-user.target

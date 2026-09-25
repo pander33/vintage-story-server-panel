@@ -1,0 +1,165 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using Panel.Contracts;
+using Panel.Observability.Domain;
+using Panel.Observability.Ports;
+using Panel.Runtime.Ports;
+using Panel.SharedKernel;
+
+namespace Panel.Web.Application;
+
+/// <summary>
+/// Диагностический пакет одного сервера.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Ключи: <c>status</c> — состояние службы без вердикта (он в <c>watchdog</c>), <c>metrics</c> —
+/// свежий замер, <c>causes</c> — разбор последней тысячи строк журнала, <c>config_apply</c> —
+/// применены ли настройки, <c>recent_events</c> — пятьдесят последних событий панели.
+/// </para>
+/// <para>
+/// Недоступный журнал или конфигурация не мешают собрать пакет: он нужен как раз тогда, когда
+/// что-то сломано. Недоступное состояние службы или замер дают отказ.
+/// </para>
+/// </remarks>
+public sealed class DiagnosticsHandler
+{
+	private const int journalLines = 1000;
+	private const int recentEvents = 50;
+
+	private readonly GetServerStatusHandler status;
+	private readonly IMetricsSource metrics;
+	private readonly AutomationService automation;
+	private readonly IServerRuntime runtime;
+	private readonly ServerConfigurationHandler configuration;
+	private readonly UpdateService updates;
+	private readonly EventBus events;
+
+	public DiagnosticsHandler(
+		GetServerStatusHandler status,
+		IMetricsSource metrics,
+		AutomationService automation,
+		IServerRuntime runtime,
+		ServerConfigurationHandler configuration,
+		UpdateService updates,
+		EventBus events)
+	{
+		this.status = status;
+		this.metrics = metrics;
+		this.automation = automation;
+		this.runtime = runtime;
+		this.configuration = configuration;
+		this.updates = updates;
+		this.events = events;
+	}
+
+	/// <summary>Пакет уже очищен через <see cref="DiagnosticsRedaction"/>.</summary>
+	public async Task<Result<JsonObject>> CollectAsync(InstanceId instance, CancellationToken ct)
+	{
+		var service = await status.HandleAsync(new GetServerStatus(instance), ct).ConfigureAwait(false);
+		if (!service.IsSuccess)
+		{
+			return service.Failure!;
+		}
+
+		var serviceNode = JsonSerializer.SerializeToNode(service.Value, PanelJson.Options)!.AsObject();
+		serviceNode.Remove("health");
+
+		var (_, watchdog) = await automation.CurrentHealthAsync(instance).ConfigureAwait(false);
+
+		var journal = await runtime.LogsAsync(instance, journalLines, ct).ConfigureAwait(false);
+		IReadOnlyList<LogEvent> lines = journal.IsSuccess
+			? [.. journal.Value.Select(entry => LogEvent.FromLine(entry.Line))]
+			: [];
+		var causes = Causes(service.Value.Active, watchdog, lines, journal.IsSuccess ? string.Empty : journal.Failure!.Message);
+
+		var applied = await configuration.ReinspectAsync(instance, ct).ConfigureAwait(false);
+		var applyState = applied.IsSuccess
+			? JsonSerializer.SerializeToNode(applied.Value, PanelJson.Options)
+			: UnknownApplyState(applied.Failure!.Message);
+
+		var sample = await metrics.ReadAsync(instance, ct).ConfigureAwait(false);
+		if (!sample.IsSuccess)
+		{
+			return sample.Failure!;
+		}
+
+		var everything = EventFilter.Create("all", string.Empty).Value;
+		var recent = await events.RecentAsync(instance, everything, recentEvents, ct).ConfigureAwait(false);
+
+		var payload = new JsonObject
+		{
+			["status"] = serviceNode,
+			["metrics"] = sample.Value.DeepClone(),
+			["watchdog"] = watchdog,
+			["updates"] = await updates.SnapshotAsync(instance, ct).ConfigureAwait(false),
+			["config_apply"] = applyState,
+			["causes"] = causes,
+			["recent_events"] = new JsonArray([.. recent.Select(item => (JsonNode?) item.DeepClone())]),
+		};
+
+		return DiagnosticsRedaction.Redact(payload)!.AsObject();
+	}
+
+	/// <summary>
+	/// Причины по журналу, плюс <c>journal_error</c>, если журнал не прочитался. «Готов»
+	/// определяется вердиктом наблюдателя <c>ready</c>, а не строкой журнала (INV-3).
+	/// </summary>
+	public static JsonObject Causes(
+		bool active,
+		JsonObject watchdog,
+		IReadOnlyList<LogEvent> journal,
+		string journalError)
+	{
+		ArgumentNullException.ThrowIfNull(watchdog);
+		ArgumentNullException.ThrowIfNull(journal);
+		ArgumentNullException.ThrowIfNull(journalError);
+
+		var ready = Text(watchdog["state"]) == "ready";
+		var diagnosis = LogDiagnosis.Diagnose(active, ready, new WatchdogNote(Text(watchdog["detail"])), journal);
+
+		var causes = new JsonObject
+		{
+			["startup"] = FindingNode(diagnosis.Startup),
+			["connections"] = new JsonArray([.. diagnosis.Connections.Select(finding => (JsonNode?) FindingNode(finding))]),
+		};
+		if (journalError.Length > 0)
+		{
+			causes["journal_error"] = journalError;
+		}
+
+		return causes;
+	}
+
+	/// <summary>Состояние применения, если конфигурацию не удалось прочитать.</summary>
+	private static JsonObject UnknownApplyState(string detail) => new()
+	{
+		["state"] = "unknown",
+		["source"] = "helper",
+		["changed_keys"] = new JsonArray(),
+		["restart_required"] = false,
+		["detail"] = detail,
+	};
+
+	/// <summary>У найденной причины есть строка журнала и её время; у «готов» и «остановлен» их нет.</summary>
+	private static JsonObject FindingNode(Finding finding)
+	{
+		var node = new JsonObject
+		{
+			["level"] = finding.Level,
+			["code"] = finding.Code,
+			["title"] = finding.Title,
+			["detail"] = finding.Detail,
+		};
+		if (finding.Evidence is not null)
+		{
+			node["evidence"] = finding.Evidence;
+			node["timestamp"] = finding.Timestamp;
+		}
+
+		return node;
+	}
+
+	private static string? Text(JsonNode? value) =>
+		value is JsonValue scalar && scalar.TryGetValue<string>(out var text) ? text : null;
+}

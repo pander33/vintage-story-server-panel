@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Panel.SharedKernel\Panel.SharedKernel.csproj" />
+    <ProjectReference Include="..\Panel.Contracts\Panel.Contracts.csproj" />
+    <ProjectReference Include="..\Panel.Fleet\Panel.Fleet.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <!-- Установщик и меню управления: работает от root, пишет юниты и запускает systemctl,
+       поэтому вторая, после демона, сборка, которой разрешено запускать процессы
+       (PrivilegeBoundaryTests). Панель на него не ссылается и не запускает его. -->
+
+  <!-- Шаблоны установки едут внутри бинарника: установщик ставит ровно те юниты и файлы,
+       с которыми собран, и не зависит от того, что лежит рядом с ним. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\deploy\vs-panel.service" LogicalName="Panel.Cli.Deploy.vs-panel.service" />
+    <EmbeddedResource Include="..\..\deploy\vs-panel-agent.service" LogicalName="Panel.Cli.Deploy.vs-panel-agent.service" />
+    <EmbeddedResource Include="..\..\deploy\vs-panel.json" LogicalName="Panel.Cli.Deploy.vs-panel.json" />
+    <EmbeddedResource Include="..\..\deploy\vs-panel.env" LogicalName="Panel.Cli.Deploy.vs-panel.env" />
+    <EmbeddedResource Include="..\..\deploy\vs-panel-instances.json" LogicalName="Panel.Cli.Deploy.vs-panel-instances.json" />
+    <EmbeddedResource Include="..\..\deploy\vs-console-wrapper" LogicalName="Panel.Cli.Deploy.vs-console-wrapper" />
+    <EmbeddedResource Include="..\..\deploy\windows\vs-panel.json" LogicalName="Panel.Cli.Deploy.windows.vs-panel.json" />
+    <EmbeddedResource Include="..\..\deploy\windows\vs-panel.env" LogicalName="Panel.Cli.Deploy.windows.vs-panel.env" />
+  </ItemGroup>
+
+  <!-- Службы Windows: запуск, остановка и ожидание состояния. Создавать службы и задавать
+       их учётную запись ServiceController не умеет — это P/Invoke в ServiceManager. -->
+  <ItemGroup>
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Panel.Cli.Tests" />
+  </ItemGroup>
+
+</Project>

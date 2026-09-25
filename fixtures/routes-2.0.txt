@@ -1,0 +1,5 @@
+# Маршруты, которых нет в 1.2.x: добавления 2.0 (ADR-17). Метод и адрес, по одному в строке.
+# Маршруты 1.2.x заморожены отдельно (routes-1.2.x.txt); здесь — только новые, и каждый назван явно.
+POST /api/server/console
+GET /api/settings/servers-root
+PUT /api/settings/servers-root

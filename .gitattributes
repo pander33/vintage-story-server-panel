@@ -1,0 +1,18 @@
+* text=auto eol=crlf
+
+*.sh      text eol=lf
+# Linux parses these: systemd units, sh scripts, EnvironmentFile.
+*.service text eol=lf
+deploy/*.env text eol=lf
+deploy/vs-console-wrapper text eol=lf
+# Windows parses these: cmd reads batch files with CRLF.
+deploy/windows/* text eol=crlf
+*.cs      text eol=crlf
+*.csproj  text eol=crlf
+*.json    text eol=crlf
+*.md      text eol=crlf
+# Later lines win: these follow *.json.
+deploy/*.json text eol=lf
+
+*.png binary
+*.zip binary

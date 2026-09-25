@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#1c1613">
+  <title>Vintage Story Panel</title>
+  <link rel="stylesheet" href="/static/panel.css?v=2.0.0">
+  <script src="/static/core.js?v=2.0.0" defer></script>
+  <script src="/static/overview.js?v=2.0.0" defer></script>
+  <script src="/static/players.js?v=2.0.0" defer></script>
+  <script src="/static/logs.js?v=2.0.0" defer></script>
+  <script src="/static/content.js?v=2.0.0" defer></script>
+  <script src="/static/backups.js?v=2.0.0" defer></script>
+  <script src="/static/maintenance.js?v=2.0.0" defer></script>
+  <script src="/static/settings.js?v=2.0.0" defer></script>
+</head>
+<body>
+  <svg class="icon-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 20v-2a5.5 5.5 0 0 1 11 0v2H3.5Z"/><path d="M16 5a3 3 0 0 1 0 6m1.5 3a4 4 0 0 1 3 4v2h-4"/></symbol>
+    <symbol id="i-terminal" viewBox="0 0 24 24"><rect x="2.5" y="3.5" width="19" height="17" rx="2"/><path d="m6 9 3 3-3 3m6 0h5"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="m12 2 9 5-9 5-9-5 9-5Zm-9 5v10l9 5 9-5V7M12 12v10"/></symbol>
+    <symbol id="i-archive" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m7 4 13 8-13 8V4Z"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 8a8 8 0 1 0 .5 7M20 3v5h-5"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/></symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24"><path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 17l5-5-5-5M15 12H4"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-4-4 4 4 4-4M4 17v4h16v-4"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 21V9m-4 4 4-4 4 4M4 7V3h16v4"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3 10 14M21 3l-7 18-4-7-7-4 18-7Z"/></symbol>
+  </svg>
+
+  <!-- ===================== вход ===================== -->
+  <section class="login-screen hidden" id="login-view">
+    <div class="login-card">
+      <div class="brand"><div class="brand-mark"><span>V</span></div><div><strong>VINTAGE<span>STORY</span></strong><small>SERVER CONTROL</small></div></div>
+      <h1>Вход в панель</h1>
+      <p>Панель управления выделенными серверами Vintage Story.</p>
+      <form id="login-form" autocomplete="on">
+        <label class="form-field"><span>Пользователь</span><input id="login-username" value="admin" maxlength="32" autocomplete="username" required></label>
+        <label class="form-field"><span>Пароль</span><input id="login-password" type="password" minlength="12" autocomplete="current-password" required></label>
+        <label class="form-field"><span>Одноразовый код</span><input id="login-otp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="Если включён второй фактор"></label>
+        <button class="button primary" type="submit">Войти</button>
+        <p class="form-error" id="login-error" role="alert"></p>
+      </form>
+    </div>
+  </section>
+
+  <!-- ===================== панель ===================== -->
+  <div class="app-shell hidden" id="panel-view">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand"><div class="brand-mark"><span>V</span></div><div><strong>VINTAGE<span>STORY</span></strong><small>SERVER CONTROL</small></div></div>
+      <div class="sidebar-caption">РАБОЧЕЕ ПРОСТРАНСТВО</div>
+      <nav class="main-nav" aria-label="Основная навигация">
+        <button class="nav-item active" type="button" data-page="overview"><svg><use href="#i-grid"/></svg><span>Обзор</span></button>
+        <button class="nav-item" type="button" data-page="players"><svg><use href="#i-users"/></svg><span>Игроки и консоль</span><em id="nav-players" hidden></em></button>
+        <button class="nav-item" type="button" data-page="logs"><svg><use href="#i-terminal"/></svg><span>Журнал и события</span></button>
+        <button class="nav-item" type="button" data-page="content"><svg><use href="#i-box"/></svg><span>Миры и моды</span></button>
+        <button class="nav-item" type="button" data-page="backups"><svg><use href="#i-archive"/></svg><span>Резервные копии</span></button>
+        <button class="nav-item" type="button" data-page="maintenance"><svg><use href="#i-clock"/></svg><span>Обслуживание</span><i id="nav-maintenance" hidden></i></button>
+        <button class="nav-item" type="button" data-page="settings"><svg><use href="#i-settings"/></svg><span>Настройки</span></button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="system-label">СОСТОЯНИЕ ПАНЕЛИ</div>
+        <div class="system-status"><span class="pulse-dot" id="system-dot"></span><div><strong id="system-title">Проверка…</strong><small id="system-detail">—</small></div></div>
+        <div class="sidebar-user"><div class="avatar" id="user-avatar">?</div><div><strong id="user-name">—</strong><small id="user-role">—</small></div><button class="icon-button" type="button" id="logout" title="Выйти" aria-label="Выйти"><svg><use href="#i-logout"/></svg></button></div>
+      </div>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <div class="topbar-left"><button class="mobile-menu icon-button" id="menu-toggle" type="button" aria-label="Открыть меню">☰</button><span class="breadcrumb">Панель управления</span><span class="breadcrumb-sep">/</span><strong id="breadcrumb-page">Обзор</strong><span class="topbar-server" id="topbar-server">—</span></div>
+        <div class="topbar-right"><span class="local-time" id="local-time"></span><span class="topbar-divider"></span><span class="connection"><span class="pulse-dot" id="connection-dot"></span><span id="connection-text">Подключение…</span></span></div>
+      </header>
+
+      <main>
+        <!-- ===================== обзор ===================== -->
+        <section class="page active" id="page-overview">
+          <div class="page-heading">
+            <div><div class="eyebrow">КОМАНДНЫЙ ЦЕНТР <span class="eyebrow-line"></span> 01 / 07</div><h1 id="greeting">Добрый день <span class="heading-spark">✳</span></h1><p>Все игровые миры под контролем. Вот что происходит прямо сейчас.</p></div>
+            <div class="heading-actions"><span class="updated" id="overview-updated">● Данные загружаются…</span><button class="button" type="button" id="overview-refresh"><svg><use href="#i-refresh"/></svg> Обновить</button></div>
+          </div>
+
+          <div class="section-heading"><div><h2>Ваши серверы <span class="count-pill" id="servers-count">—</span></h2><p>Выберите сервер: все разделы панели работают с выбранным.</p></div><button class="text-button" type="button" id="server-create-open" data-min-role="admin">+ Новый сервер <svg><use href="#i-arrow"/></svg></button></div>
+          <div class="notice error hidden" id="servers-warning"></div>
+          <div class="server-grid" id="server-grid" aria-live="polite"></div>
+          <div class="surface card-pad hidden" id="provision-progress"><div class="card-header"><div><div class="eyebrow">СОЗДАНИЕ СЕРВЕРА</div><h3 id="provision-title">—</h3><p id="provision-detail"></p></div><div class="row-actions"><span class="status-chip" id="provision-state">—</span><button class="button small" type="button" id="provision-dismiss">Скрыть</button></div></div><ol class="progress-steps" id="provision-steps"></ol></div>
+
+          <div class="selected-section-heading">
+            <div><div class="eyebrow">ТЕКУЩИЙ СЕРВЕР</div><h2 id="selected-name">—</h2><p id="selected-description">Проверка состояния…</p></div>
+            <div class="server-actions"><button class="button soft" type="button" data-service="start" data-min-role="operator"><svg><use href="#i-play"/></svg> Запустить</button><button class="button" type="button" data-service="restart" data-min-role="operator"><svg><use href="#i-refresh"/></svg> Перезапустить</button><button class="button danger" type="button" data-service="stop" data-min-role="operator"><svg><use href="#i-stop"/></svg> Остановить</button></div>
+          </div>
+          <div class="server-address"><span>АДРЕС ДЛЯ ПОДКЛЮЧЕНИЯ</span><strong id="selected-address">—</strong><button class="text-button" type="button" id="copy-address">Копировать</button></div>
+          <div class="server-admin-actions" data-min-role="admin" data-hide-denied><button class="text-button" type="button" id="server-rename">Переименовать</button><button class="text-button" type="button" id="server-forget">Убрать из панели</button><button class="text-button danger-text" type="button" id="server-delete">Удалить с диска</button></div>
+
+          <div class="status-banner" id="status-banner"><div class="status-emblem" id="status-emblem">✳</div><div><span class="banner-kicker">СОСТОЯНИЕ СЕРВЕРА</span><strong id="banner-title">Проверка…</strong><p id="banner-description">Панель запрашивает состояние службы и телеметрию.</p></div><span class="banner-status"><span class="pulse-dot" id="banner-dot"></span> <span id="banner-state">—</span></span></div>
+
+          <div class="metrics-grid">
+            <article class="metric-card"><div class="metric-label">ИГРОКИ ОНЛАЙН <span>↗</span></div><div class="metric-value"><span id="metric-players">—</span><small id="metric-slots"></small></div><div class="metric-foot" id="metric-players-foot">Телеметрия ожидается</div></article>
+            <article class="metric-card"><div class="metric-label">НАБЛЮДАЕМЫЙ TPS <span>⌁</span></div><div class="metric-value"><span id="metric-tps">—</span><small id="metric-tps-target"></small></div><div class="metric-foot">Средний тик <b id="metric-tick">—</b></div></article>
+            <article class="metric-card"><div class="metric-label">ПАМЯТЬ СЕРВЕРА <span>◫</span></div><div class="metric-value"><span id="metric-memory">—</span></div><div class="metric-foot"><span class="tiny-track"><span id="memory-bar"></span></span><b id="memory-percent">—</b> памяти машины</div></article>
+            <article class="metric-card"><div class="metric-label">РЕЗЕРВНАЯ КОПИЯ <span>◷</span></div><div class="metric-value"><span id="metric-backup">—</span><small id="metric-backup-day"></small></div><div class="metric-foot" id="metric-backup-foot">—</div></article>
+          </div>
+
+          <div class="dashboard-grid">
+            <article class="surface card-pad">
+              <div class="card-header"><div><div class="eyebrow">ПРОИЗВОДИТЕЛЬНОСТЬ</div><h3>Ресурсы сервера</h3><p>CPU, память и занятое место на диске</p></div><select class="select-inline" id="metrics-hours" aria-label="Период"><option value="1">1 час</option><option value="6">6 часов</option><option value="24" selected>24 часа</option><option value="168">7 дней</option></select></div>
+              <div class="chart-legend"><span><i class="legend-cpu"></i> CPU <b id="legend-cpu">—</b></span><span><i class="legend-ram"></i> Память <b id="legend-ram">—</b></span><span><i class="legend-disk"></i> Диск <b id="legend-disk">—</b></span></div>
+              <div class="chart-box" id="metrics-chart"></div>
+            </article>
+            <article class="surface card-pad">
+              <div class="card-header"><div><div class="eyebrow">ДИАГНОСТИКА</div><h3>Здоровье системы</h3><p>Всё важное в одном месте</p></div><span class="status-chip" id="health-chip">—</span></div>
+              <div class="health-list" id="health-list"></div>
+              <details class="work-details"><summary>Технические показатели</summary><div class="metric-mini compact"><span>PID <b id="tech-pid">—</b></span><span>Перезапуски <b id="tech-restarts">—</b></span><span>Время работы <b id="tech-uptime">—</b></span><span>Размер миров <b id="tech-world">—</b></span><span>Текущий мир <b id="tech-save">—</b></span><span>Дата мира <b id="tech-date">—</b></span><span>Трафик <b id="tech-traffic">—</b></span><span>CPU <b id="tech-cpu">—</b></span></div></details>
+              <button class="card-link" type="button" data-goto="logs:diagnostics">Открыть диагностику <svg><use href="#i-arrow"/></svg></button>
+            </article>
+          </div>
+
+          <div class="dashboard-grid">
+            <article class="surface card-pad"><div class="card-header"><div><div class="eyebrow">ЖИВАЯ ЛЕНТА</div><h3>Последние события</h3></div><button class="text-button" type="button" data-goto="logs:events">Все события <svg><use href="#i-arrow"/></svg></button></div><div class="activity-list" id="activity-list"></div></article>
+            <article class="surface card-pad"><div class="card-header"><div><div class="eyebrow">ПО РАСПИСАНИЮ</div><h3>Следующее обслуживание</h3></div></div><div id="next-maintenance"></div><button class="card-link" type="button" data-goto="maintenance:schedule">Открыть расписание <svg><use href="#i-arrow"/></svg></button></article>
+          </div>
+        </section>
+
+        <!-- ===================== игроки ===================== -->
+        <section class="page" id="page-players">
+          <div class="page-heading"><div><div class="eyebrow">ИГРОВОЙ МИР / ИГРОКИ</div><h1>Игроки и консоль</h1><p>Связь с миром, события игроков и команды выбранного сервера.</p></div><span class="page-counter" id="players-count">— онлайн</span></div>
+          <div class="context-line"><span class="pulse-dot" id="telemetry-dot"></span> Команды и события относятся к серверу <strong class="current-server-id">—</strong><span class="context-sep">·</span><span id="telemetry-detail">Телеметрия ожидается</span></div>
+          <div class="work-tabs" role="tablist" data-tabs="players"><button class="work-tab active" type="button" data-view="live">Игроки и консоль</button><button class="work-tab" type="button" data-view="activity">Чат и события</button><button class="work-tab" type="button" data-view="quality">Качество связи</button></div>
+
+          <section class="work-panel active" data-panel="players:live">
+            <div class="players-workspace">
+              <article class="surface work-card console-card">
+                <div class="card-header"><div><div class="eyebrow">LIVE / КОНСОЛЬ</div><h3>Команды сервера</h3><p>Ответ сервера читается из журнала сразу после отправки</p></div><span class="stream-state"><span class="pulse-dot" id="console-dot"></span> <span id="console-state">Проверка канала…</span></span></div>
+                <div class="console-modes"><button class="active" type="button" data-console-mode="catalog">Каталог команд</button><button type="button" data-console-mode="raw" id="console-raw-tab">Произвольная команда</button></div>
+                <div class="console-output" id="console-output" aria-live="polite"><div class="quiet">Ответы сервера появятся здесь.</div></div>
+                <form class="console-form" id="console-catalog-form">
+                  <div class="two"><label class="form-field"><span>Действие</span><select id="console-action"></select></label><div class="form-field" id="console-value-field"><span>Значение</span><div id="console-value-slot"></div></div></div>
+                  <small class="muted" id="console-action-hint"></small>
+                  <div><button class="button primary" type="submit" data-min-role="operator"><svg><use href="#i-send"/></svg> Отправить команду</button></div>
+                </form>
+                <form class="console-form hidden" id="console-raw-form">
+                  <label class="form-field"><span>Команда Vintage Story</span><div class="console-raw-row"><input id="console-raw-input" autocomplete="off" spellcheck="false" maxlength="500" placeholder="Например, /time set noon"><button class="button primary" type="submit"><svg><use href="#i-send"/></svg> Отправить</button></div><small>Строка уходит в консоль игры как есть и записывается в аудит. Только для администратора. ↑ и ↓ листают историю.</small></label>
+                </form>
+              </article>
+              <article class="surface work-card">
+                <div class="card-header"><div><div class="eyebrow">ОНЛАЙН</div><h3>Подключения</h3><p id="players-source">Список обновляется вместе с телеметрией</p></div><button class="button small" type="button" id="players-refresh"><svg><use href="#i-refresh"/></svg> Обновить</button></div>
+                <div class="table-wrap"><table><thead><tr><th>Игрок</th><th>Адрес</th><th>Ping</th><th>Средний / макс.</th><th>Jitter</th><th>Качество</th></tr></thead><tbody id="players-table"></tbody></table></div>
+                <div class="table-footer">Нажмите на игрока, чтобы выбрать его для действия и истории ping.</div>
+              </article>
+            </div>
+            <div class="detail-grid">
+              <article class="surface work-card">
+                <h3>Действия с игроком</h3><p class="muted-copy">Белый список, блокировка, права и игровой режим. Строку собирает демон, а не браузер.</p>
+                <form id="player-action-form">
+                  <div class="form-grid"><label class="form-field"><span>Игрок</span><input id="player-name" maxlength="32" pattern="[A-Za-z0-9_\-]{1,32}" placeholder="Имя игрока" required list="player-names"><datalist id="player-names"></datalist></label><label class="form-field"><span>Действие</span><select id="player-action"><option value="kick">Отключить</option><option value="ban">Заблокировать</option><option value="unban">Разблокировать</option><option value="whitelist-add">Добавить в whitelist</option><option value="whitelist-remove">Убрать из whitelist</option><option value="op">Выдать оператора</option><option value="deop">Снять оператора</option><option value="gamemode">Сменить игровой режим</option></select></label><label class="form-field span-all" id="player-detail-field"><span>Причина</span><input id="player-detail" maxlength="160" placeholder="Необязательно"></label><label class="form-field span-all hidden" id="player-mode-field"><span>Игровой режим</span><select id="player-mode"><option value="survival">Выживание</option><option value="creative">Творческий</option><option value="spectator">Наблюдатель</option><option value="guest">Гость</option></select></label></div>
+                  <div class="inline-actions"><button class="button primary" type="submit" data-min-role="operator">Выполнить действие</button></div>
+                </form>
+              </article>
+              <article class="surface work-card">
+                <h3>Объявление всем игрокам</h3><p class="muted-copy">Сообщение появится в игре у всех подключённых. Ответить конкретному игроку односторонний канал не позволяет.</p>
+                <form class="inline-form" id="announce-form"><input id="announce-text" maxlength="300" placeholder="Например, сервер перезапустится через 10 минут" required><button class="button primary" type="submit" data-min-role="operator">Отправить</button></form>
+                <h3 class="subheading">Входы и выходы</h3>
+                <div class="event-feed" id="player-events"></div>
+              </article>
+            </div>
+          </section>
+
+          <section class="work-panel" data-panel="players:activity">
+            <article class="surface work-card">
+              <div class="card-header"><div><h3>Чат и события мира</h3><p><span id="chat-state">Подключение…</span> · сообщения передаёт мод телеметрии</p></div></div>
+              <div class="filter-row"><label class="form-field"><span>Тип событий</span><select id="chat-kind"><option value="all">Все события</option><option value="chat">Чат</option><option value="join">Входы</option><option value="leave">Выходы</option><option value="death">Смерти</option><option value="respawn">Возрождения</option></select></label><label class="form-field"><span>Поиск</span><input id="chat-search" type="search" maxlength="120" placeholder="Игрок или текст"></label><button class="button" type="button" id="chat-refresh"><svg><use href="#i-refresh"/></svg> Обновить</button></div>
+              <div class="notice hidden" id="chat-support"></div>
+              <div class="event-feed" id="chat-feed"></div>
+            </article>
+          </section>
+
+          <section class="work-panel" data-panel="players:quality">
+            <div class="detail-grid first">
+              <article class="surface work-card">
+                <div class="card-header"><div><h3>История ping</h3><p>Последний час · выбранный игрок</p></div><select class="select-inline" id="ping-player" aria-label="Игрок"><option value="">Выберите игрока</option></select></div>
+                <div class="chart-box" id="ping-chart"><div class="chart-empty">Выберите подключённого игрока.</div></div>
+                <div class="metric-mini" id="ping-summary"></div>
+              </article>
+              <article class="surface work-card">
+                <h3>Качество соединения</h3>
+                <p class="muted-copy">Оценка строится по ping, jitter и числу скачков задержки. Процент потерь пакетов игра не сообщает, поэтому панель его не придумывает.</p>
+                <div class="data-list" id="quality-list"></div>
+              </article>
+            </div>
+          </section>
+        </section>
+
+        <!-- ===================== журнал ===================== -->
+        <section class="page" id="page-logs">
+          <div class="page-heading"><div><div class="eyebrow">НАБЛЮДЕНИЕ / ЖУРНАЛЫ</div><h1>Журнал и события</h1><p>Ищите ошибку, сопоставляйте события и скачивайте данные для разбора.</p></div><a class="button" href="/api/diagnostics" download><svg><use href="#i-download"/></svg> Скачать диагностику</a></div>
+          <div class="work-tabs" role="tablist" data-tabs="logs"><button class="work-tab active" type="button" data-view="stream">Журнал сервера</button><button class="work-tab" type="button" data-view="panel">Служба панели</button><button class="work-tab" type="button" data-view="diagnostics">Диагностика</button><button class="work-tab" type="button" data-view="performance">Производительность</button><button class="work-tab" type="button" data-view="events">События панели</button></div>
+
+          <section class="work-panel active" data-panel="logs:stream">
+            <article class="surface work-card">
+              <div class="filter-row"><label class="form-field"><span>Категория</span><select id="log-category"><option value="all">Все</option><option value="error">Ошибки</option><option value="player">Игроки</option><option value="mod">Моды</option><option value="system">Система</option></select></label><label class="form-field"><span>Поиск</span><input id="log-search" type="search" maxlength="120" placeholder="Текст в журнале"></label><label class="form-field"><span>Строк</span><select id="log-lines"><option>100</option><option selected>300</option><option>1000</option><option>2000</option></select></label><button class="button" type="button" id="logs-refresh"><svg><use href="#i-refresh"/></svg> Обновить</button><button class="button" type="button" id="logs-download"><svg><use href="#i-download"/></svg> Скачать</button></div>
+              <div class="notice error hidden" id="crash-warning"></div>
+              <div class="terminal-window" id="log-window"></div>
+              <div class="table-footer"><span class="stream-state"><span class="pulse-dot" id="log-dot"></span> <span id="log-state">Поток не подключён</span></span></div>
+            </article>
+          </section>
+
+          <section class="work-panel" data-panel="logs:panel">
+            <article class="surface work-card">
+              <div class="card-header"><div><h3>Журнал службы панели</h3><p>vs-panel.service — общий для всех серверов</p></div><div class="card-header-actions"><select class="select-inline" id="panel-log-lines" aria-label="Строк"><option>120</option><option>500</option><option>2000</option></select><button class="button small" type="button" id="panel-log-refresh"><svg><use href="#i-refresh"/></svg> Обновить</button></div></div>
+              <div class="terminal-window" id="panel-log"></div>
+            </article>
+          </section>
+
+          <section class="work-panel" data-panel="logs:diagnostics">
+            <article class="surface work-card">
+              <div class="card-header"><div><h3>Почему сервер не запускается или не пускает игроков</h3><p>Причины запуска, применение настроек, отказы подключения и события — по последним данным</p></div><button class="button small" type="button" id="diagnostics-refresh"><svg><use href="#i-refresh"/></svg> Обновить</button></div>
+              <div id="diagnostics-body"></div>
+            </article>
+          </section>
+
+          <section class="work-panel" data-panel="logs:performance">
+            <article class="surface work-card">
+              <div class="filter-row"><label class="form-field"><span>Период</span><select id="performance-minutes"><option value="30">30 минут</option><option value="60" selected>1 час</option><option value="180">3 часа</option><option value="360">6 часов</option></select></label><button class="button" type="button" id="performance-refresh"><svg><use href="#i-refresh"/></svg> Обновить</button></div>
+              <div class="notice hidden" id="performance-support"></div>
+              <div class="metric-mini wide"><span>Длинных тиков <b id="perf-long-ticks">—</b></span><span>Худший тик <b id="perf-worst">—</b></span><span>Мин. TPS <b id="perf-min-tps">—</b></span><span>Скачков ping <b id="perf-spikes">—</b></span><span>Перегрузок <b id="perf-overloads">—</b></span></div>
+              <div class="chart-legend"><span><i class="legend-tick"></i> Максимальный интервал тика</span><span><i class="legend-cpu"></i> Длинные тики</span><span><i class="legend-disk"></i> Скачки ping</span></div>
+              <div class="chart-box" id="performance-chart"></div>
+            </article>
+            <div class="detail-grid">
+              <article class="surface work-card"><h3>Совмещённая шкала событий</h3><p class="muted-copy">Длинные тики, скачки ping и входы игроков по времени.</p><div class="event-feed" id="performance-timeline"></div></article>
+              <article class="surface work-card"><h3>Перегрузки</h3><div class="terminal-window compact" id="performance-overloads"></div><h3 class="subheading">Ошибки модов</h3><div class="terminal-window compact" id="performance-mods"></div></article>
+            </div>
+          </section>
+
+          <section class="work-panel" data-panel="logs:events">
+            <article class="surface work-card">
+              <div class="filter-row"><label class="form-field"><span>Важность</span><select id="event-severity"><option value="all">Все уровни</option><option value="critical">Критические</option><option value="error">Ошибки</option><option value="warning">Предупреждения</option><option value="info">Информация</option></select></label><label class="form-field"><span>Поиск</span><input id="event-search" type="search" maxlength="120" placeholder="Событие или источник"></label><button class="button" type="button" id="events-refresh"><svg><use href="#i-refresh"/></svg> Обновить</button></div>
+              <div class="event-feed" id="panel-events"></div>
+            </article>
+          </section>
+        </section>
+
+        <!-- ===================== миры и моды ===================== -->
+        <section class="page" id="page-content">
+          <div class="page-heading"><div><div class="eyebrow">ИГРОВОЙ МИР / КОНТЕНТ</div><h1>Миры и моды</h1><p>Файлы мира, модификации и совместимость с версией игры.</p></div></div>
+          <div class="work-tabs" role="tablist" data-tabs="content"><button class="work-tab active" type="button" data-view="worlds">Миры</button><button class="work-tab" type="button" data-view="mods">Моды</button><button class="work-tab" type="button" data-view="moddb">ModDB</button><button class="work-tab" type="button" data-view="recovery">Архив и корзина</button></div>
+
+          <section class="work-panel active" data-panel="content:worlds">
+            <div class="notice" id="worlds-state"></div>
+            <article class="surface work-card slim-gap">
+              <div class="card-header"><div><h3>Файлы миров</h3><p>Активный мир отмечен; переключение, клонирование и архив — при остановленном сервере.</p></div><label class="button upload" data-min-role="admin"><svg><use href="#i-upload"/></svg> Загрузить .vcdbs<input type="file" id="world-upload" accept=".vcdbs"></label></div>
+              <div class="data-list" id="worlds-list"></div>
+            </article>
+            <article class="surface work-card slim-card" data-min-role="admin" data-hide-denied>
+              <h3>Подготовить новый мир</h3><p class="muted-copy">Панель настроит новый файл; сам мир создаст игра при следующем запуске.</p>
+              <form id="world-create-form"><div class="form-grid"><label class="form-field"><span>Название мира</span><input id="world-create-name" maxlength="80" required value="Новый мир"></label><label class="form-field"><span>Имя файла</span><input id="world-create-file" maxlength="190" required placeholder="new-world.vcdbs"></label><label class="form-field"><span>Seed</span><input id="world-create-seed" maxlength="80" placeholder="Пусто — случайное значение"></label><label class="form-field"><span>Стиль игры</span><select id="world-create-playstyle"></select></label></div><div class="inline-actions"><button class="button primary" type="submit">Подготовить мир</button></div></form>
+            </article>
+          </section>
+
+          <section class="work-panel" data-panel="content:mods">
+            <article class="surface work-card">
+              <div class="card-header"><div><h3 id="mods-title">Установленные моды</h3><p>Зависимости проверяются по modinfo.json и версии игры сервера.</p></div><div class="card-header-actions"><button class="button" type="button" id="mods-check-updates"><svg><use href="#i-refresh"/></svg> Проверить обновления</button><label class="button primary upload" data-min-role="admin"><svg><use href="#i-upload"/></svg> Загрузить ZIP<input type="file" id="mod-upload" accept=".zip,application/zip"></label></div></div>
+              <div class="notice warn hidden" id="mods-warning"></div>
+              <div class="hidden" id="mods-updates"></div>
+              <div class="data-list" id="mods-list"></div>
+              <details class="work-details"><summary>Последние сообщения модов при запуске</summary><div class="terminal-window compact" id="mods-log"></div></details>
+            </article>
+            <div class="detail-grid">
+              <article class="surface work-card"><h3>Наборы модов</h3><p class="muted-copy">Снимок списка включённых архивов. Применение требует перезапуска.</p>
+                <form class="inline-form" id="mod-profile-form"><input id="mod-profile-name" maxlength="48" placeholder="Название набора, например «Основной»" required><button class="button" type="submit" data-min-role="admin">Сохранить текущий</button></form>
+                <div class="inline-form"><select id="mod-profile-select"><option value="">Нет наборов</option></select><button class="button primary" type="button" id="mod-profile-apply" data-min-role="admin">Применить</button><button class="button danger" type="button" id="mod-profile-delete" data-min-role="admin">Удалить</button></div>
+              </article>
+              <article class="surface work-card"><h3>Откат версии</h3><p class="muted-copy">Заменённые версии хранятся в Mods/.history и возвращаются одной кнопкой.</p>
+                <div class="inline-form"><select id="mod-rollback-select"><option value="">Нет версий для отката</option></select><button class="button" type="button" id="mod-rollback" data-min-role="admin">Откатить</button></div>
+              </article>
+            </div>
+          </section>
+
+          <section class="work-panel" data-panel="content:moddb">
+            <article class="surface work-card">
+              <div class="card-header"><div><h3>Поиск в ModDB</h3><p>Панель установит только выбранный релиз, совместимый с версией игры сервера.</p></div></div>
+              <form class="inline-form" id="moddb-search-form"><input id="moddb-query" type="search" minlength="2" maxlength="80" placeholder="Название мода" required><button class="button primary" type="submit">Найти</button></form>
+              <div class="catalog-grid" id="moddb-results"></div>
+              <div id="moddb-releases"></div>
+            </article>
+          </section>
+
+          <section class="work-panel" data-panel="content:recovery">
+            <article class="surface work-card">
+              <div class="card-header"><div><h3>Архив и корзина миров</h3><p>Восстанавливайте убранные миры без замены текущего. Для восстановления сервер должен быть остановлен.</p></div><button class="button small" type="button" id="recovery-refresh"><svg><use href="#i-refresh"/></svg> Обновить</button></div>
+              <div class="data-list" id="recovery-list"></div>
+            </article>
+          </section>
+        </section>
+
+        <!-- ===================== копии ===================== -->
+        <section class="page" id="page-backups">
+          <div class="page-heading"><div><div class="eyebrow">НАДЁЖНОСТЬ / КОПИИ</div><h1>Резервные копии</h1><p>Создание, проверка, восстановление и очистка хранилища.</p></div><button class="button primary" type="button" id="backup-create" data-min-role="operator"><svg><use href="#i-archive"/></svg> Создать копию</button></div>
+          <div class="overview-strip"><div><span>ПОСЛЕДНЯЯ КОПИЯ</span><strong id="backup-last">—</strong><small id="backup-last-detail">—</small></div><div><span>ВСЕГО КОПИЙ</span><strong id="backup-count">—</strong><small id="backup-total">—</small></div><div><span>СВОБОДНО НА ДИСКЕ</span><strong id="backup-free">—</strong><small id="backup-free-detail">—</small></div></div>
+          <div class="work-tabs" role="tablist" data-tabs="backups"><button class="work-tab active" type="button" data-view="list">Копии</button><button class="work-tab" type="button" data-view="extract">Извлечь мир</button><button class="work-tab" type="button" data-view="retention">Очистка</button><button class="work-tab" type="button" data-view="history">Накопленная история</button></div>
+
+          <section class="work-panel active" data-panel="backups:list">
+            <article class="surface work-card"><div class="card-header"><div><h3>Архивы сервера</h3><p>На время создания копии сервер корректно останавливается. Последнюю копию удалить нельзя.</p></div><button class="button small" type="button" id="backups-refresh"><svg><use href="#i-refresh"/></svg> Обновить</button></div><div class="data-list" id="backups-list"></div></article>
+          </section>
+
+          <section class="work-panel" data-panel="backups:extract">
+            <article class="surface work-card" data-min-role="admin">
+              <h3>Извлечь один мир из копии</h3><p class="muted-copy">Мир появится отдельным файлом без замены активного.</p>
+              <form id="extract-form"><div class="form-grid three"><label class="form-field"><span>Копия</span><select id="extract-backup"></select></label><label class="form-field"><span>Мир в архиве</span><select id="extract-world"><option value="">Сначала покажите миры копии</option></select></label><label class="form-field"><span>Новое имя файла</span><input id="extract-target" value="restored-world.vcdbs" maxlength="190" required></label></div><div class="inline-actions"><button class="button" type="button" id="extract-inspect">Показать миры копии</button><button class="button primary" type="submit">Извлечь мир</button></div></form>
+              <div class="notice hidden" id="extract-result"></div>
+            </article>
+          </section>
+
+          <section class="work-panel" data-panel="backups:retention">
+            <article class="surface work-card" data-min-role="admin">
+              <h3>Очистка старых копий</h3><p class="muted-copy">Разовая операция. Копия удаляется, только если она и лишняя по счёту, и старше срока. Сначала панель покажет точный список.</p>
+              <form id="retention-form"><div class="form-grid three"><label class="form-field"><span>Оставить минимум копий</span><input id="retention-count" type="number" min="2" max="500" value="10"></label><label class="form-field"><span>Хранить минимум дней</span><input id="retention-days" type="number" min="1" max="3650" value="30"></label><label class="form-field"><span>Желаемый свободный объём, ГБ</span><input id="retention-free" type="number" min="0" max="100000" value="10"></label></div><div class="inline-actions"><button class="button" type="submit">Показать, что будет удалено</button><button class="button danger" type="button" id="retention-apply" disabled>Удалить показанное</button></div></form>
+              <div class="notice hidden" id="retention-result"></div>
+            </article>
+          </section>
+
+          <section class="work-panel" data-panel="backups:history">
+            <article class="surface work-card" data-min-role="admin">
+              <div class="card-header"><div><h3>Накопленная история</h3><p>Прежние версии модов и копии конфигураций. Политика хранения копий на них не действует.</p></div><button class="button small" type="button" id="history-refresh"><svg><use href="#i-refresh"/></svg> Обновить</button></div>
+              <div class="filter-row"><label class="form-field"><span>Хранилище</span><select id="history-store"><option value="mod-history">Прежние версии модов</option><option value="config-backup">Копии serverconfig.json</option><option value="mod-config-backup">Копии конфигураций модов</option></select></label><label class="form-field"><span>Оставить на каждый файл</span><input id="history-keep" type="number" min="1" max="100" value="5"></label><button class="button danger" type="button" id="history-prune">Удалить остальное</button></div>
+              <div class="metric-mini" id="history-summary"></div>
+              <div class="data-list" id="history-list"></div>
+            </article>
+          </section>
+        </section>
+
+        <!-- ===================== обслуживание ===================== -->
+        <section class="page" id="page-maintenance">
+          <div class="page-heading"><div><div class="eyebrow">НАДЁЖНОСТЬ / ОБСЛУЖИВАНИЕ</div><h1>Обслуживание</h1><p>Расписания, наблюдатель и безопасные обновления сервера.</p></div></div>
+          <div class="notice warn hidden" id="maintenance-running"></div>
+          <div class="work-tabs" role="tablist" data-tabs="maintenance"><button class="work-tab active" type="button" data-view="schedule">Расписание</button><button class="work-tab" type="button" data-view="watchdog">Наблюдатель</button><button class="work-tab" type="button" data-view="updates">Обновления</button></div>
+
+          <section class="work-panel active" data-panel="maintenance:schedule">
+            <div class="detail-grid first">
+              <article class="surface work-card"><div class="card-header"><div><h3>Задания</h3><p>Предупреждение игроков → остановка → копия → запуск → проверка готовности</p></div><button class="button small" type="button" id="automation-refresh"><svg><use href="#i-refresh"/></svg> Обновить</button></div><div class="data-list" id="schedule-list"></div><h3 class="subheading">История запусков</h3><div class="event-feed" id="automation-runs"></div></article>
+              <article class="surface work-card" data-min-role="admin">
+                <h3>Новое расписание</h3>
+                <form id="schedule-form">
+                  <div class="form-grid"><label class="form-field span-all"><span>Название</span><input id="schedule-name" maxlength="80" value="Еженедельное обслуживание" required></label><label class="form-field"><span>Повторение</span><select id="schedule-type"><option value="daily">Каждый день</option><option value="weekly" selected>По дням недели</option><option value="once">Один раз</option></select></label><label class="form-field" id="schedule-time-field"><span>Время сервера</span><input id="schedule-time" type="time" value="04:00"></label><label class="form-field hidden" id="schedule-once-field"><span>Дата и время сервера</span><input id="schedule-run-at" type="datetime-local"></label><label class="form-field"><span>Предупреждения, минут</span><input id="schedule-warnings" value="15, 5, 1" placeholder="15, 5, 1"></label><label class="form-field"><span>Ждать готовности, сек.</span><input id="schedule-ready-timeout" type="number" min="60" max="3600" value="600"></label></div>
+                  <div class="weekday-picker" id="schedule-weekdays"><span>ДНИ НЕДЕЛИ</span><label><input type="checkbox" value="0"> Пн</label><label><input type="checkbox" value="1"> Вт</label><label><input type="checkbox" value="2"> Ср</label><label><input type="checkbox" value="3"> Чт</label><label><input type="checkbox" value="4"> Пт</label><label><input type="checkbox" value="5"> Сб</label><label><input type="checkbox" value="6" checked> Вс</label></div>
+                  <div class="check-group"><label><input type="checkbox" id="schedule-backup" checked> Создать резервную копию</label><label><input type="checkbox" id="schedule-restart" checked> Перезапустить сервер</label></div>
+                  <p class="muted-copy subheading">Время отсчитывается от первого предупреждения: сервер остановится после обратного отсчёта.</p>
+                  <div class="inline-actions"><button class="button primary" type="submit">Добавить расписание</button></div>
+                </form>
+              </article>
+            </div>
+          </section>
+
+          <section class="work-panel" data-panel="maintenance:watchdog">
+            <div class="detail-grid first">
+              <article class="surface work-card"><div class="card-header"><div><h3>Состояние готовности</h3><p>Готовность — только свежая телеметрия текущего процесса</p></div><button class="button small" type="button" id="watchdog-check" data-min-role="admin">Проверить сейчас</button></div><div id="watchdog-health"></div><p class="muted-copy subheading">Если мод телеметрии отсутствует, состояние будет «Ограниченная проверка», и автоматический перезапуск не выполняется никогда.</p></article>
+              <article class="surface work-card" data-min-role="admin">
+                <h3>Правила наблюдения</h3>
+                <form id="watchdog-form">
+                  <div class="check-group"><label><input type="checkbox" id="watchdog-enabled"> Включить наблюдение</label><label><input type="checkbox" id="watchdog-auto-restart"> Автоматически перезапускать подтверждённое зависание</label></div>
+                  <div class="form-grid"><label class="form-field"><span>Время загрузки, сек.</span><input id="watchdog-startup-timeout" type="number" min="60" max="3600"></label><label class="form-field"><span>Телеметрия устарела через, сек.</span><input id="watchdog-stale-seconds" type="number" min="20" max="600"></label><label class="form-field"><span>Проверок до подтверждения</span><input id="watchdog-failures" type="number" min="2" max="20"></label><label class="form-field"><span>Пауза между перезапусками, сек.</span><input id="watchdog-cooldown" type="number" min="300" max="86400"></label><label class="form-field"><span>Максимум перезапусков в час</span><input id="watchdog-max-restarts" type="number" min="1" max="10"></label></div>
+                  <div class="inline-actions"><button class="button primary" type="submit">Сохранить правила</button></div>
+                </form>
+              </article>
+            </div>
+          </section>
+
+          <section class="work-panel" data-panel="maintenance:updates">
+            <div class="notice warn hidden" id="update-running"></div>
+            <div class="detail-grid first">
+              <article class="surface work-card" data-min-role="admin">
+                <h3>Обновления модов</h3><p class="muted-copy">Стабильные совместимые релизы скачиваются заранее, затем создаётся копия офлайн. При ошибке панель вернёт прежние версии.</p>
+                <div class="inline-actions"><button class="button" type="button" id="batch-plan">Найти обновления</button><button class="button primary" type="button" id="batch-apply" disabled>Обновить выбранные</button></div>
+                <div class="data-list" id="batch-list"></div>
+              </article>
+              <article class="surface work-card" data-min-role="admin">
+                <h3>Vintage Story Server</h3><p class="muted-copy">Официальный пакет сервера. До загрузки панель проверит совместимость установленных модов, затем сохранит программу и данные для отката.</p>
+                <div class="form-grid"><label class="form-field"><span>Версия пакета</span><input id="game-version" placeholder="1.22.8" pattern="[0-9]+\.[0-9]+\.[0-9]+.*"></label><div class="form-field"><span>&nbsp;</span><button class="button" type="button" id="game-plan">Проверить план</button></div></div>
+                <div class="notice hidden" id="game-plan-result"></div>
+                <div class="check-group"><label><input type="checkbox" id="game-risk"> Разрешить непроверенные моды или смену ветки</label></div>
+                <div class="inline-actions"><label class="button primary upload"><svg><use href="#i-upload"/></svg> Выбрать пакет и установить<input type="file" id="game-file" accept=".gz,.tgz,.zip,application/gzip,application/zip"></label></div>
+                <h3 class="subheading">Снимки программы</h3><div class="data-list" id="game-history"></div>
+              </article>
+            </div>
+            <article class="surface work-card slim-card"><h3>История обновлений</h3><div class="event-feed" id="update-history"></div></article>
+          </section>
+        </section>
+
+        <!-- ===================== настройки ===================== -->
+        <section class="page" id="page-settings">
+          <div class="page-heading"><div><div class="eyebrow">ПАРАМЕТРЫ / КОНФИГУРАЦИЯ</div><h1>Настройки</h1><p>Параметры выбранного сервера и общие настройки панели разделены.</p></div><span class="page-counter current-server-id">—</span></div>
+          <div class="work-tabs" role="tablist" data-tabs="settings"><button class="work-tab active" type="button" data-view="server">Сервер</button><button class="work-tab" type="button" data-view="world">Мир и моды</button><button class="work-tab" type="button" data-view="access">Доступ</button><button class="work-tab" type="button" data-view="notifications">Уведомления</button><button class="work-tab" type="button" data-view="panel" data-min-role="admin" data-hide-denied>Панель</button></div>
+
+          <section class="work-panel active" data-panel="settings:server">
+            <article class="surface work-card">
+              <div class="card-header"><div><h3>serverconfig.json</h3><p>Поля проверяются; неизвестные параметры сохраняются. Перед записью создаётся копия.</p></div><div class="card-header-actions"><button class="button" type="button" id="config-reload">Сбросить</button><button class="button" type="button" id="config-preview">Проверить изменения</button><button class="button primary" type="button" id="config-save" data-min-role="admin">Сохранить</button></div></div>
+              <div class="apply-state hidden" id="config-apply"><div><strong id="config-apply-title"></strong><p id="config-apply-detail"></p></div><button class="button primary hidden" type="button" id="config-apply-action" data-min-role="operator"></button></div>
+              <div class="notice hidden" id="config-message"></div>
+              <div class="diff-list hidden" id="config-diff"></div>
+              <form class="config-groups" id="config-form"></form>
+              <details class="work-details"><summary>Расширенный JSON</summary><p>Для параметров, которых нет в форме. Изменения применяются к форме, сохраняются кнопкой «Сохранить».</p><textarea class="json-editor" id="config-json" spellcheck="false"></textarea><div class="inline-actions"><button class="button" type="button" id="config-json-apply">Применить JSON к форме</button></div></details>
+            </article>
+            <article class="surface work-card slim-card" data-min-role="admin"><h3>Откат конфигурации</h3><div class="inline-form"><select id="config-backup"><option value="">Нет резервных копий</option></select><button class="button danger" type="button" id="config-rollback" disabled>Откатить</button></div></article>
+          </section>
+
+          <section class="work-panel" data-panel="settings:world">
+            <div class="detail-grid first">
+              <article class="surface work-card">
+                <h3>Текущий мир</h3><p class="muted-copy">Значения приходят из телеметрии работающего мира. Меняются только разрешёнными командами игры.</p>
+                <div class="data-list" id="runtime-world"></div>
+                <form id="worldconfig-form" data-min-role="admin"><div class="form-grid"><label class="form-field"><span>Действие</span><select id="worldconfig-action"><option value="set">Изменить параметр</option><option value="create">Создать пользовательский</option></select></label><label class="form-field"><span>Тип</span><select id="worldconfig-datatype"><option>string</option><option>bool</option><option>int</option><option>float</option><option>double</option></select></label><label class="form-field"><span>Имя</span><input id="worldconfig-name" maxlength="80" pattern="[A-Za-z][A-Za-z0-9]*" required></label><label class="form-field"><span>Значение</span><input id="worldconfig-value" maxlength="500" required></label></div><div class="inline-actions"><button class="button primary" type="submit">Применить к миру</button></div></form>
+              </article>
+              <article class="surface work-card">
+                <h3>Шаблон нового мира</h3><p class="muted-copy">WorldConfig.WorldConfiguration применяется только при создании следующего мира.</p>
+                <textarea class="json-editor" id="world-template" spellcheck="false"></textarea>
+                <div class="inline-actions"><button class="button primary" type="button" id="world-template-save" data-min-role="admin">Сохранить шаблон</button></div>
+                <h3 class="subheading">Конфигурация модов</h3><p class="muted-copy">JSON-файлы из ModConfig; перед заменой создаётся .bak.</p>
+                <label class="form-field subheading"><span>Файл</span><select id="mod-config-select"></select></label>
+                <textarea class="json-editor" id="mod-config-editor" spellcheck="false"></textarea>
+                <div class="inline-actions"><button class="button primary" type="button" id="mod-config-save" data-min-role="admin">Сохранить</button></div>
+              </article>
+            </div>
+          </section>
+
+          <section class="work-panel" data-panel="settings:access">
+            <div class="detail-grid first">
+              <article class="surface work-card"><h3>Пользователи</h3><p class="muted-copy">Наблюдатель читает данные. Оператор управляет службой, игроками и создаёт копии. Администратор меняет миры, моды, настройки, обновления и пользуется произвольной консолью.</p><div class="data-list" id="account-list"></div></article>
+              <article class="surface work-card">
+                <div data-min-role="admin" data-hide-denied>
+                  <h3>Создать или сменить пароль</h3>
+                  <form id="account-form"><div class="form-grid"><label class="form-field"><span>Пользователь</span><input id="account-name" maxlength="32" pattern="[a-z0-9_\-]{1,32}" required></label><label class="form-field"><span>Роль</span><select id="account-role"><option value="viewer">Наблюдатель</option><option value="operator">Оператор</option><option value="admin">Администратор</option></select></label><label class="form-field span-all"><span>Новый пароль</span><input id="account-password" type="password" minlength="12" autocomplete="new-password" required></label></div><div class="inline-actions"><button class="button primary" type="submit">Сохранить пользователя</button></div></form>
+                </div>
+                <h3 class="subheading">Второй фактор для <span id="totp-user">—</span></h3><p class="muted-copy">Одноразовые коды из приложения-аутентификатора. Включение и отключение требуют текущего пароля.</p>
+                <div class="inline-actions"><button class="button" type="button" id="totp-begin">Настроить TOTP</button><button class="button danger" type="button" id="totp-disable">Отключить TOTP</button></div>
+                <div class="hidden" id="totp-setup"></div>
+              </article>
+            </div>
+          </section>
+
+          <section class="work-panel" data-panel="settings:notifications">
+            <article class="surface work-card">
+              <div class="card-header"><div><h3>Уведомления панели</h3><p>Общие для всех серверов. Сохранённые секреты не показываются; пустое поле не меняет сохранённое значение.</p></div></div>
+              <form id="notifications-form">
+                <div class="check-group"><label><input type="checkbox" id="notifications-enabled"> Включить отправку уведомлений</label></div>
+                <div class="form-grid"><label class="form-field"><span>Минимальный уровень</span><select id="notifications-level"><option value="warning">Предупреждения</option><option value="error">Ошибки</option><option value="critical">Только критические</option><option value="info">Все события</option></select></label><label class="form-field"><span>Пауза одинаковых уведомлений, сек.</span><input id="notifications-cooldown" type="number" min="30" max="86400" value="300"></label><label class="form-field"><span>HTTPS webhook</span><input id="notifications-webhook" type="password" autocomplete="off" placeholder="https://…"></label><label class="form-field"><span>Discord webhook</span><input id="notifications-discord" type="password" autocomplete="off" placeholder="https://discord.com/api/webhooks/…"></label><label class="form-field"><span>Telegram bot token</span><input id="notifications-telegram-token" type="password" autocomplete="off"></label><label class="form-field"><span>Telegram chat ID</span><input id="notifications-telegram-chat" autocomplete="off"></label></div>
+                <div class="inline-actions"><button class="button primary" type="submit" data-min-role="admin">Сохранить</button><button class="button" type="button" id="notifications-test" data-min-role="admin">Отправить тест</button><button class="button danger" type="button" id="notifications-clear" data-min-role="admin">Удалить каналы</button></div>
+              </form>
+            </article>
+          </section>
+
+          <section class="work-panel" data-panel="settings:panel">
+            <article class="surface work-card" data-min-role="admin" data-hide-denied>
+              <div class="card-header"><div><h3>Каталог игровых серверов</h3><p>Здесь создаются новые серверы: программа игры, миры, моды и резервные копии. Уже созданные серверы остаются на своих местах.</p></div></div>
+              <div class="data-list" id="servers-root-state"></div>
+              <form id="servers-root-form">
+                <div class="form-grid"><label class="form-field span-all"><span>Новый каталог</span><input id="servers-root-path" maxlength="240" spellcheck="false" autocomplete="off" required><small id="servers-root-hint">Полный путь без пробелов: латиница, цифры, точка, дефис, подчёркивание. Родительский каталог должен существовать; сам каталог — новый или пустой.</small></label></div>
+                <div class="inline-actions"><button class="button primary" type="submit">Сменить каталог</button></div>
+              </form>
+            </article>
+          </section>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- ===================== новый сервер ===================== -->
+  <dialog class="dialog" id="create-dialog">
+    <div class="dialog-head"><div><span class="eyebrow">НОВЫЙ СЕРВЕР</span><h2>Создание игрового мира</h2><p>Проверка машины → пакет игры со сверкой md5 → каталоги и служба → первый запуск. Идентификатор потом не меняется.</p></div><button class="dialog-close" type="button" data-close aria-label="Закрыть">×</button></div>
+    <form id="create-form">
+      <div class="form-grid">
+        <label class="form-field"><span>Идентификатор</span><input id="new-id" maxlength="32" pattern="[a-z0-9][a-z0-9_\-]{0,31}" required><small>Латиница в нижнем регистре, цифры, «-» и «_»</small></label>
+        <label class="form-field"><span>Название в панели</span><input id="new-title" maxlength="64"></label>
+        <label class="form-field"><span>Версия игры</span><select id="new-version"></select></label>
+        <label class="form-field"><span>Игровой порт</span><input id="new-port" type="number" min="1024" max="65535" required></label>
+        <label class="form-field"><span>Имя сервера в списке</span><input id="new-server-name" maxlength="64"></label>
+        <label class="form-field"><span>Максимум игроков</span><input id="new-players" type="number" min="1" max="512" value="16" required></label>
+        <label class="form-field"><span>Название мира</span><input id="new-world" maxlength="64" value="Новый мир"></label>
+        <label class="form-field"><span>Seed</span><input id="new-seed" maxlength="64" placeholder="Пусто — случайное значение"></label>
+        <label class="form-field"><span>Стиль игры</span><select id="new-playstyle"></select></label>
+        <label class="form-field"><span>Язык</span><select id="new-language"></select></label>
+      </div>
+      <div class="check-group"><label><input type="checkbox" id="new-whitelist"> Только по белому списку</label><label><input type="checkbox" id="new-pvp" checked> Разрешить PvP</label></div>
+      <p class="muted-copy" id="create-location"></p>
+      <div id="create-preflight"></div>
+      <p class="form-error" id="create-error" role="alert"></p>
+      <div class="dialog-actions"><button class="button" type="button" id="create-preflight-run">Проверить машину</button><button class="button primary" type="submit">Создать сервер</button></div>
+    </form>
+  </dialog>
+
+  <div class="toast-stack" id="toasts" role="status" aria-live="polite"></div>
+</body>
+</html>

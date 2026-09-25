@@ -1,0 +1,22 @@
+[Unit]
+Description=Vintage Story Panel privileged agent
+Documentation=https://github.com/ruslan120p/vintage-story-panel
+After=network.target
+
+[Service]
+Type=exec
+# Демон обязан быть root: он управляет юнитом игры и читает игровые каталоги.
+# Доверие ограничивается не правами процесса, а проверкой пира на сокете:
+# uid вызывающего сверяется через SO_PEERCRED и должен совпасть с --allow-uid.
+User=root
+ExecStart=/opt/vs-panel/current/vs-panel-agent serve \
+  --socket /run/vs-panel/agent.sock \
+  --panel-config /etc/vs-panel.json \
+  --allow-uid @PANEL_UID@
+RuntimeDirectory=vs-panel
+RuntimeDirectoryMode=0750
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

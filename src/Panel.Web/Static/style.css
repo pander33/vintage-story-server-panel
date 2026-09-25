@@ -1,0 +1,269 @@
+:root{color-scheme:dark;--bg:#11120f;--panel:#1b1d18;--panel2:#242720;--line:#34382d;--text:#eef0e7;--muted:#9ca390;--green:#90b857;--green2:#b3d676;--red:#d5685e;--amber:#d6a956;--shadow:0 18px 50px #0005;font:15px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 15% -10%,#29301f 0,transparent 34rem),var(--bg);color:var(--text);min-height:100vh}main{max-width:1220px;margin:auto;padding:28px}h1,h2,h3,p{margin-top:0}h1{font-size:21px;margin:0;letter-spacing:.02em}h2{font-size:30px;margin:5px 0}h3{font-size:17px;margin-bottom:3px}.hidden{display:none!important}.muted,.section-title p,.brand p{color:var(--muted);margin:0}.card{background:linear-gradient(150deg,#20231d,#191b17);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}header{display:flex;justify-content:space-between;align-items:center;margin-bottom:26px}.brand{display:flex;gap:12px;align-items:center}.brand-mark{display:grid;place-items:center;width:42px;height:42px;border-radius:10px;background:linear-gradient(145deg,var(--green2),#668f3b);color:#17200e;font-weight:900;letter-spacing:-.08em}.brand p{font-size:12px;text-transform:uppercase;letter-spacing:.13em}.header-actions{display:flex;align-items:center;gap:8px;color:var(--muted)}.dot{width:9px;height:9px;border-radius:50%;background:var(--amber);box-shadow:0 0 12px currentColor}.dot.online{background:var(--green)}.dot.offline{background:var(--red)}nav{display:flex;gap:5px;border-bottom:1px solid var(--line);margin-bottom:24px;overflow:auto}.tab{border:0;border-bottom:2px solid transparent;background:transparent;border-radius:0;color:var(--muted);padding:11px 16px}.tab.active{color:var(--green2);border-color:var(--green)}button,.upload,select,input{font:inherit}button,.upload{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:8px;padding:9px 13px;cursor:pointer;transition:.15s}button:hover,.upload:hover{border-color:#626a54;transform:translateY(-1px)}button:disabled{opacity:.5;cursor:wait}.primary{background:var(--green);border-color:var(--green);color:#14200b;font-weight:700}.danger{color:#ffb1aa;border-color:#713d38;background:#321f1c}.ghost{background:transparent;border-color:transparent}.hero{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.eyebrow{text-transform:uppercase;letter-spacing:.12em;font-size:11px;color:var(--muted)}.actions{display:flex;gap:8px;flex-wrap:wrap}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:16px}.metrics span{display:block;color:var(--muted);font-size:13px}.metrics strong{display:block;font-size:25px;margin-top:6px}.section-title{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:16px}.section-title>div:last-child{display:flex;gap:8px}.log{background:#0c0d0b;border:1px solid #292c24;border-radius:9px;padding:15px;min-height:540px;max-height:68vh;overflow:auto;white-space:pre-wrap;word-break:break-word;font:12px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;color:#bdc5b1}.log.compact{min-height:180px;max-height:280px;margin:0}select,input,textarea{background:#11130f;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px}.inline{color:var(--muted);margin-right:8px}.table-wrap{overflow:auto}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:12px 10px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}.badge{display:inline-block;border-radius:999px;padding:3px 8px;font-size:11px;background:#29351f;color:#bce484}.badge.off{background:#372625;color:#e4aaa5}.file{font:12px ui-monospace,monospace;color:var(--muted)}.upload input{display:none}textarea{width:100%;height:62vh;resize:vertical;font:13px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;padding:15px}.login{max-width:420px;margin:15vh auto}.login .brand{margin-bottom:26px}.login label{display:block;margin-bottom:7px;color:var(--muted)}.login input{display:block;width:100%;margin-bottom:12px}.login button{width:100%}.error{color:#f09288;margin:10px 0 0}.toast{position:fixed;right:24px;bottom:24px;padding:12px 16px;background:#29351f;color:#d8efb8;border:1px solid #506c37;border-radius:9px;box-shadow:var(--shadow);max-width:420px}.toast.error{background:#3b211f;color:#ffc0ba;border-color:#77423d}dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:12px;max-width:520px;box-shadow:var(--shadow)}dialog::backdrop{background:#000a}dialog input{width:100%;margin:8px 0 18px}.dialog-actions{display:flex;justify-content:flex-end;gap:8px}
+.warning{margin:0 0 16px;padding:12px 15px;border:1px solid #805b2c;border-radius:9px;background:#342817;color:#ffd99b}.notice{margin:12px 0 16px;padding:10px 12px;border-radius:8px;background:#282b24;color:var(--muted)}.notice.ok{border:1px solid #506c37;color:#d8efb8}.notice.error{border:1px solid #77423d;background:#3b211f;color:#ffc0ba}.chart-card{margin-bottom:16px}.chart-card canvas{display:block;width:100%;height:230px}.chart-legend{display:flex;gap:18px;margin:-8px 0 8px;color:var(--muted);font-size:12px}.chart-legend span::before{content:"";display:inline-block;width:18px;height:3px;margin:0 6px 3px 0;border-radius:2px}.cpu-line::before{background:#d6a956}.memory-line::before{background:#90b857}.disk-line::before{background:#68a9d5}.split-grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(300px,.75fr);gap:16px;margin-bottom:16px}.command-form{display:grid;gap:12px;margin-top:18px}.command-form label{display:grid;gap:5px;color:var(--muted)}.command-form input,.command-form select{width:100%}hr{border:0;border-top:1px solid var(--line);margin:24px 0}.event-list{display:grid;gap:8px}.player-event{padding:10px 12px;border-left:3px solid var(--muted);background:#151713;border-radius:5px}.player-event.join{border-color:var(--green)}.player-event.leave{border-color:var(--red)}.player-event small{display:block;color:var(--muted);font:11px/1.4 ui-monospace,monospace;margin-top:3px}.log-actions{display:flex;align-items:end!important;flex-wrap:wrap}.log-actions label{display:grid;gap:4px;color:var(--muted);font-size:12px}.log-actions input{min-width:210px}.log-lines{font:12px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace}.log-line{white-space:pre-wrap;word-break:break-word;border-left:2px solid transparent;padding-left:7px}.log-error{color:#ff9f96;border-color:var(--red);background:#381e1b80}.log-player{color:#b9dff8;border-color:#68a9d5}.log-mod{color:#d5bded;border-color:#9670b8}.log-system{color:#bdc5b1}
+@media(max-width:760px){.hero,.section-title{align-items:flex-start;flex-direction:column}.header-actions #connection-text{display:none}}
+
+.notice.warn{border-color:#80642d;background:#332b19;color:#f0cf88}.metrics small,td small{display:block;margin-top:4px}.quality{display:inline-block;border-radius:999px;padding:4px 9px;font-size:11px;font-weight:700}.quality.excellent{background:#263c22;color:#bde9a2}.quality.good{background:#293725;color:#d5eaa8}.quality.unstable{background:#493b1d;color:#f1cf82}.quality.poor,.quality.unavailable{background:#452522;color:#ffb4ad}.player-row{cursor:pointer}.player-row:hover{background:#ffffff05}.config-form fieldset{border:1px solid var(--line);border-radius:10px;margin:0 0 16px;padding:16px}.config-form legend{padding:0 8px;color:var(--green2);font-weight:700}.config-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 18px}.config-field{display:grid;grid-template-columns:minmax(180px,1fr) minmax(150px,.8fr);gap:5px 12px;align-items:center}.config-field>span{font-weight:600}.config-field i{font-style:normal;color:var(--amber);margin-left:5px}.config-field input,.config-field select{width:100%}.config-field small{grid-column:1/-1;color:var(--muted)}.advanced-config{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}.advanced-config summary{cursor:pointer;font-weight:700}.advanced-config textarea{height:340px;margin:12px 0}.config-diff{margin:16px 0;padding:14px;border:1px solid #675a31;background:#2d281a;border-radius:9px}.config-diff>div{display:grid;grid-template-columns:minmax(160px,.6fr) 1fr auto;gap:12px;padding:8px 0;border-bottom:1px solid #ffffff10}.config-diff code{white-space:pre-wrap;word-break:break-word}.config-rollback{display:flex;gap:10px;align-items:end;margin-top:18px}.config-rollback label{display:grid;gap:6px;min-width:420px}#game-health{margin-bottom:16px}@media(max-width:760px){.config-grid{grid-template-columns:1fr}.config-field{grid-template-columns:1fr}.config-rollback{align-items:stretch;flex-direction:column}.config-rollback label{min-width:0}.config-diff>div{grid-template-columns:1fr}}
+@media(max-width:900px){.split-grid{grid-template-columns:1fr}.log-actions{align-items:stretch!important}.log-actions label,.log-actions input{width:100%}}
+.row-form{display:flex;gap:8px}.row-form input{min-width:260px}.catalog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}.catalog-item{padding:14px;border:1px solid var(--line);border-radius:9px;background:#151713}.catalog-item h3{margin-bottom:5px}.catalog-item p{min-height:42px;color:var(--muted);font-size:13px}.catalog-item small{display:block;color:var(--muted);margin-bottom:10px}.release-list{margin-top:18px;border-top:1px solid var(--line);padding-top:16px}.release-row{display:grid;grid-template-columns:140px 1fr auto;gap:14px;align-items:start;padding:12px 0;border-bottom:1px solid var(--line)}.release-row pre{white-space:pre-wrap;margin:4px 0;color:var(--muted);font:12px/1.45 ui-monospace,monospace}.world-actions{display:flex;gap:6px;flex-wrap:wrap}.world-active{color:var(--green2);font-weight:700}@media(max-width:760px){.row-form{width:100%;flex-direction:column}.row-form input{min-width:0}.release-row{grid-template-columns:1fr}}
+.button-link{display:inline-block;border:1px solid var(--line);background:var(--panel2);color:var(--text);text-decoration:none;border-radius:8px;padding:9px 13px}
+
+/* Широкое рабочее пространство администратора. */
+body{overflow-x:hidden}
+main{width:100%;max-width:1680px;padding:24px 32px 48px}
+header{margin-bottom:18px}
+nav{position:sticky;top:0;z-index:20;margin:0 -10px 24px;padding:0 10px;background:#11120fdd;backdrop-filter:blur(12px);border-radius:0 0 10px 10px}
+.page{min-width:0}
+.card{min-width:0}
+.metrics{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.metrics article{min-height:102px}
+.split-grid{grid-template-columns:minmax(0,2fr) minmax(340px,1fr);align-items:start}
+.table-wrap{width:100%;border:1px solid #292c24;border-radius:10px}
+.table-wrap table{min-width:760px}
+#page-players .table-wrap table,#page-mods .table-wrap table,#page-worlds .table-wrap table{min-width:980px}
+th{position:sticky;top:0;z-index:2;background:#1b1d18}
+td{vertical-align:top}
+.log{max-height:72vh}
+.catalog-grid{grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
+.catalog-item p{min-height:0}
+.update-list{display:grid;gap:8px;margin-top:10px}
+.update-list>div{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:8px 10px;background:#171914;border-radius:7px}
+@media(max-width:1100px){main{padding:20px}.split-grid{grid-template-columns:1fr}.section-title{align-items:flex-start}.metrics{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}}
+@media(max-width:760px){main{padding:14px 12px 36px}nav{margin:0 -4px 18px;padding:0 4px}.tab{padding:10px 12px}.card{border-radius:10px}.page>.card,.page>article.card{padding:15px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.metrics article{min-height:88px;padding:14px}.metrics strong{font-size:21px}.update-list>div{align-items:flex-start;flex-direction:column}}
+
+.control-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.control-grid .span-2{grid-column:1/-1}.control-events{max-height:460px;overflow:auto}.control-event{display:grid;grid-template-columns:minmax(240px,.8fr) minmax(300px,1.2fr);gap:16px;padding:11px 12px;border-left:4px solid #6b7464;background:#171914;border-radius:7px}.control-event p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}.control-event small,.recovery-item small{display:block;color:#9da595;margin-top:3px}.event-warning{border-left-color:#d1a33d}.event-error,.event-critical{border-left-color:#d75c52}.event-critical{background:#251716}.recovery-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #30352c}.json-editor{width:100%;min-height:310px;margin:12px 0;font:13px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;tab-size:2}.update-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;margin-top:16px}.update-column{display:flex;min-width:0;flex-direction:column;gap:14px;padding:18px;border:1px solid var(--line);border-radius:10px;background:#171914}.update-copy{min-width:0}.update-copy h3,.update-copy p{margin-bottom:0}.update-copy p{margin-top:6px;overflow-wrap:anywhere}.update-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}.update-actions button,.update-actions .upload{max-width:100%;white-space:normal;text-align:center}.game-update-form{display:grid;grid-template-columns:minmax(160px,1fr) auto;gap:10px;align-items:end}.update-field{display:grid;min-width:0;gap:5px;color:var(--text)}.update-field input{width:100%;min-width:0}.check-row.update-risk{align-items:flex-start}.update-risk input{flex:0 0 auto;margin-top:4px}.update-results{min-width:0}.update-results:empty{display:none}.update-history-section{margin-top:24px;padding-top:20px;border-top:1px solid var(--line)}.update-history-section>h3{margin-bottom:12px}.update-choice{display:flex;min-width:0;align-items:flex-start;gap:10px;padding:9px 5px;overflow-wrap:anywhere}.update-choice input{flex:0 0 auto;margin-top:4px}.row-actions{display:flex;gap:9px;flex-wrap:wrap}
+@media(max-width:1050px){.control-grid,.update-columns{grid-template-columns:1fr}.control-grid .span-2{grid-column:auto}.control-event{grid-template-columns:1fr}}
+@media(max-width:560px){.update-column{padding:14px}.game-update-form{grid-template-columns:1fr}.game-update-form button,.update-actions button,.update-actions .upload{width:100%}.recovery-item{align-items:flex-start;flex-direction:column}.recovery-item button{width:100%}}
+
+.weekday-picker{display:flex;gap:8px;flex-wrap:wrap;border:1px solid var(--line);border-radius:8px;padding:12px}.weekday-picker legend{color:var(--muted);padding:0 5px}.weekday-picker label,.check-row{display:flex!important;grid-template-columns:none!important;align-items:center;gap:7px;color:var(--text)!important}.weekday-picker input,.check-row input{width:auto}.automation-settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;margin:16px 0}.automation-settings label:not(.check-row){display:grid;gap:5px;color:var(--muted)}.automation-settings .check-row,.automation-settings button,.automation-settings+p{grid-column:1/-1}.danger-toggle{color:#ffbf9e!important}.health-panel{padding:16px;border:1px solid var(--line);border-radius:10px;background:#151713}.health-panel>div{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.health-panel small{display:block;color:var(--muted);margin-top:8px}.health-ready{border-color:#506c37}.health-starting,.health-recovering,.health-degraded{border-color:#80642d}.health-hung,.health-unresponsive,.health-unknown{border-color:#77423d}.table-actions{display:flex;gap:6px;flex-wrap:wrap}.table-actions button{padding:6px 9px}.automation-run{padding:11px 13px;border-left:3px solid var(--muted);background:#151713;border-radius:5px}.automation-run small{display:block;color:var(--muted);margin-top:4px}.run-success{border-color:var(--green)}.run-failed{border-color:var(--red)}.run-running{border-color:var(--amber)}
+@media(max-width:760px){.automation-settings{grid-template-columns:1fr}.automation-settings>*{grid-column:1!important}.automation-grid .section-title{align-items:flex-start;flex-direction:column}}
+
+/* Состояние применения serverconfig. */
+.config-apply-state{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:0 0 18px;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:#20231d}
+.config-apply-state strong{display:block;font-size:16px;margin-bottom:3px}
+.config-apply-state p{margin:0;color:var(--muted)}
+.config-apply-state.applied{border-color:#506c37;background:#202b1a}.config-apply-state.applied strong{color:#c9ed9e}
+.config-apply-state.restart_required{border-color:#8c6932;background:#332a19}.config-apply-state.restart_required strong{color:#ffd48b}
+.config-apply-state.start_required{border-color:#496b80;background:#1c2930}.config-apply-state.start_required strong{color:#b9dff8}
+.setting-state{display:inline-block;margin-left:8px;padding:2px 7px;border-radius:999px;font-size:10px;line-height:1.5;vertical-align:1px}
+.setting-state.applied{background:#293b20;color:#c9ed9e}.setting-state.pending{background:#49381c;color:#ffd48b}
+.config-field.pending{padding:8px;border:1px solid #6c522b;border-radius:8px;background:#2b2518}
+@media(max-width:760px){.config-apply-state{align-items:stretch;flex-direction:column}.config-apply-state button{width:100%}}
+
+/* Каталог команд сервера и диагностика производительности. */
+.command-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin:16px 0}
+.command-group h4{margin:0 0 10px;color:var(--muted);font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.command-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid #2a2e25}
+.command-item:last-child{border-bottom:none}
+.command-item small{display:block;color:var(--muted);margin-top:3px}
+.command-controls{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.command-controls input,.command-controls select{width:auto;min-width:96px;margin:0}
+#server-command-reply{max-height:260px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
+#performance-chart{width:100%;margin-top:18px}
+.player-event.long-tick{border-left-color:var(--red)}
+.player-event.ping{border-left-color:#5b8fd0}
+@media(max-width:760px){.command-item{align-items:flex-start;flex-direction:column}.command-controls{width:100%}}
+
+.chat-feed{max-height:60vh;overflow-y:auto}
+.chat-feed .chat-kind{color:#9ca390;display:inline-block;font-size:12px;min-width:92px}
+.chat-feed .chat-player{font-weight:600;margin-right:6px}
+.player-event.chat-chat .chat-kind{color:#90b857}
+.player-event.chat-death{border-left-color:#d0574b}
+.player-event.chat-death .chat-kind{color:#d0574b}
+.player-event.chat-join .chat-kind,.player-event.chat-respawn .chat-kind{color:#5b8fd0}
+.player-event.chat-leave .chat-kind{color:#c98a3a}
+@media(max-width:760px){.chat-feed .chat-kind{margin-right:6px;min-width:0}}
+
+/* Правки текста и разметки. */
+/* Пустое уведомление или предупреждение не занимает места: иначе до первого ответа
+   страница показывала бы серые полосы. */
+.notice:empty,.warning:empty,.event-list:empty{display:none}
+/* Пустой журнал не резервирует 540px. */
+.log:empty{min-height:120px}
+/* Курсор «ожидание» обещает работу, а постоянно выключенная кнопка не работает. */
+button:disabled,.upload:disabled{cursor:not-allowed;transform:none}
+button:disabled:hover,.upload:disabled:hover{border-color:var(--line);transform:none}
+/* Заголовки в 30px внутри карточки переносятся после двух слов и теснят подзаголовок. */
+.page h2{font-size:22px;line-height:1.25}
+.hero h2{font-size:28px}
+.section-title{align-items:flex-start}
+.section-title>div:last-child{flex-wrap:wrap;justify-content:flex-end}
+/* Подписи форм читаются обычным цветом, приглушена только подсказка под ними. */
+.command-form label,.log-actions label{color:var(--text)}
+.command-form label small,.log-actions label small{color:var(--muted)}
+/* Подпись фиксированной ширины 420px не помещалась бы в узкую половину сетки. */
+.config-rollback label{min-width:min(420px,100%)}
+/* Длинные имена файлов и модов ломают ячейку, поэтому переносятся. */
+td,.recovery-item,.control-event,.command-item{overflow-wrap:anywhere}
+.file{overflow-wrap:anywhere}
+/* Вкладки прокручиваются по горизонтали; полоса прокрутки намекает на продолжение. */
+nav{scrollbar-width:thin}
+nav::after{content:"";flex:0 0 8px}
+
+/* Настройка TOTP содержит два длинных значения без пробелов; они остаются внутри карточки. */
+#totp-setup{display:grid;min-width:0;gap:14px;padding:16px;overflow:hidden}
+.totp-setup-copy strong{display:block;color:var(--text);font-size:16px}
+.totp-setup-copy p{margin:4px 0 0;color:var(--muted)}
+.totp-secret-block{min-width:0;padding:12px 14px;border:1px solid #506c37;border-radius:8px;background:#151b12}
+.totp-secret-block span{display:block;margin-bottom:5px;color:var(--muted);font-size:12px}
+.totp-secret-block code{display:block;color:var(--green2);font:600 15px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.08em;overflow-wrap:anywhere;user-select:all}
+.totp-uri{min-width:0}
+.totp-uri summary{cursor:pointer;color:var(--muted)}
+.totp-uri code{display:block;max-width:100%;margin-top:8px;padding:10px;border-radius:7px;background:#11130f;color:var(--muted);font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere;user-select:all}
+.totp-confirm-form{display:grid;grid-template-columns:minmax(150px,1fr) auto;gap:10px;align-items:end}
+.totp-confirm-form label{display:grid;min-width:0;gap:5px;color:var(--text)}
+.totp-confirm-form input{width:100%;min-width:0;letter-spacing:.18em;text-align:center}
+@media(max-width:560px){.totp-confirm-form{grid-template-columns:1fr}.totp-confirm-form button{width:100%}}
+
+/* Мастер установки: одна страница вместо шести вкладок. */
+.wizard-steps{display:flex;gap:6px;list-style:none;margin:0 0 22px;padding:0;overflow:auto;counter-reset:wizard}
+.wizard-steps li{counter-increment:wizard;display:flex;align-items:center;gap:7px;padding:8px 13px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:13px;white-space:nowrap}
+.wizard-steps li::before{content:counter(wizard);display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#2a2e24;color:var(--muted);font-size:11px;font-weight:700}
+.wizard-steps li.active{color:var(--green2);border-color:var(--green)}
+.wizard-steps li.active::before{background:var(--green);color:#14200b}
+.wizard-steps li.done{color:#c4cdb6}
+.wizard-steps li.done::before{content:"✓";background:#3c4a2c;color:#bce484}
+.wizard-step{max-width:860px;margin:0 auto}
+.wizard-step h2{font-size:24px}
+.wizard-step>.muted{margin-bottom:18px}
+.wizard-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:18px}
+.wizard-actions .upload{display:inline-block;text-decoration:none;color:var(--text)}
+.wizard-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 18px}
+.wizard-grid label{display:grid;gap:5px;align-content:start}
+.wizard-grid input,.wizard-grid select{width:100%}
+.catalog-item.chosen{border-color:var(--green);box-shadow:0 0 0 1px var(--green) inset}
+.catalog-item button{width:100%;margin-top:6px}
+.wizard-progress{list-style:none;margin:18px 0 0;padding:0;display:grid;gap:8px}
+.wizard-progress li{padding:10px 13px;border-left:3px solid #3a3f31;background:#151713;border-radius:6px;color:var(--muted)}
+.wizard-progress li.done{border-color:var(--green);color:var(--text)}
+.wizard-progress li.warning{border-color:var(--amber);color:#f0cf88}
+.wizard-progress li.skipped,.wizard-progress li.failed{border-color:var(--red);color:#ffb4ad}
+.wizard-progress small{display:block;margin-top:4px;color:var(--muted)}
+@media(max-width:760px){.wizard-grid{grid-template-columns:1fr}}
+
+/* Несколько серверов: переключатель в шапке и сводная таблица. */
+.instance-switcher{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:13px}
+.instance-switcher select{padding:6px 9px;max-width:220px}
+#servers-preflight:empty{display:none}
+#servers-create .wizard-grid{margin-bottom:14px}
+
+/* Главная — рабочее место оператора: сначала выбор сервера, затем его состояние. */
+.server-picker{margin-bottom:16px}
+.server-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+.server-card{display:grid;gap:12px;padding:16px;border:1px solid var(--line);border-radius:11px;background:#151713;cursor:pointer;transition:.15s}
+.server-card:hover{border-color:#626a54;transform:translateY(-1px)}
+.server-card.current{border-color:var(--green);box-shadow:0 0 0 1px #90b85755 inset;background:#1d2519}
+.server-card.invalid{border-color:#77423d;cursor:default}
+.server-card-head,.server-card-stats{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.server-card-head h3{margin:0}.server-card-head small{display:block;color:var(--muted);margin-top:3px}
+.server-card-stats{display:grid;grid-template-columns:repeat(3,1fr)}
+.server-card-stats span{color:var(--muted);font-size:11px}.server-card-stats strong{display:block;color:var(--text);font-size:14px;margin-top:2px}
+.server-card-actions{display:flex;gap:6px;flex-wrap:wrap}.server-card-actions button{padding:6px 9px;font-size:12px}
+#servers-create{margin-bottom:16px}
+.hero p{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0}.hero #started-at:not(:empty)::before{content:"· ";margin-right:5px}
+.metrics-primary{grid-template-columns:repeat(4,minmax(0,1fr))}
+.overview-grid{display:grid;grid-template-columns:minmax(340px,.8fr) minmax(0,1.4fr);gap:16px;margin-bottom:16px;align-items:stretch}
+.overview-grid>.card{margin:0}.overview-grid .chart-card{height:100%}
+.diagnostic-list{display:grid;gap:8px;margin-bottom:14px}
+.diagnostic-group{display:grid;gap:8px;padding:10px;border:1px solid var(--line);border-radius:10px;background:#10120f}
+.diagnostic-group h4{margin:0 0 2px;color:var(--muted);font-size:11px;letter-spacing:.09em;text-transform:uppercase}
+.diagnostic-item{display:flex;align-items:flex-start;gap:9px;padding:9px 11px;border-radius:8px;background:#151713}
+.diagnostic-item::before{content:"";width:9px;height:9px;margin-top:5px;border-radius:50%;background:var(--green);flex:0 0 auto}
+.diagnostic-item.warn::before{background:var(--amber)}.diagnostic-item.error::before{background:var(--red)}
+.diagnostic-item>div{min-width:0;flex:1}.diagnostic-item strong{display:block}.diagnostic-item small{display:block;color:var(--muted);margin-top:2px;line-height:1.4}
+.diagnostic-item code{display:block;margin-top:7px;padding:7px 8px;border-radius:6px;background:#0b0d0a;color:#c8cdbf;white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;line-height:1.35}
+.diagnostic-item time{display:block;margin-top:5px;color:var(--muted);font-size:10px}
+.diagnostics-card details{border-top:1px solid var(--line);padding-top:12px}.diagnostics-card summary{cursor:pointer;color:var(--muted)}
+.diagnostic-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px;margin-top:12px;color:var(--muted)}
+.diagnostic-facts span{display:flex;justify-content:space-between;gap:8px}.diagnostic-facts strong{color:var(--text)}
+.overview-logs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.overview-logs>.card{min-width:0}
+@media(max-width:1100px){.metrics-primary{grid-template-columns:repeat(2,minmax(0,1fr))}.overview-grid,.overview-logs{grid-template-columns:1fr}}
+@media(max-width:760px){.server-cards{grid-template-columns:1fr}.server-card-stats{grid-template-columns:repeat(3,1fr)}.diagnostic-facts{grid-template-columns:1fr}}
+
+/* Отступы и вертикальный ритм.
+   Восемь дописанных блоков стилей разошлись: внутренний отступ задавался не
+   карточке, а каждой сетке отдельно (.split-grid>.card, .overview-grid>.card,
+   .automation-grid>.card…), и .control-grid, добавленная последней, его не
+   получила — «Настройки» и половина «Обслуживания» шли вплотную к рамке.
+   Теперь отступ один, на .card, а исключения перечислены здесь же. */
+:root{--pad-card:20px;--gap:16px;--gap-tight:12px}
+.card{padding:var(--pad-card)}
+.hero{padding:26px}
+.login{padding:30px}
+.wizard-step{padding:24px}
+.metrics article{padding:18px}
+
+/* Заголовок секции: правый блок раскладывается в строку и прижимается вправо.
+   Когда действий нет и блок в секции один, он же оказывается :last-child — и
+   заголовок с подписью вставали рядом. */
+.section-title>div:only-child{display:block;justify-content:flex-start}
+
+/* Набор фильтров получал промежуток только от .section-title. Вне его кнопки
+   слипались. */
+.log-actions{gap:9px}
+
+/* «Диагностика производительности»: разметка ссылалась на .stat-grid и .stat,
+   которых в таблице стилей не было, — пять показателей шли сплошным текстом. */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--gap-tight);margin:var(--gap) 0}
+.stat{padding:12px 14px;border:1px solid var(--line);border-radius:9px;background:#151713}
+.stat span{display:block;color:var(--muted);font-size:12px}
+.stat strong{display:block;font-size:20px;margin-top:4px}
+
+/* .muted обнуляет margin, чтобы работать подписью в .section-title. Вводный
+   абзац карточки от этого прилипал к форме под собой. */
+.card>p.muted:not(:last-child){margin-bottom:14px}
+/* Выравнивание с соседней карточкой, у которой заголовок в .section-title. */
+.card>h2:first-child,.card>h3:first-child{margin-top:0}
+.card>*+h3{margin-top:22px}
+/* Два уведомления подряд давали двойной промежуток (16px + 12px). */
+.notice+.notice{margin-top:0}
+/* Было инлайновым style= в разметке. */
+.history-controls{margin:var(--gap-tight) 0}
+.history-controls input{width:80px}
+
+/* Вкладки липнут к верху окна, но верхний отступ main оставлял над ними
+   полосу, сквозь которую просвечивало прокручиваемое содержимое. Отступ
+   переносится на шапку — над закреплённой полосой не остаётся ничего.
+   flow-root — чтобы 15vh формы входа не схлопнулись через опустевший main. */
+main{padding-top:0;display:flow-root}
+header{padding-top:24px}
+
+/* Длинные таблицы: липкий заголовок был описан, но не работал — .table-wrap не
+   ограничен по высоте и потому никогда не прокручивался по вертикали. Ограничение
+   включает и прокрутку, и заголовок; короткие таблицы не меняются. */
+.table-wrap{max-height:min(70vh,760px)}
+th{background:#1b1d18;box-shadow:inset 0 -1px 0 var(--line)}
+
+/* Работа с клавиатуры: у кнопок был только :hover, видимого фокуса не было
+   совсем. :focus-visible не трогает клик мышью. */
+:focus-visible{outline:2px solid var(--green2);outline-offset:2px}
+button:focus-visible,.upload:focus-visible,.tab:focus-visible,.button-link:focus-visible{outline-offset:1px}
+.server-card:focus-visible,.catalog-item:focus-visible{outline-offset:-2px}
+
+/* Сдвиг кнопки под курсором и размытие за навигацией — украшение; тем, кто
+   просил систему уменьшить анимацию, они не нужны. */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition-duration:.01ms!important;animation-duration:.01ms!important}
+  button:hover,.upload:hover,.server-card:hover{transform:none}
+}
+
+/* Две несовместимые шапки карточек: одни через .section-title, другие голым h2
+   с абзацем. Заголовки в соседних карточках одной сетки начинались на разной
+   высоте — выравниваем обе формы вместо переписывания разметки. */
+.section-title h2,.section-title h3{margin-top:0}
+
+/* «Настройки» смешивали уровни: мир и моды относятся к выбранному серверу, а
+   уведомления и учётные записи — ко всей панели. Теперь это две группы. */
+h2.group-title{margin:26px 0 var(--gap-tight);font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.page>h2.group-title:first-child{margin-top:0}
+h2.group-title small{display:block;margin-top:5px;font-size:12px;font-weight:400;letter-spacing:0;text-transform:none}
+
+@media(max-width:760px){
+  :root{--pad-card:15px}
+  .hero{padding:18px}
+  .wizard-step{padding:18px}
+  .metrics article{padding:14px}
+  main{padding-top:0}
+  header{padding-top:14px}
+  .table-wrap{max-height:none}
+}

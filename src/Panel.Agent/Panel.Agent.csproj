@@ -1,0 +1,38 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Panel.SharedKernel\Panel.SharedKernel.csproj" />
+    <ProjectReference Include="..\Panel.Contracts\Panel.Contracts.csproj" />
+    <ProjectReference Include="..\Panel.Configuration\Panel.Configuration.csproj" />
+    <ProjectReference Include="..\Panel.Content\Panel.Content.csproj" />
+    <ProjectReference Include="..\Panel.Fleet\Panel.Fleet.csproj" />
+    <ProjectReference Include="..\Panel.Provisioning\Panel.Provisioning.csproj" />
+  </ItemGroup>
+
+  <!-- SQLite нужен для согласованного снимка мира при выгрузке, пока
+       сервер работает. Копирование .vcdbs на ходу даёт повреждённый файл, поэтому
+       панель тоже использует sqlite3.backup().
+
+       Пин SQLitePCLRaw.bundle_e_sqlite3 НЕ избыточен, удалять его нельзя:
+       Microsoft.Data.Sqlite 10.0.0 тянет 2.1.11, в котором известная уязвимость
+       высокого уровня (GHSA-2m69-gcr7-jv3q). Это единственная сторонняя зависимость
+       ПРИВИЛЕГИРОВАННОГО процесса, и она обязана быть свежей. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.0" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
+  </ItemGroup>
+
+  <!-- На Windows демон — служба: диспетчер служб ждёт ответа на старт и стоп и снимает
+       процесс, который не отвечает. ServiceBase — пакет Microsoft, на Linux не загружается. -->
+  <ItemGroup>
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.12" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

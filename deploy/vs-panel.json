@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "layout": "linux",
+  "instances_file": "/etc/vs-panel/instances.json",
+  "instances_root": "/srv/vs-panel",
+  "telemetry_dir": "/usr/local/share/vs-panel/telemetry",
+  "staging_dir": "/var/lib/vs-panel/staging",
+  "panel_env_file": "/etc/vs-panel.env"
+}

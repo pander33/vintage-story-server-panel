@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Vintage Story · Установка панели</title>
+  <link rel="stylesheet" href="/static/style.css?v=0.2.0">
+</head>
+<body>
+  <main>
+    <header>
+      <div class="brand"><span class="brand-mark">VS</span><div><h1>Установка</h1><p>Vintage Story Server Panel</p></div></div>
+      <div class="header-actions"><span id="step-counter" class="muted"></span></div>
+    </header>
+
+    <ol id="wizard-steps" class="wizard-steps">
+      <li data-step="claim">Захват</li>
+      <li data-step="access">Доступ</li>
+      <li data-step="preflight">Проверка</li>
+      <li data-step="version">Версия</li>
+      <li data-step="server">Сервер</li>
+      <li data-step="create">Создание</li>
+      <li data-step="done">Готово</li>
+    </ol>
+
+    <section id="step-claim" class="wizard-step card hidden">
+      <h2>Первый вход</h2>
+      <p class="muted">Установщик напечатал одноразовый токен. Он подтверждает, что панель настраивает тот, у кого есть доступ к серверу, а не первый, кто открыл порт.</p>
+      <p id="claim-missing" class="notice error hidden">Токен захвата не найден. Выполните на сервере <code>sudo vs-panel-claim</code> и откройте напечатанную ссылку.</p>
+      <form id="claim-form" class="command-form">
+        <label>Токен захвата<input id="claim-token" autocomplete="off" required></label>
+        <label>Имя администратора<input id="claim-username" value="admin" maxlength="32" autocomplete="username" required></label>
+        <label>Пароль<small>Не меньше 12 символов. Восстановить его нельзя — только заменить из консоли.</small><input id="claim-password" type="password" minlength="12" autocomplete="new-password" required></label>
+        <label>Повторите пароль<input id="claim-password2" type="password" minlength="12" autocomplete="new-password" required></label>
+        <div class="wizard-actions"><button type="submit" class="primary">Создать администратора</button></div>
+        <p id="claim-error" class="error"></p>
+      </form>
+    </section>
+
+    <section id="step-login" class="wizard-step card hidden">
+      <h2>Продолжение установки</h2>
+      <p class="muted">Администратор уже создан, а токен захвата потрачен. Войдите, чтобы вернуться к незаконченной установке.</p>
+      <form id="login-form" class="command-form">
+        <label>Пользователь<input id="login-username" value="admin" maxlength="32" autocomplete="username" required></label>
+        <label>Пароль<input id="login-password" type="password" minlength="12" autocomplete="current-password" required></label>
+        <label>Одноразовый код<small>Если включён</small><input id="login-otp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"></label>
+        <div class="wizard-actions"><button type="submit" class="primary">Войти</button></div>
+        <p id="login-error" class="error"></p>
+      </form>
+    </section>
+
+    <section id="step-access" class="wizard-step card hidden">
+      <h2>Доступ к панели</h2>
+      <p class="muted">Где панель будет слушать. По умолчанию — только сама машина: снаружи к ней ходят через SSH-туннель, и это самый безопасный вариант.</p>
+      <form id="access-form" class="command-form">
+        <label>Адрес<select id="access-bind">
+          <option value="127.0.0.1">127.0.0.1 — только эта машина (рекомендуется)</option>
+          <option value="0.0.0.0">0.0.0.0 — любой сетевой интерфейс</option>
+        </select></label>
+        <label>Порт<input id="access-port" type="number" min="1" max="65535" value="8080" required></label>
+        <label>Разрешённые имена хостов<small>Через запятую. Запрос с чужим заголовком Host панель отклонит.</small><input id="access-hosts" value="localhost,127.0.0.1" maxlength="255" required></label>
+        <label class="check-row"><input id="access-secure" type="checkbox"> Куки только по HTTPS</label>
+        <p id="access-warning" class="notice warn hidden">Панель станет доступна из сети. Поставьте её за HTTPS-прокси и включите куки только по HTTPS, иначе пароль уйдёт по открытому каналу.</p>
+        <div class="wizard-actions"><button type="submit" class="primary">Сохранить и продолжить</button></div>
+        <p class="muted">Новый адрес заработает после перезапуска панели в конце установки.</p>
+        <p id="access-error" class="error"></p>
+      </form>
+    </section>
+
+    <section id="step-preflight" class="wizard-step card hidden">
+      <h2>Проверка машины</h2>
+      <p class="muted">Всё, что можно проверить до того, как будет создан хоть один файл.</p>
+      <div id="preflight-report"></div>
+      <div class="wizard-actions">
+        <button id="preflight-again">Проверить снова</button>
+        <button id="preflight-next" class="primary">Дальше</button>
+        <button type="button" class="skip-server">Пропустить создание сервера</button>
+      </div>
+    </section>
+
+    <section id="step-version" class="wizard-step card hidden">
+      <h2>Версия игры</h2>
+      <p class="muted">Список берётся с официального сервера обновлений. Для сервера скачивается серверная сборка под Linux, и её контрольная сумма проверяется.</p>
+      <div class="section-title">
+        <label class="inline"><input id="version-unstable" type="checkbox"> Показать нестабильные</label>
+        <div><button id="version-refresh">Обновить список</button></div>
+      </div>
+      <p id="version-stale" class="notice warn hidden"></p>
+      <div id="version-list" class="catalog-grid"></div>
+      <div class="wizard-actions">
+        <button data-goto="preflight">Назад</button>
+        <button id="version-next" class="primary" disabled>Дальше</button>
+        <button type="button" class="skip-server">Пропустить создание сервера</button>
+      </div>
+      <p id="version-error" class="error"></p>
+    </section>
+
+    <section id="step-server" class="wizard-step card hidden">
+      <h2>Настройки сервера</h2>
+      <p class="muted">Всё это можно изменить потом, кроме идентификатора: он задаёт имя каталога и systemd-юнита.</p>
+      <form id="server-form" class="command-form">
+        <div class="wizard-grid">
+          <label>Идентификатор<small>Латиница в нижнем регистре, цифры, «-» и «_»</small><input id="server-id" maxlength="32" required></label>
+          <label>Название в панели<input id="server-title" maxlength="64"></label>
+          <label>Имя сервера в списке<input id="server-name" maxlength="64"></label>
+          <label>Игровой порт<input id="server-port" type="number" min="1024" max="65535" required></label>
+          <label>Максимум игроков<input id="server-players" type="number" min="1" max="512" value="16" required></label>
+          <label>Язык<select id="server-language"></select></label>
+          <label>Название мира<input id="server-world" maxlength="64" value="Новый мир"></label>
+          <label>Зерно мира<small>Пусто — случайное</small><input id="server-seed" maxlength="64"></label>
+          <label>Стиль игры<select id="server-playstyle"></select></label>
+          <label>Описание<input id="server-description" maxlength="256"></label>
+          <label>Каталог серверов<small>Программа, миры, моды и копии. Полный путь без пробелов; родитель должен существовать</small><input id="server-root" maxlength="240" spellcheck="false" autocomplete="off"></label>
+        </div>
+        <label class="check-row"><input id="server-whitelist" type="checkbox"> Только по белому списку</label>
+        <label class="check-row"><input id="server-pvp" type="checkbox" checked> Разрешить PvP</label>
+        <div class="wizard-actions">
+          <button type="button" data-goto="version">Назад</button>
+          <button type="submit" class="primary">Проверить и продолжить</button>
+          <button type="button" class="skip-server">Пропустить создание сервера</button>
+        </div>
+        <p id="server-error" class="error"></p>
+      </form>
+    </section>
+
+    <section id="step-create" class="wizard-step card hidden">
+      <h2>Создание сервера</h2>
+      <p class="muted">Панель скачивает сборку, распаковывает её, регистрирует сервер, ставит systemd-юнит и ждёт первую телеметрию из запущенной игры.</p>
+      <div id="create-summary" class="notice"></div>
+      <ol id="create-progress" class="wizard-progress"></ol>
+      <p id="create-detail" class="muted"></p>
+      <div class="wizard-actions">
+        <button id="create-start" class="primary">Создать сервер</button>
+        <button id="create-finish" class="primary hidden">Завершить установку</button>
+        <button id="create-retry" class="hidden">Изменить настройки</button>
+        <button type="button" id="create-skip" class="skip-server hidden">Пропустить создание сервера</button>
+      </div>
+      <p id="create-error" class="error"></p>
+    </section>
+
+    <section id="step-done" class="wizard-step card hidden">
+      <h2>Готово</h2>
+      <p id="done-detail" class="notice ok"></p>
+      <h3>Что дальше</h3>
+      <ul class="muted">
+        <li id="done-no-server" class="hidden">Создайте сервер в панели: «Обзор» → «Новый сервер».</li>
+        <li>Откройте вкладку «Контент» и установите моды — панель ищет их в официальной базе.</li>
+        <li>На вкладке «Обслуживание» включите расписание резервных копий и watchdog.</li>
+        <li>Игроки подключаются по адресу сервера и порту, указанному при создании.</li>
+      </ul>
+      <div class="wizard-actions"><a id="done-link" class="upload" href="/">Перейти в панель</a></div>
+    </section>
+
+    <div id="toast" class="toast hidden"></div>
+  </main>
+  <script src="/static/setup.js?v=0.2.0"></script>
+</body>
+</html>

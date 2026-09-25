@@ -1,0 +1,54 @@
+#!/bin/sh
+# Консоль игрового сервера для транспорта fifo: создаёт FIFO и заменяет себя сервером,
+# у которого этот FIFO — stdin. Юниты серверов вызывают обёртку по этому пути с этими
+# аргументами.
+#
+# Путь FIFO: /run/имя.fifo или /run/<каталог>/имя.fifo, без «..», «//» и «/./».
+set -eu
+
+fail() {
+    printf '%s\n' "$1" >&2
+    exit 1
+}
+
+valid_fifo() {
+    case $1 in
+        /run/*.fifo) ;;
+        *) return 1 ;;
+    esac
+    case $1 in
+        *//* | */./* | */../* | */.. | */.) return 1 ;;
+    esac
+    rest=${1#/run/}
+    case $rest in
+        */*/*) return 1 ;;
+        /* | */) return 1 ;;
+    esac
+    return 0
+}
+
+[ "$#" -ge 2 ] || fail 'Usage: vs-console-wrapper /run/name.fifo /absolute/program [args...]'
+fifo=$1
+shift
+
+valid_fifo "$fifo" || fail 'Console FIFO must live under /run with a .fifo suffix'
+case $1 in
+    /*) ;;
+    *) fail 'Server executable must be an existing absolute path' ;;
+esac
+[ -e "$1" ] || fail 'Server executable must be an existing absolute path'
+
+# Прежний FIFO заменяется, любой другой файл по этому пути — нет. Символическая ссылка
+# тоже считается другим файлом.
+if [ -L "$fifo" ]; then
+    fail 'Refusing to replace a non-FIFO console path'
+elif [ -e "$fifo" ]; then
+    [ -p "$fifo" ] || fail 'Refusing to replace a non-FIFO console path'
+    rm -f -- "$fifo"
+fi
+
+mkfifo -m 600 -- "$fifo"
+# Открыть на чтение и запись: иначе читатель получил бы EOF, как только отключится
+# первый, кто писал в консоль.
+exec 0<>"$fifo"
+exec "$@"

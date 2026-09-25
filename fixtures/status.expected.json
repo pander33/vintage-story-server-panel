@@ -1,0 +1,22 @@
+{
+  "active": true,
+  "state": "active",
+  "substate": "running",
+  "pid": 4242,
+  "memory": 3221225472,
+  "cpu_ns": 987654321,
+  "restarts": 0,
+  "uptime": 10800,
+  "started": "Sat 2026-09-20 09:00:00 UTC",
+  "started_at": 1758358800.0,
+  "instance": "6f1c4c2a-0000-0000-0000-000000000001:4242:900",
+  "unit": "vintagestory.service",
+  "health": {
+    "checked_at": 1758369600,
+    "instance": "6f1c4c2a-0000-0000-0000-000000000001:4242:900",
+    "active": true,
+    "state": "ready",
+    "detail": "Сервер отвечает, игровая телеметрия актуальна",
+    "failures": 0
+  }
+}

@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Panel.SharedKernel\Panel.SharedKernel.csproj" />
+    <ProjectReference Include="..\Panel.Contracts\Panel.Contracts.csproj" />
+    <ProjectReference Include="..\Panel.Access\Panel.Access.csproj" />
+    <ProjectReference Include="..\Panel.Catalogues\Panel.Catalogues.csproj" />
+    <ProjectReference Include="..\Panel.Configuration\Panel.Configuration.csproj" />
+    <ProjectReference Include="..\Panel.Observability\Panel.Observability.csproj" />
+    <ProjectReference Include="..\Panel.Content\Panel.Content.csproj" />
+    <ProjectReference Include="..\Panel.Fleet\Panel.Fleet.csproj" />
+    <ProjectReference Include="..\Panel.Provisioning\Panel.Provisioning.csproj" />
+    <ProjectReference Include="..\Panel.Maintenance\Panel.Maintenance.csproj" />
+    <ProjectReference Include="..\Panel.Runtime\Panel.Runtime.csproj" />
+    <ProjectReference Include="..\Panel.Agent.Client\Panel.Agent.Client.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <!-- На Windows панель — служба vs-panel: демон перезапускает её после мастера, а
+       диспетчер служб снимает процесс, который не отвечает ему на старт и стоп. Вне
+       службы и на Linux UseWindowsService ничего не делает. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Panel.Contracts.Tests" />
+    <InternalsVisibleTo Include="Panel.Architecture.Tests" />
+  </ItemGroup>
+
+  <!-- Фронтенд едет внутри сборки (ADR-16, ADR-17): поставка по
+       ADR-09 — один файл, а у юнита нет WorkingDirectory, так что wwwroot рядом с ним
+       искался бы в /. Каталоги не вложены, поэтому имени файла хватает для ресурса. -->
+  <ItemGroup>
+    <Content Remove="Static\**" />
+    <None Remove="Static\**" />
+    <EmbeddedResource Include="Static\**" LogicalName="Panel.Web.Static.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>
