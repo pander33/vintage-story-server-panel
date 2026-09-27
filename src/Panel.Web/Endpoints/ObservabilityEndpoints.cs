@@ -10,6 +10,7 @@ using Panel.Contracts;
 using Panel.Contracts.Agent;
 using Panel.Contracts.Http;
 using Panel.Contracts.Privacy;
+using Panel.Configuration.Ports;
 using Panel.Contracts.ServerCommands;
 using Panel.Observability.Domain;
 using Panel.Observability.Ports;
@@ -262,6 +263,37 @@ public static class ObservabilityEndpoints
 			await audit.RecordAsync(http, "player_command", detail, ct).ConfigureAwait(false);
 
 			return PanelResults.Json(sent.Value);
+		});
+
+		// Списки бана и белого списка из файлов игры (ADR-17, интерфейс 2.1 §3). Читаются и у
+		// остановленного сервера: консоль для этого не нужна.
+		routes.MapGet("/api/players/lists", async (
+			HttpContext http,
+			CommandAuthorizer authorizer,
+			IPlayerListStore lists,
+			IServerConfigStore config,
+			CancellationToken ct) =>
+		{
+			var allowed = PanelResults.Authorize(http, authorizer, typeof(ReadPlayerLists), requireCsrf: false);
+			if (!allowed.IsSuccess)
+			{
+				return PanelResults.Refuse(allowed.Failure!);
+			}
+
+			var instance = Instance(http);
+			var read = await lists.ReadAsync(instance, ct).ConfigureAwait(false);
+			if (!read.IsSuccess)
+			{
+				return PanelResults.Refuse(read.Failure!);
+			}
+
+			// Режим белого списка — подсказка к списку, а не условие ответа: без настроек списки
+			// всё равно показываются.
+			var settings = await config.ReadAsync(instance, ct).ConfigureAwait(false);
+			return PanelResults.Json(PlayerListsView.Compose(
+				read.Value,
+				settings.IsSuccess ? settings.Value.Config : null,
+				allowed.Value.HidesAddresses));
 		});
 	}
 

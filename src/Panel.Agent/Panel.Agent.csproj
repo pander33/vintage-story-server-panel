@@ -7,6 +7,7 @@
     <ProjectReference Include="..\Panel.Content\Panel.Content.csproj" />
     <ProjectReference Include="..\Panel.Fleet\Panel.Fleet.csproj" />
     <ProjectReference Include="..\Panel.Provisioning\Panel.Provisioning.csproj" />
+    <ProjectReference Include="..\Panel.Runtime\Panel.Runtime.csproj" />
   </ItemGroup>
 
   <!-- SQLite нужен для согласованного снимка мира при выгрузке, пока

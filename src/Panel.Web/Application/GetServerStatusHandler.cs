@@ -22,6 +22,7 @@ public sealed class GetServerStatusHandler
 	private readonly ReadinessPolicy policy;
 	private readonly ReadinessLog log;
 	private readonly TimeProvider time;
+	private readonly MaintenanceCoordinator coordinator;
 
 	public GetServerStatusHandler(
 		IRegistryStore registry,
@@ -29,7 +30,8 @@ public sealed class GetServerStatusHandler
 		ITelemetryReader telemetry,
 		ReadinessPolicy policy,
 		ReadinessLog log,
-		TimeProvider time)
+		TimeProvider time,
+		MaintenanceCoordinator coordinator)
 	{
 		this.registry = registry;
 		this.runtime = runtime;
@@ -37,6 +39,7 @@ public sealed class GetServerStatusHandler
 		this.policy = policy;
 		this.log = log;
 		this.time = time;
+		this.coordinator = coordinator;
 	}
 
 	public async Task<Result<StatusResponse>> HandleAsync(GetServerStatus query, CancellationToken ct)
@@ -71,7 +74,8 @@ public sealed class GetServerStatusHandler
 				time.GetUtcNow());
 		}
 
-		return Compose(snapshot.Value, verdict, log.RecoveryBlocked(instance));
+		var lease = coordinator.Current(instance);
+		return Compose(snapshot.Value, verdict, log.RecoveryBlocked(instance), lease);
 	}
 
 	/// <summary>
@@ -96,29 +100,39 @@ public sealed class GetServerStatusHandler
 			: Failure.NotFound("Панель не знает ни одного сервера");
 	}
 
-	internal static StatusResponse Compose(ServiceSnapshot service, ReadinessVerdict verdict, string? recoveryBlocked = null) => new()
-	{
-		Active = service.IsActive,
-		State = service.StateText,
-		SubState = service.SubState,
-		Pid = service.Pid,
-		Memory = service.MemoryBytes,
-		CpuNs = service.CpuNanoseconds,
-		Restarts = service.RestartCount,
-		Uptime = (long) service.Uptime.TotalSeconds,
-		Started = service.StartedText,
-		StartedAt = service.StartedAt is { } moment ? UnixTime.ToSeconds(moment) : 0,
-		Instance = service.Identity.Serialize(),
-		Unit = service.Unit,
-		Health = new HealthResponse
+	internal static StatusResponse Compose(
+		ServiceSnapshot service,
+		ReadinessVerdict verdict,
+		string? recoveryBlocked = null,
+		Panel.Maintenance.Domain.MaintenanceLease? lease = null) => new()
 		{
-			CheckedAt = verdict.CheckedAt.ToUnixTimeSeconds(),
-			Instance = verdict.Observed.Serialize(),
-			Active = verdict.ServiceActive,
-			State = verdict.State.ToWire(),
-			Detail = verdict.Detail,
-			Failures = verdict.ConsecutiveFailures,
-			RecoveryBlocked = recoveryBlocked,
-		},
-	};
+			Active = service.IsActive,
+			State = service.StateText,
+			SubState = service.SubState,
+			Pid = service.Pid,
+			Memory = service.MemoryBytes,
+			CpuNs = service.CpuNanoseconds,
+			Restarts = service.RestartCount,
+			Uptime = (long) service.Uptime.TotalSeconds,
+			Started = service.StartedText,
+			StartedAt = service.StartedAt is { } moment ? UnixTime.ToSeconds(moment) : 0,
+			Instance = service.Identity.Serialize(),
+			Unit = service.Unit,
+			Health = new HealthResponse
+			{
+				CheckedAt = verdict.CheckedAt.ToUnixTimeSeconds(),
+				Instance = verdict.Observed.Serialize(),
+				Active = verdict.ServiceActive,
+				State = verdict.State.ToWire(),
+				Detail = verdict.Detail,
+				Failures = verdict.ConsecutiveFailures,
+				RecoveryBlocked = recoveryBlocked,
+			},
+			Maintenance = lease is null ? null : new MaintenanceStatus
+			{
+				Purpose = Panel.Maintenance.Domain.LeasePurposeWire.ToWire(lease.Purpose),
+				Title = LeasePurposeTitles.ToTitle(lease.Purpose),
+				StartedAt = lease.AcquiredAt,
+			},
+		};
 }

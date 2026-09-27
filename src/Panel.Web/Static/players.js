@@ -19,7 +19,17 @@
 
 	// ---------- консоль ----------
 
-	function consoleLine(text, cls = '') {
+	const REPLY_ERROR = /\[(error|fatal|critical)\]/i;
+	const REPLY_WARN = /\[warning\]/i;
+
+	/** Уровень строки — только по явной метке в скобках, не по словам в тексте (§2.2). */
+	function replyLevel(line) {
+		if (REPLY_ERROR.test(line)) return 'error';
+		if (REPLY_WARN.test(line)) return 'warn';
+		return '';
+	}
+
+	function consoleRow(text, cls = '') {
 		const output = $('#console-output');
 		output.querySelector('.quiet:only-child')?.remove();
 		const row = document.createElement('div');
@@ -27,22 +37,45 @@
 		const time = document.createElement('time');
 		time.textContent = fmtTime(Date.now() / 1000);
 		row.append(time, document.createTextNode(text));
-		output.append(row);
+		return row;
+	}
+
+	function consoleLine(text, cls = '') {
+		const output = $('#console-output');
+		output.append(consoleRow(text, cls));
 		while (output.childElementCount > 400) output.firstElementChild.remove();
 		output.scrollTop = output.scrollHeight;
 	}
 
 	function printReply(command, reply) {
-		consoleLine(`> ${command}`, 'sent');
-		if (reply.length) reply.forEach(line => consoleLine(line));
-		else consoleLine('Сервер не вывел ответ за секунду ожидания. Полный вывод — во вкладке «Журнал».', 'quiet');
+		const output = $('#console-output');
+		output.querySelector('.quiet:only-child')?.remove();
+		const block = document.createElement('div');
+		block.className = 'console-block';
+		block.append(consoleRow(`> ${command}`, 'sent'));
+		if (reply.length) {
+			let outcome = 'ok';
+			reply.forEach(line => {
+				const level = replyLevel(line);
+				if (level === 'error') outcome = 'error';
+				else if (level === 'warn' && outcome === 'ok') outcome = 'warn';
+				block.append(consoleRow(line, `reply${level ? ` ${level}` : ""}`));
+			});
+			block.classList.add(outcome);
+		} else {
+			block.append(consoleRow('Сервер не вывел ответ за секунду ожидания. Полный вывод — во вкладке «Журнал».', 'quiet'));
+			block.classList.add('quiet-outcome');
+		}
+		output.append(block);
+		while (output.childElementCount > 400) output.firstElementChild.remove();
+		output.scrollTop = output.scrollHeight;
 	}
 
 	function setConsoleState(available, text) {
 		consoleAvailable = available;
 		$('#console-dot').className = `pulse-dot ${available ? "ok" : "error"}`;
 		$('#console-state').textContent = text;
-		$$('#console-catalog-form button, #console-raw-form button, #console-raw-input').forEach(control => { if (!control.dataset.roleLocked) control.disabled = !available || (control.closest('#console-raw-form') ? !VS.can('admin') : !VS.can('operator')); });
+		$$('#console-catalog-form button, #console-raw-form button, #console-raw-input').forEach(control => { if (!control.dataset.roleLocked && !control.dataset.busyLocked) control.disabled = !available || (control.closest('#console-raw-form') ? !VS.can('admin') : !VS.can('operator')); });
 	}
 
 	function valueControl(item) {
@@ -79,10 +112,129 @@
 		$('#console-catalog-form').classList.toggle('hidden', mode !== 'catalog');
 		$('#console-raw-form').classList.toggle('hidden', mode !== 'raw');
 		if (mode === 'raw') $('#console-raw-input').focus();
+		else closeSuggest();
 	}
 
 	$$('[data-console-mode]').forEach(button => button.addEventListener('click', () => selectConsoleMode(button.dataset.consoleMode)));
 	$('#console-action').addEventListener('change', renderCatalogValue);
+
+	// ---------- очистка и копирование вывода ----------
+
+	$('#console-clear').addEventListener('click', () => {
+		$('#console-output').innerHTML = '<div class="quiet">Ответы сервера появятся здесь.</div>';
+	});
+	$('#console-copy-all').addEventListener('click', () => {
+		const text = $$('#console-output time').map(time => `${time.textContent} ${time.nextSibling?.textContent || ''}`).join('\n');
+		navigator.clipboard?.writeText(text).then(() => toast('Вывод скопирован', 'ok')).catch(() => {});
+	});
+
+	// ---------- закреплённые команды ----------
+
+	const pinsKey = () => `vs-console-pins:${state.current || ''}`;
+	const loadPins = () => { try { return JSON.parse(localStorage.getItem(pinsKey()) || '[]'); } catch { return []; } };
+	const savePins = pins => { try { localStorage.setItem(pinsKey(), JSON.stringify(pins.slice(0, 12))); } catch { /* приватный режим */ } };
+
+	function renderPins() {
+		const pins = loadPins();
+		const box = $('#console-pins');
+		box.hidden = !pins.length;
+		box.innerHTML = pins.map((pin, index) => pin.kind === 'raw'
+			? `<button type="button" data-raw data-pin="${index}" title="Подставить в поле">${esc(pin.label)}</button>`
+			: `<button type="button" data-pin="${index}" title="Отправить">${esc(pin.label)}</button>`).join('');
+	}
+
+	function addPin(pin) {
+		if (pin.kind === 'raw' && !VS.can('admin')) return;
+		const pins = loadPins();
+		if (pins.some(item => item.kind === pin.kind && item.label === pin.label)) return;
+		pins.push(pin);
+		savePins(pins);
+		renderPins();
+	}
+
+	$('#console-pins').addEventListener('click', event => {
+		const button = event.target.closest('[data-pin]');
+		if (!button) return;
+		const pin = loadPins()[Number(button.dataset.pin)];
+		if (!pin) return;
+		if (pin.kind === 'raw') {
+			// Только подстановка в поле: закреплённая произвольная строка не отправляется одним щелчком.
+			selectConsoleMode('raw');
+			$('#console-raw-input').value = pin.command;
+			$('#console-raw-input').focus();
+			return;
+		}
+		const item = catalogue.find(entry => entry.action === pin.action);
+		if (!item) { toast('Действие каталога больше недоступно', 'error'); return; }
+		api('/api/server/action', {method: 'POST', body: {action: pin.action, value: pin.value || ''}})
+			.then(data => printReply(data.command || pin.label, data.reply || []))
+			.catch(error => { consoleLine(`${pin.label}: ${error.message}`, 'fail'); fail(error); });
+	});
+
+	$('#console-pin-catalog').addEventListener('click', () => {
+		const item = catalogue.find(entry => entry.action === $('#console-action').value);
+		if (!item) return;
+		const value = $('#console-value') ? String($('#console-value').value) : '';
+		addPin({kind: 'action', action: item.action, value, label: item.label});
+	});
+	$('#console-pin-raw').addEventListener('click', () => {
+		const command = $('#console-raw-input').value.trim();
+		if (!command) return;
+		addPin({kind: 'raw', command, label: command.length > 24 ? `${command.slice(0, 24)}…` : command});
+	});
+
+	// ---------- автодополнение произвольной консоли ----------
+
+	const consoleCommands = window.VS_CONSOLE_COMMANDS || [];
+	let suggestItems = [], suggestIndex = -1;
+
+	function suggestionsFor(text) {
+		const trimmed = text.trimStart();
+		if (!trimmed.startsWith('/')) return [];
+		const firstSpace = trimmed.indexOf(' ');
+		const head = firstSpace === -1 ? trimmed : trimmed.slice(0, firstSpace);
+		const byHistory = rawHistory.filter(item => item.startsWith(trimmed) && item !== trimmed).slice(-5).reverse()
+			.map(item => ({command: item, syntax: item, description: 'Из истории'}));
+		const byCommand = firstSpace === -1
+			? consoleCommands.filter(item => item.command.startsWith(head))
+			: consoleCommands.filter(item => item.command === head);
+		return [...byHistory, ...byCommand].slice(0, 8);
+	}
+
+	function closeSuggest() {
+		suggestItems = []; suggestIndex = -1;
+		$('#console-suggest').classList.add('hidden');
+		$('#console-raw-input').setAttribute('aria-expanded', 'false');
+	}
+
+	function renderSuggest() {
+		const list = $('#console-suggest');
+		if (!suggestItems.length) { closeSuggest(); return; }
+		list.innerHTML = suggestItems.map((item, index) => `<li role="option" class="${index === suggestIndex ? "active" : ""}" data-index="${index}">${esc(item.syntax)}${item.description ? `<small>${esc(item.description)}</small>` : ""}</li>`).join('');
+		list.classList.remove('hidden');
+		$('#console-raw-input').setAttribute('aria-expanded', 'true');
+		$('#console-raw-syntax').textContent = suggestIndex >= 0 ? suggestItems[suggestIndex].syntax : 'Строка уходит в консоль игры как есть и записывается в аудит. Только для администратора.';
+	}
+
+	function applySuggestion(index) {
+		const item = suggestItems[index];
+		if (!item) return;
+		const input = $('#console-raw-input');
+		input.value = item.command.startsWith('/') && item.syntax !== item.command ? `${item.command} ` : item.command;
+		closeSuggest();
+		input.focus();
+	}
+
+	$('#console-raw-input').addEventListener('input', event => {
+		suggestItems = suggestionsFor(event.target.value);
+		suggestIndex = -1;
+		renderSuggest();
+	});
+
+	$('#console-suggest').addEventListener('click', event => {
+		const item = event.target.closest('[data-index]');
+		if (item) applySuggestion(Number(item.dataset.index));
+	});
 
 	$('#console-catalog-form').addEventListener('submit', async event => {
 		event.preventDefault();
@@ -108,8 +260,20 @@
 	}
 
 	$('#console-raw-input').addEventListener('keydown', event => {
+		const listOpen = suggestItems.length > 0;
+		if (event.key === 'Escape' && listOpen) { closeSuggest(); return; }
+		if ((event.key === 'Tab' || event.key === 'Enter') && listOpen && suggestIndex >= 0) {
+			event.preventDefault();
+			applySuggestion(suggestIndex);
+			return;
+		}
 		if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
 		event.preventDefault();
+		if (listOpen) {
+			suggestIndex = Math.max(0, Math.min(suggestItems.length - 1, suggestIndex + (event.key === 'ArrowUp' ? -1 : 1)));
+			renderSuggest();
+			return;
+		}
 		rawCursor = Math.max(0, Math.min(rawHistory.length, rawCursor + (event.key === 'ArrowUp' ? -1 : 1)));
 		event.target.value = rawHistory[rawCursor] || '';
 	});
@@ -134,12 +298,12 @@
 		players = list;
 		const picked = $('#player-name').value.trim();
 		$('#players-table').innerHTML = list.map(player => `<tr class="clickable${player.name === picked ? " picked" : ""}" data-player="${esc(player.name)}">
-			<td><span class="player-cell"><span class="player-avatar">${esc((player.name || "?").slice(0, 1))}</span><span>${esc(player.name)}<small>${esc(player.role || player.state || "")}</small></span></span></td>
-			<td class="mono">${esc(player.ip || (VS.can("operator") ? "—" : "скрыт"))}</td>
-			<td><b>${player.ping_ms == null ? "—" : `${Number(player.ping_ms).toFixed(0)} мс`}</b></td>
-			<td>${player.average_ping_ms == null ? "—" : `${Number(player.average_ping_ms).toFixed(0)} / ${Number(player.max_ping_ms).toFixed(0)} мс`}</td>
-			<td>${player.jitter_ms == null ? "—" : `${Number(player.jitter_ms).toFixed(1)} мс`}${player.spike_count ? `<small>${esc(player.spike_count)} скач.</small>` : ""}</td>
-			<td><span class="quality ${esc(player.quality || "unavailable")}">${esc(QUALITY[player.quality] || "Нет данных")}</span></td></tr>`).join('') || '<tr><td colspan="6" class="muted">Подключённых игроков нет</td></tr>';
+			<td data-label="Игрок"><span class="player-cell"><span class="player-avatar">${esc((player.name || "?").slice(0, 1))}</span><span>${esc(player.name)}<small>${esc(player.role || player.state || "")}</small></span></span></td>
+			<td class="mono" data-label="Адрес">${esc(player.ip || (VS.can("operator") ? "—" : "скрыт"))}</td>
+			<td data-label="Ping"><b>${player.ping_ms == null ? "—" : `${Number(player.ping_ms).toFixed(0)} мс`}</b></td>
+			<td data-label="Средний / макс.">${player.average_ping_ms == null ? "—" : `${Number(player.average_ping_ms).toFixed(0)} / ${Number(player.max_ping_ms).toFixed(0)} мс`}</td>
+			<td data-label="Jitter">${player.jitter_ms == null ? "—" : `${Number(player.jitter_ms).toFixed(1)} мс`}${player.spike_count ? `<small>${esc(player.spike_count)} скач.</small>` : ""}</td>
+			<td data-label="Качество"><span class="quality ${esc(player.quality || "unavailable")}">${esc(QUALITY[player.quality] || "Нет данных")}</span></td></tr>`).join('') || '<tr><td colspan="6" class="muted">Подключённых игроков нет</td></tr>';
 		$('#player-names').innerHTML = list.map(player => `<option value="${esc(player.name)}">`).join('');
 		const select = $('#ping-player'), selected = select.value;
 		select.innerHTML = '<option value="">Выберите игрока</option>' + list.map(player => `<option value="${esc(player.name)}">${esc(player.name)}</option>`).join('');
@@ -215,6 +379,7 @@
 			toast(`${ACTION_TITLES[action]}: ${player} — команда отправлена`, 'ok');
 			$('#player-detail').value = '';
 			setTimeout(() => loadPlayers().catch(() => {}), 1200);
+			if (['ban', 'unban', 'whitelist-add', 'whitelist-remove'].includes(action)) reloadListsSoon();
 		} catch (error) { fail(error); }
 	});
 
@@ -284,15 +449,106 @@
 	}
 	$('#ping-player').addEventListener('change', () => loadPing().catch(fail));
 
+	// ---------- бан и белый список ----------
+
+	// Списки читаются из файлов игры (GET /api/players/lists), а меняются командами консоли через
+	// /api/players/action: после действия игре нужно время записать файл, поэтому перечитывание — с паузой.
+	let lists = {banned: [], whitelisted: [], whitelist_mode: false, stale: false};
+	let listView = 'banned';
+	let listsTimer = null;
+
+	function listUntil(entry) {
+		if (entry.forever) return 'навсегда';
+		return entry.until ? `до ${VS.fmtDateTime(entry.until)}` : '—';
+	}
+
+	function renderLists() {
+		$('#lists-banned-count').textContent = lists.banned.length;
+		$('#lists-whitelisted-count').textContent = lists.whitelisted.length;
+		for (const button of $$('[data-list]')) {
+			const active = button.dataset.list === listView;
+			button.classList.toggle('active', active);
+			button.setAttribute('aria-pressed', String(active));
+		}
+
+		const mode = $('#lists-mode');
+		mode.className = `notice${lists.stale ? " warn" : ""}${listView === "whitelisted" ? "" : " hidden"}`;
+		mode.textContent = lists.stale
+			? 'Не удалось прочитать serverconfig.json: включён ли белый список, неизвестно.'
+			: lists.whitelist_mode
+				? 'Белый список включён: войти могут только игроки из этого списка.'
+				: 'Белый список выключен в настройках сервера: список хранится, но вход не ограничивает.';
+		$('#whitelist-add-form').classList.toggle('hidden', listView !== 'whitelisted');
+
+		const banned = listView === 'banned';
+		$('#lists-head').innerHTML = banned
+			? '<th>Игрок</th><th>Выдал</th><th>Срок</th><th>Причина</th><th></th>'
+			: '<th>Игрок</th><th>Добавил</th><th></th>';
+		const query = $('#lists-search').value.trim().toLowerCase();
+		const rows = (banned ? lists.banned : lists.whitelisted)
+			.filter(entry => !query || `${entry.player} ${entry.issued_by || ""}`.toLowerCase().includes(query));
+		const action = banned ? 'unban' : 'whitelist-remove';
+		const label = banned ? 'Разблокировать' : 'Убрать';
+		const player = entry => `<td data-label="Игрок"><b>${esc(entry.player)}</b>${entry.uid ? `<small class="mono">${esc(entry.uid)}</small>` : ""}</td>`;
+		const button = entry => `<td><button class="button small" type="button" data-list-action="${action}" data-player="${esc(entry.player)}" data-min-role="operator" data-mutates>${label}</button></td>`;
+		$('#lists-table').innerHTML = rows.map(entry => banned
+			? `<tr>${player(entry)}<td data-label="Выдал">${esc(entry.issued_by || "—")}</td><td data-label="Срок">${esc(listUntil(entry))}</td><td data-label="Причина">${esc(entry.reason || "—")}</td>${button(entry)}</tr>`
+			: `<tr>${player(entry)}<td data-label="Добавил">${esc(entry.issued_by || "—")}</td>${button(entry)}</tr>`).join('')
+			|| `<tr><td colspan="${banned ? 5 : 3}" class="muted">${query ? "Никто не найден" : banned ? "Заблокированных игроков нет" : "Белый список пуст"}</td></tr>`;
+		VS.applyRoles($('#lists-table'));
+		VS.applyBusyLock($('#lists-table'));
+	}
+
+	async function loadLists() {
+		lists = await api('/api/players/lists');
+		renderLists();
+	}
+
+	function reloadListsSoon() {
+		clearTimeout(listsTimer);
+		listsTimer = setTimeout(() => loadLists().catch(() => {}), 1500);
+	}
+
+	async function sendListAction(button, action, player) {
+		await busy(button, () => api('/api/players/action', {method: 'POST', body: {action, player, detail: ''}}));
+		toast(`${ACTION_TITLES[action]}: ${player} — команда отправлена`, 'ok');
+		reloadListsSoon();
+	}
+
+	$$('[data-list]').forEach(button => button.addEventListener('click', () => { listView = button.dataset.list; renderLists(); }));
+	$('#lists-search').addEventListener('input', renderLists);
+	$('#lists-refresh').addEventListener('click', event => busy(event.currentTarget, loadLists).catch(fail));
+
+	$('#lists-table').addEventListener('click', async event => {
+		const button = event.target.closest('[data-list-action]');
+		if (!button) return;
+		const {listAction: action, player} = button.dataset;
+		if (action === 'whitelist-remove' && lists.whitelist_mode
+			&& !await VS.confirmAction(`Убрать ${player} из белого списка?`, 'Белый список включён: игрок не сможет войти, пока его не добавят снова.', 'Убрать', true)) return;
+		try { await sendListAction(button, action, player); } catch (error) { fail(error); }
+	});
+
+	$('#whitelist-add-form').addEventListener('submit', async event => {
+		event.preventDefault();
+		const input = $('#whitelist-add-name'), player = input.value.trim();
+		try {
+			await sendListAction(event.submitter, 'whitelist-add', player);
+			input.value = '';
+		} catch (error) { fail(error); }
+	});
+
 	// ---------- раздел ----------
 
 	VS.on('session', () => {
 		if (!VS.can('admin')) { $('#console-raw-tab').disabled = true; $('#console-raw-tab').title = 'Произвольная консоль доступна только администратору'; }
 	});
 
+	VS.on('instances', renderPins);
+
 	VS.pages.players = {
 		enter(tab) {
 			Promise.all([loadPlayers(), loadCatalogue()]).catch(fail);
+			renderPins();
 			watchPlayerEvents();
 			VS.every('players', 10000, loadPlayers, {page: 'players', now: false});
 			this.tab(tab);
@@ -301,6 +557,7 @@
 			if (view === 'activity') loadChat().catch(fail);
 			else VS.closeStream('chat');
 			if (view === 'quality') loadPing().catch(fail);
+			if (view === 'lists') loadLists().catch(fail);
 		},
 	};
 })();

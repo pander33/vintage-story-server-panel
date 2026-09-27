@@ -188,6 +188,7 @@ public static class Program
 				new WorldSchemaOperations(schemas),
 				new MetricsCollector(service, telemetry, backups),
 				new GameOperations(new GameBackend(staging, TimeProvider.System), service, editor),
+				new PlayerListOperations(new PlayerListsBackend()),
 			],
 			[
 				new RegistryOperations(registry, editor, service),

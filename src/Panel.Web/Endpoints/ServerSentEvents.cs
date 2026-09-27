@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Hosting;
 
 namespace Panel.Web.Endpoints;
 
@@ -16,7 +17,11 @@ public static class ServerSentEvents
 {
 	public const string KeepAlive = ": keep-alive\n\n";
 
-	/// <summary>Заголовки потока. Вызывается до первого кадра.</summary>
+	/// <summary>
+	/// Заголовки потока. Вызывается до первого кадра. Остановка панели обрывает поток: иначе
+	/// Kestrel ждал бы его как незавершённый запрос до <c>ShutdownTimeout</c> (1880 с), и открытая
+	/// вкладка браузера не давала бы остановить службу при обновлении.
+	/// </summary>
 	public static void Begin(HttpContext http)
 	{
 		ArgumentNullException.ThrowIfNull(http);
@@ -24,6 +29,11 @@ public static class ServerSentEvents
 		http.Response.ContentType = "text/event-stream";
 		http.Response.Headers.CacheControl = "no-cache";
 		http.Response.Headers["X-Accel-Buffering"] = "no";
+
+		if (http.RequestServices?.GetService(typeof(IHostApplicationLifetime)) is IHostApplicationLifetime lifetime)
+		{
+			http.Response.RegisterForDispose(lifetime.ApplicationStopping.Register(http.Abort));
+		}
 	}
 
 	/// <summary>Кадр целиком с немедленной отправкой клиенту.</summary>

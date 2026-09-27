@@ -18,6 +18,13 @@ public sealed record SendPlayerCommand : ICommand;
 [Requires(Permission.ObserveServer)]
 public sealed record ReadTelemetry : ICommand;
 
+/// <summary>
+/// Списки забаненных игроков и белого списка (интерфейс 2.1 §3) — то же право, что у онлайн
+/// игроков; UID виден только при <see cref="Permission.SeePlayerAddresses"/>.
+/// </summary>
+[Requires(Permission.ObserveServer)]
+public sealed record ReadPlayerLists : ICommand;
+
 /// <summary>Лента событий сервера доступна любой роли.</summary>
 [Requires(Permission.ObserveServer)]
 public sealed record ReadEvents : ICommand;

@@ -11,3 +11,4 @@ POST /api/provision/import
 GET /api/moddb/mods
 GET /api/moddb/image
 GET /api/world-config/schema
+GET /api/players/lists

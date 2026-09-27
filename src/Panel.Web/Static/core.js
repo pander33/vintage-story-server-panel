@@ -126,7 +126,7 @@ const VS = (() => {
 			if (element.matches('label.button')) element.classList.toggle('is-disabled', !allowed);
 			for (const control of controls) {
 				if (!allowed) { control.disabled = true; control.dataset.roleLocked = '1'; control.title = title; }
-				else if (control.dataset.roleLocked) { control.disabled = false; delete control.dataset.roleLocked; control.title = ''; }
+				else if (control.dataset.roleLocked) { control.disabled = !!control.dataset.busyLocked; delete control.dataset.roleLocked; control.title = ''; }
 			}
 		}
 	}
@@ -135,7 +135,7 @@ const VS = (() => {
 	async function busy(button, action) {
 		if (button) button.disabled = true;
 		try { return await action(); }
-		finally { if (button && !button.dataset.roleLocked) button.disabled = false; }
+		finally { if (button && !button.dataset.roleLocked && !button.dataset.busyLocked) button.disabled = false; }
 	}
 
 	// ---------- диалоги ----------
@@ -214,9 +214,11 @@ const VS = (() => {
 		if (operation.box) return;
 		const box = document.createElement('dialog');
 		box.className = 'dialog small';
-		box.innerHTML = `<div class="dialog-head"><div><span class="eyebrow">ВЫПОЛНЯЕТСЯ</span><h2 data-title>Операция на сервере</h2><p>Не закрывайте страницу, пока операция не завершится.</p></div></div>
-			<div class="dialog-fields"><ol class="progress-steps" data-steps><li class="running">Передача данных и ожидание ответа сервера</li></ol><div class="operation-meter hidden" data-meter><i></i></div><small class="muted" data-elapsed></small></div>`;
+		box.innerHTML = `<div class="dialog-head"><div><span class="eyebrow">ВЫПОЛНЯЕТСЯ</span><h2 data-title>Операция на сервере</h2><p>Операцию можно свернуть в строку статуса и продолжить работать.</p></div></div>
+			<div class="dialog-fields"><ol class="progress-steps" data-steps><li class="running">Передача данных и ожидание ответа сервера</li></ol><div class="operation-meter hidden" data-meter><i></i></div><small class="muted" data-elapsed></small></div>
+			<div class="dialog-actions"><button class="button" type="button" data-collapse>Свернуть в строку статуса</button></div>`;
 		box.addEventListener('cancel', event => event.preventDefault());
+		$('[data-collapse]', box).addEventListener('click', () => closeOperation());
 		document.body.append(box);
 		operation.box = box;
 		box.showModal();
@@ -273,6 +275,205 @@ const VS = (() => {
 		} catch { /* ход не показывается, сама работа от этого не зависит */ }
 	}
 
+	// ---------- строка операций ----------
+
+	/**
+	 * Одна строка под верхней панелью для долгих операций (интерфейс 2.1 §1): занятость сервера
+	 * читается из status.maintenance, не только из операций этого браузера. Пока сервер занят,
+	 * изменяющие кнопки (data-mutates) неактивны.
+	 */
+	// Ключи — имена назначения аренды (LeasePurposeWire): maintenance, watchdog-recovery, update, provision.
+	const activityOutcomes = {
+		update: () => api('/api/updates').then(data => (data.history || [])[0]),
+		maintenance: () => api('/api/automation').then(data => (data.runs || [])[0]),
+	};
+	const activityGoto = {
+		maintenance: ['maintenance', 'schedule'],
+		'watchdog-recovery': ['maintenance', 'watchdog'],
+		update: ['maintenance', 'updates'],
+	};
+	const ACTIVITY_FAILED = ['failed', 'interrupted', 'cancelled'];
+	let activeMaintenance = null;
+	let activityHideTimer = null;
+	let mutationsLocked = false;
+
+	/**
+	 * Блокировка изменяющих кнопок на время аренды. Кнопка, закрытая по роли, остаётся закрытой и
+	 * после снятия: занятость и роль — два независимых замка (data-busy-locked и data-role-locked).
+	 */
+	function applyBusyLock(root = document) {
+		for (const element of $$('[data-mutates]', root)) {
+			if (mutationsLocked) {
+				if (!element.dataset.busyLocked) {
+					element.dataset.busyLocked = '1';
+					element.disabled = true;
+					element.title = 'Сервер занят: дождитесь окончания операции.';
+				}
+			} else if (element.dataset.busyLocked) {
+				delete element.dataset.busyLocked;
+				const role = element.dataset.roleLocked;
+				element.disabled = !!role;
+				element.title = role ? `Нужна роль «${roleTitles[element.dataset.minRole] || ""}»` : '';
+			}
+		}
+	}
+
+	function setBusyLock(locked) {
+		mutationsLocked = locked;
+		applyBusyLock();
+	}
+
+	async function pollActivity() {
+		const bar = $('#activity-bar');
+		if (!bar || bar.classList.contains('hidden')) return;
+		try {
+			const data = await api('/api/operation');
+			const stage = data.active ? (data.stages || [])[data.stage] : null;
+			$('#activity-stage').textContent = stage ? `· ${stage}` : '';
+			const counting = data.active && data.total_bytes > 0;
+			$('#activity-track').hidden = !counting;
+			if (counting) $('#activity-meter').style.width = `${Math.min(100, Math.round((data.done_bytes || 0) * 100 / data.total_bytes))}%`;
+		} catch { /* аренда всё равно источник истины, строка просто не детализируется */ }
+	}
+
+	async function showActivityOutcome(maintenance) {
+		const bar = $('#activity-bar');
+		let ok = true;
+		try {
+			const record = await (activityOutcomes[maintenance.purpose]?.() ?? Promise.resolve(null));
+			if (record?.status) ok = !ACTIVITY_FAILED.includes(record.status);
+		} catch { /* оценка недоступна — считаем успехом по умолчанию */ }
+		bar.classList.remove('hidden', 'running');
+		bar.classList.add(ok ? 'ok' : 'error');
+		$('#activity-dot').className = `pulse-dot ${ok ? "ok" : "error"}`;
+		$('#activity-title').textContent = ok ? '✓ Готово' : '✕ Ошибка';
+		$('#activity-stage').textContent = '';
+		$('#activity-track').hidden = true;
+		$('#activity-time').textContent = '';
+		$('#activity-more').hidden = true;
+		emit('operation-finished');
+		clearTimeout(activityHideTimer);
+		activityHideTimer = setTimeout(() => bar.classList.add('hidden'), 10000);
+	}
+
+	function renderActivityBar(status) {
+		const bar = $('#activity-bar');
+		if (!bar) return;
+		const maintenance = status?.maintenance || null;
+		$('#nav-maintenance').hidden = !maintenance;
+		updateMenuBadge();
+		if (maintenance) {
+			clearTimeout(activityHideTimer);
+			activeMaintenance = maintenance;
+			bar.classList.remove('hidden', 'ok', 'error');
+			bar.classList.add('running');
+			$('#activity-dot').className = 'pulse-dot warn';
+			$('#activity-title').textContent = maintenance.title;
+			$('#activity-time').textContent = fmtAgo(maintenance.started_at);
+			$('#activity-more').hidden = !activityGoto[maintenance.purpose];
+			setBusyLock(true);
+			every('activity', 2000, pollActivity);
+		} else {
+			setBusyLock(false);
+			stopTimer('activity');
+			if (activeMaintenance) { showActivityOutcome(activeMaintenance); activeMaintenance = null; }
+			else bar.classList.add('hidden');
+		}
+	}
+
+	document.addEventListener('DOMContentLoaded', () => {
+		$('#activity-more')?.addEventListener('click', () => {
+			const goto = activityGoto[state.status?.maintenance?.purpose || ''];
+			if (goto) selectPage(goto[0], goto[1]);
+		});
+	});
+
+	on('status', renderActivityBar);
+
+	// ---------- значки меню ----------
+
+	/** Отметка «просмотрено до» — удобство одного зрителя; без неё значок берёт события за сутки. */
+	const eventsSeenKey = () => `vs-events-seen:${state.current || ''}`;
+	const eventsSeen = () => { try { return Number(localStorage.getItem(eventsSeenKey())) || 0; } catch { return 0; } };
+	function markEventsSeen() {
+		try { localStorage.setItem(eventsSeenKey(), String(Date.now() / 1000)); } catch { /* приватный режим */ }
+		$('#nav-logs').hidden = true;
+		updateMenuBadge();
+	}
+
+	async function pollLogsBadge() {
+		if (!can('viewer')) return;
+		const data = await api('/api/events?limit=60&severity=all');
+		const since = eventsSeen() || Date.now() / 1000 - 86400;
+		const fresh = (data.events || []).filter(item => (item.ts || 0) > since);
+		const badge = $('#nav-logs');
+		if (!fresh.length) { badge.hidden = true; return; }
+		const worst = fresh.some(item => item.severity === 'error' || item.severity === 'critical') ? 'error' : 'warn';
+		badge.hidden = false;
+		badge.className = `nav-badge ${worst}`;
+		badge.textContent = fresh.length > 9 ? '9+' : String(fresh.length);
+	}
+
+	async function pollContentBadge() {
+		if (!can('operator')) return;
+		const data = await api('/api/mods');
+		const issues = (data.mods || []).some(mod => (mod.dependency_issues || []).length);
+		$('#nav-content').hidden = !issues;
+	}
+
+	async function pollBackupsBadge() {
+		if (!can('viewer')) return;
+		const data = await api('/api/backups');
+		const latest = (data.backups || []).reduce((max, item) => Math.max(max, item.modified || 0), 0);
+		const stale = !latest || (Date.now() / 1000 - latest) > 48 * 3600;
+		$('#nav-backups').hidden = !stale;
+	}
+
+	async function pollSettingsBadge() {
+		if (!can('admin')) return;
+		const data = await api('/api/config');
+		const applyState = data.apply_state?.state;
+		$('#nav-settings').hidden = applyState !== 'restart_required' && applyState !== 'start_required';
+	}
+
+	const badgePollers = [
+		['badge-logs', 60000, pollLogsBadge],
+		['badge-content', 300000, pollContentBadge],
+		['badge-backups', 600000, pollBackupsBadge],
+		['badge-settings', 60000, pollSettingsBadge],
+	];
+
+	/** Сводная точка на «☰» — самый высокий уровень среди значков меню, чтобы на телефоне было видно, что внутри что-то есть. */
+	function updateMenuBadge() {
+		const visible = $$('.nav-badge:not([hidden])');
+		const toggle = $('#menu-toggle');
+		toggle.classList.remove('has-badge', 'warn', 'error');
+		if (!visible.length) return;
+		toggle.classList.add('has-badge', visible.some(item => item.classList.contains('error')) ? 'error' : 'warn');
+	}
+
+	function startBadgePolling() {
+		for (const [key, ms, action] of badgePollers) every(key, ms, () => action().then(updateMenuBadge).catch(() => {}));
+	}
+	function stopBadgePolling() {
+		for (const [key] of badgePollers) stopTimer(key);
+	}
+	function resetBadges() {
+		$$('.nav-badge').forEach(element => { if (element.id !== 'nav-players' && element.id !== 'nav-maintenance') element.hidden = true; });
+		startBadgePolling();
+	}
+
+	// Вкладка в фоне не опрашивает; при возврате — сразу проверить, не устарел ли значок.
+	document.addEventListener('visibilitychange', () => {
+		if (document.visibilityState === 'hidden') stopBadgePolling();
+		else startBadgePolling();
+	});
+
+	on('instances', resetBadges);
+	document.addEventListener('click', event => {
+		if (event.target.closest('[data-goto="logs:events"], [data-goto="logs:stream"]')) markEventsSeen();
+	});
+
 	// ---------- живые потоки и таймеры ----------
 
 	const live = {streams: new Map(), timers: new Map()};
@@ -312,6 +513,25 @@ const VS = (() => {
 	const pageTitles = {overview: 'Обзор', players: 'Игроки и консоль', logs: 'Журнал и события', content: 'Миры и моды', backups: 'Резервные копии', maintenance: 'Обслуживание', settings: 'Настройки'};
 	const activeTab = {};
 
+	// ---------- мобильное меню ----------
+
+	const isMenuOpen = () => $('#sidebar').classList.contains('open');
+	function openMenu() {
+		$('#sidebar').classList.add('open');
+		$('#sidebar-backdrop').hidden = false;
+		$('#menu-toggle').setAttribute('aria-expanded', 'true');
+		document.body.classList.add('menu-open');
+		$('.nav-item.active', $('#sidebar'))?.focus();
+	}
+	function closeMenu() {
+		if (!isMenuOpen()) return;
+		$('#sidebar').classList.remove('open');
+		$('#sidebar-backdrop').hidden = true;
+		$('#menu-toggle').setAttribute('aria-expanded', 'false');
+		document.body.classList.remove('menu-open');
+		$('#menu-toggle').focus();
+	}
+
 	function selectPage(name, tab = null, {updateHash = true} = {}) {
 		if (!pageTitles[name]) name = 'overview';
 		const previous = state.page;
@@ -320,7 +540,7 @@ const VS = (() => {
 		$$('.page').forEach(element => element.classList.toggle('active', element.id === `page-${name}`));
 		$$('.nav-item').forEach(element => element.classList.toggle('active', element.dataset.page === name));
 		$('#breadcrumb-page').textContent = pageTitles[name];
-		$('#sidebar').classList.remove('open');
+		closeMenu();
 		if (tab) selectTab(name, tab, {silent: true});
 		if (updateHash) history.replaceState(null, '', `#${name}${activeTab[name] ? `/${activeTab[name]}` : ""}`);
 		pages[name]?.enter?.(activeTab[name] || defaultTab(name));
@@ -333,7 +553,7 @@ const VS = (() => {
 		const tabs = $$(`[data-tabs="${group}"] .work-tab`);
 		if (!tabs.some(tab => tab.dataset.view === view)) view = defaultTab(group);
 		if (!view) return;
-		tabs.forEach(tab => { const active = tab.dataset.view === view; tab.classList.toggle('active', active); tab.setAttribute('aria-selected', String(active)); });
+		tabs.forEach(tab => { const active = tab.dataset.view === view; tab.classList.toggle('active', active); tab.setAttribute('aria-selected', String(active)); if (active) tab.scrollIntoView({inline: 'center', block: 'nearest'}); });
 		$$(`[data-panel^="${group}:"]`).forEach(panel => panel.classList.toggle('active', panel.dataset.panel === `${group}:${view}`));
 		activeTab[group] = view;
 		if (state.page === group) history.replaceState(null, '', `#${group}/${view}`);
@@ -411,7 +631,23 @@ const VS = (() => {
 	 * Линейный график в SVG. series — [{values:[число|null], cls}], max — верх шкалы.
 	 * Линии растягиваются по ширине (preserveAspectRatio=none), толщина не искажается.
 	 */
-	function lineChart(container, {series, max, labels = [], marks = [], empty = 'Недостаточно измерений', height = 210, unit = ''}) {
+	const chartResize = new ResizeObserver(entries => {
+		for (const entry of entries) {
+			const container = entry.target;
+			if (container.dataset.redrawing) continue;
+			const args = container.vsChartArgs;
+			if (args) { container.dataset.redrawing = '1'; lineChart(container, args); delete container.dataset.redrawing; }
+		}
+	});
+
+	/**
+	 * Перерисовывает график при смене ширины контейнера (поворот экрана, § 6): последние данные
+	 * запоминаются на самом контейнере, а не в состоянии страницы.
+	 */
+	function lineChart(container, options) {
+		container.vsChartArgs = options;
+		chartResize.observe(container);
+		const {series, max, labels = [], marks = [], empty = 'Недостаточно измерений', height = 210, unit = ''} = options;
 		const length = Math.max(0, ...series.map(item => item.values.length));
 		if (length < 2) { container.innerHTML = `<div class="chart-empty">${esc(empty)}</div>`; return; }
 		const width = 1000, top = 8, bottom = height - 8;
@@ -464,6 +700,7 @@ const VS = (() => {
 		resumeOperation();
 		every('status', 5000, refreshStatus);
 		every('instances', 20000, () => loadInstances().catch(() => {}), {now: false});
+		startBadgePolling();
 		connectTelemetry();
 		emit('session', session);
 		routeFromHash();
@@ -485,7 +722,9 @@ const VS = (() => {
 			const [page, tab] = link.dataset.goto.split(':');
 			selectPage(page, tab);
 		});
-		$('#menu-toggle').addEventListener('click', () => $('#sidebar').classList.toggle('open'));
+		$('#menu-toggle').addEventListener('click', () => (isMenuOpen() ? closeMenu() : openMenu()));
+		$('#sidebar-backdrop').addEventListener('click', closeMenu);
+		document.addEventListener('keydown', event => { if (event.key === 'Escape' && isMenuOpen()) closeMenu(); });
 		window.addEventListener('hashchange', () => { if (!$('#panel-view').classList.contains('hidden')) routeFromHash(); });
 		on('status', updateSystemWidget);
 		on('status-error', updateSystemWidget);
@@ -515,7 +754,7 @@ const VS = (() => {
 
 	return {
 		$, $$, esc, fmtBytes, fmtDuration, fmtDateTime, fmtTime, fmtShortTime, fmtAgo, fmtDay, toDate,
-		state, can, roleTitles, on, emit, toast, fail, api, applyRoles, busy, dialog, confirmAction, modal,
+		state, can, roleTitles, on, emit, toast, fail, api, applyRoles, applyBusyLock, busy, dialog, confirmAction, modal,
 		stream, closeStream, every, stopTimer, pages, selectPage, selectTab,
 		loadInstances, currentServer, selectInstance, refreshStatus, healthTitles, healthLevel,
 		lineChart, timeLabels,

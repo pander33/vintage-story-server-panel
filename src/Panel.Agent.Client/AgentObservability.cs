@@ -4,6 +4,7 @@ using Panel.Contracts.Agent;
 using Panel.Contracts.ServerCommands;
 using Panel.Observability.Domain;
 using Panel.Observability.Ports;
+using Panel.Runtime.Domain;
 using Panel.Runtime.Ports;
 using Panel.SharedKernel;
 
@@ -53,6 +54,32 @@ public sealed class AgentPlayerCommands : IPlayerCommands
 		ArgumentNullException.ThrowIfNull(command);
 		return client.CallAsync<PlayerActionPayload>(AgentProtocol.OpPlayerAction, instance, command.ToArguments(), ct);
 	}
+}
+
+/// <summary>Списки забаненных игроков и белого списка через протокол демона (интерфейс 2.1 §3).</summary>
+public sealed class AgentPlayerListStore : IPlayerListStore
+{
+	private readonly AgentClient client;
+
+	public AgentPlayerListStore(AgentClient client)
+	{
+		ArgumentNullException.ThrowIfNull(client);
+		this.client = client;
+	}
+
+	public async Task<Result<PlayerLists>> ReadAsync(InstanceId instance, CancellationToken ct)
+	{
+		var lists = await client
+			.CallAsync<PlayerListsPayload>(AgentProtocol.OpPlayerLists, instance, [], ct)
+			.ConfigureAwait(false);
+
+		return lists.Map(value => new PlayerLists(
+			[.. value.Banned.Select(ToEntry)],
+			[.. value.Whitelisted.Select(ToEntry)]));
+	}
+
+	private static PlayerListEntry ToEntry(PlayerListEntryPayload item) =>
+		new(item.Player, item.Uid, item.IssuedBy, item.Forever ? null : item.Until, item.Reason);
 }
 
 /// <summary>

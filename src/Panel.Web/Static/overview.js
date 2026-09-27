@@ -261,7 +261,6 @@
 		const jobs = (data.jobs || []).filter(job => job.enabled && job.next_run).sort((a, b) => a.next_run - b.next_run);
 		const box = $('#next-maintenance');
 		const running = data.running;
-		$('#nav-maintenance').hidden = !running;
 		if (running) {
 			box.innerHTML = `<div class="notice warn">Сейчас выполняется: <strong>${esc(running.name)}</strong>, начато ${esc(fmtDateTime(running.started_at))}.</div>`;
 			return;
@@ -276,12 +275,6 @@
 	}
 
 	function stamp() { $('#overview-updated').textContent = `● Данные обновлены ${VS.fmtTime(Date.now() / 1000)}`; }
-
-	function greet() {
-		const hour = new Date().getHours();
-		const part = hour < 5 ? 'Доброй ночи' : hour < 12 ? 'Доброе утро' : hour < 18 ? 'Добрый день' : 'Добрый вечер';
-		$('#greeting').innerHTML = `${esc(part)}, ${esc(state.user)} <span class="heading-spark">✳</span>`;
-	}
 
 	// ---------- создание сервера ----------
 
@@ -420,11 +413,9 @@
 	VS.on('instances', renderServers);
 	VS.on('status', renderStatus);
 	VS.on('telemetry', renderTelemetry);
-	VS.on('session', greet);
 
 	VS.pages.overview = {
 		enter() {
-			greet();
 			renderServers();
 			if (state.status) renderStatus(state.status);
 			if (state.telemetry) renderTelemetry(state.telemetry);

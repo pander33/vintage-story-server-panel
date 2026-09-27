@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#1c1613">
   <title>Vintage Story Panel</title>
@@ -14,6 +14,7 @@
   <script src="/static/core.js?v=0.2.0" defer></script>
   <script src="/static/world-schema.js?v=0.2.0" defer></script>
   <script src="/static/overview.js?v=0.2.0" defer></script>
+  <script src="/static/console-commands.js?v=0.2.0" defer></script>
   <script src="/static/players.js?v=0.2.0" defer></script>
   <script src="/static/logs.js?v=0.2.0" defer></script>
   <script src="/static/dependencies.js?v=0.2.0" defer></script>
@@ -61,17 +62,18 @@
 
   <!-- ===================== панель ===================== -->
   <div class="app-shell hidden" id="panel-view">
+    <div class="sidebar-backdrop" id="sidebar-backdrop" hidden></div>
     <aside class="sidebar" id="sidebar">
       <div class="brand"><div class="brand-mark"><img src="/static/favicon.svg?v=0.2.0" alt=""></div><div><strong>VINTAGE<span>STORY</span></strong><small>SERVER CONTROL</small></div></div>
       <div class="sidebar-caption">РАБОЧЕЕ ПРОСТРАНСТВО</div>
       <nav class="main-nav" aria-label="Основная навигация">
         <button class="nav-item active" type="button" data-page="overview"><svg><use href="#i-grid"/></svg><span>Обзор</span></button>
-        <button class="nav-item" type="button" data-page="players"><svg><use href="#i-users"/></svg><span>Игроки и консоль</span><em id="nav-players" hidden></em></button>
-        <button class="nav-item" type="button" data-page="logs"><svg><use href="#i-terminal"/></svg><span>Журнал и события</span></button>
-        <button class="nav-item" type="button" data-page="content"><svg><use href="#i-box"/></svg><span>Миры и моды</span></button>
-        <button class="nav-item" type="button" data-page="backups"><svg><use href="#i-archive"/></svg><span>Резервные копии</span></button>
-        <button class="nav-item" type="button" data-page="maintenance"><svg><use href="#i-clock"/></svg><span>Обслуживание</span><i id="nav-maintenance" hidden></i></button>
-        <button class="nav-item" type="button" data-page="settings"><svg><use href="#i-settings"/></svg><span>Настройки</span></button>
+        <button class="nav-item" type="button" data-page="players"><svg><use href="#i-users"/></svg><span>Игроки и консоль</span><em class="nav-badge info" id="nav-players" hidden></em></button>
+        <button class="nav-item" type="button" data-page="logs"><svg><use href="#i-terminal"/></svg><span>Журнал и события</span><em class="nav-badge" id="nav-logs" hidden></em></button>
+        <button class="nav-item" type="button" data-page="content"><svg><use href="#i-box"/></svg><span>Миры и моды</span><em class="nav-badge warn dot" id="nav-content" hidden></em></button>
+        <button class="nav-item" type="button" data-page="backups"><svg><use href="#i-archive"/></svg><span>Резервные копии</span><em class="nav-badge warn dot" id="nav-backups" hidden></em></button>
+        <button class="nav-item" type="button" data-page="maintenance"><svg><use href="#i-clock"/></svg><span>Обслуживание</span><em class="nav-badge warn dot" id="nav-maintenance" hidden></em></button>
+        <button class="nav-item" type="button" data-page="settings"><svg><use href="#i-settings"/></svg><span>Настройки</span><em class="nav-badge info dot" id="nav-settings" hidden></em></button>
       </nav>
       <div class="sidebar-bottom">
         <div class="system-label">СОСТОЯНИЕ ПАНЕЛИ</div>
@@ -82,15 +84,24 @@
 
     <div class="workspace">
       <header class="topbar">
-        <div class="topbar-left"><button class="mobile-menu icon-button" id="menu-toggle" type="button" aria-label="Открыть меню">☰</button><span class="breadcrumb">Панель управления</span><span class="breadcrumb-sep">/</span><strong id="breadcrumb-page">Обзор</strong><span class="topbar-server" id="topbar-server">—</span></div>
+        <div class="topbar-left"><button class="mobile-menu icon-button" id="menu-toggle" type="button" aria-label="Открыть меню" aria-expanded="false" aria-controls="sidebar">☰</button><span class="breadcrumb">Панель управления</span><span class="breadcrumb-sep">/</span><strong id="breadcrumb-page">Обзор</strong><span class="topbar-server" id="topbar-server">—</span></div>
         <div class="topbar-right"><span class="local-time" id="local-time"></span><span class="topbar-divider"></span><span class="connection"><span class="pulse-dot" id="connection-dot"></span><span id="connection-text">Подключение…</span></span></div>
       </header>
+
+      <div class="activity-bar hidden" id="activity-bar" role="status" aria-live="polite">
+        <span class="pulse-dot" id="activity-dot"></span>
+        <strong id="activity-title">—</strong>
+        <span class="activity-stage" id="activity-stage"></span>
+        <span class="activity-track" id="activity-track" hidden><i id="activity-meter"></i></span>
+        <span class="activity-time" id="activity-time"></span>
+        <button class="text-button" type="button" id="activity-more" hidden>Подробнее</button>
+      </div>
 
       <main>
         <!-- ===================== обзор ===================== -->
         <section class="page active" id="page-overview">
           <div class="page-heading">
-            <div><div class="eyebrow">КОМАНДНЫЙ ЦЕНТР <span class="eyebrow-line"></span> 01 / 07</div><h1 id="greeting">Добрый день <span class="heading-spark">✳</span></h1><p>Все игровые миры под контролем. Вот что происходит прямо сейчас.</p></div>
+            <div><div class="eyebrow">КОМАНДНЫЙ ЦЕНТР</div><h1>Обзор</h1><p>Серверы, состояние и события.</p></div>
             <div class="heading-actions"><span class="updated" id="overview-updated">● Данные загружаются…</span><button class="button" type="button" id="overview-refresh"><svg><use href="#i-refresh"/></svg> Обновить</button></div>
           </div>
 
@@ -101,7 +112,7 @@
 
           <div class="selected-section-heading">
             <div><div class="eyebrow">ТЕКУЩИЙ СЕРВЕР</div><h2 id="selected-name">—</h2><p id="selected-description">Проверка состояния…</p></div>
-            <div class="server-actions"><button class="button soft" type="button" data-service="start" data-min-role="operator"><svg><use href="#i-play"/></svg> Запустить</button><button class="button" type="button" data-service="restart" data-min-role="operator"><svg><use href="#i-refresh"/></svg> Перезапустить</button><button class="button danger" type="button" data-service="stop" data-min-role="operator"><svg><use href="#i-stop"/></svg> Остановить</button></div>
+            <div class="server-actions"><button class="button soft" type="button" data-service="start" data-min-role="operator" data-mutates><svg><use href="#i-play"/></svg> Запустить</button><button class="button" type="button" data-service="restart" data-min-role="operator" data-mutates><svg><use href="#i-refresh"/></svg> Перезапустить</button><button class="button danger" type="button" data-service="stop" data-min-role="operator" data-mutates><svg><use href="#i-stop"/></svg> Остановить</button></div>
           </div>
           <div class="server-address"><span>АДРЕС ДЛЯ ПОДКЛЮЧЕНИЯ</span><strong id="selected-address">—</strong><button class="text-button" type="button" id="copy-address">Копировать</button></div>
           <div class="server-admin-actions" data-min-role="admin" data-hide-denied><button class="text-button" type="button" id="server-rename">Переименовать</button><button class="text-button" type="button" id="server-forget">Убрать из панели</button><button class="text-button danger-text" type="button" id="server-delete">Удалить с диска</button></div>
@@ -139,21 +150,30 @@
         <section class="page" id="page-players">
           <div class="page-heading"><div><div class="eyebrow">ИГРОВОЙ МИР / ИГРОКИ</div><h1>Игроки и консоль</h1><p>Связь с миром, события игроков и команды выбранного сервера.</p></div><span class="page-counter" id="players-count">— онлайн</span></div>
           <div class="context-line"><span class="pulse-dot" id="telemetry-dot"></span> Команды и события относятся к серверу <strong class="current-server-id">—</strong><span class="context-sep">·</span><span id="telemetry-detail">Телеметрия ожидается</span></div>
-          <div class="work-tabs" role="tablist" data-tabs="players"><button class="work-tab active" type="button" data-view="live">Игроки и консоль</button><button class="work-tab" type="button" data-view="activity">Чат и события</button><button class="work-tab" type="button" data-view="quality">Качество связи</button></div>
+          <div class="work-tabs" role="tablist" data-tabs="players"><button class="work-tab active" type="button" data-view="live">Игроки и консоль</button><button class="work-tab" type="button" data-view="activity">Чат и события</button><button class="work-tab" type="button" data-view="lists">Бан и белый список</button><button class="work-tab" type="button" data-view="quality">Качество связи</button></div>
 
           <section class="work-panel active" data-panel="players:live">
             <div class="players-workspace">
               <article class="surface work-card console-card">
-                <div class="card-header"><div><div class="eyebrow">LIVE / КОНСОЛЬ</div><h3>Команды сервера</h3><p>Ответ сервера читается из журнала сразу после отправки</p></div><span class="stream-state"><span class="pulse-dot" id="console-dot"></span> <span id="console-state">Проверка канала…</span></span></div>
+                <div class="card-header"><div><div class="eyebrow">LIVE / КОНСОЛЬ</div><h3>Команды сервера</h3><p>Ответ сервера читается из журнала сразу после отправки</p></div><span class="stream-state"><span class="pulse-dot" id="console-dot"></span> <span id="console-state">Проверка канала…</span><button class="text-button" type="button" id="console-clear">Очистить</button><button class="text-button" type="button" id="console-copy-all">Копировать всё</button></span></div>
                 <div class="console-modes"><button class="active" type="button" data-console-mode="catalog">Каталог команд</button><button type="button" data-console-mode="raw" id="console-raw-tab">Произвольная команда</button></div>
+                <div class="console-pins" id="console-pins" hidden></div>
                 <div class="console-output" id="console-output" aria-live="polite"><div class="quiet">Ответы сервера появятся здесь.</div></div>
                 <form class="console-form" id="console-catalog-form">
                   <div class="two"><label class="form-field"><span>Действие</span><select id="console-action"></select></label><div class="form-field" id="console-value-field"><span>Значение</span><div id="console-value-slot"></div></div></div>
                   <small class="muted" id="console-action-hint"></small>
-                  <div><button class="button primary" type="submit" data-min-role="operator"><svg><use href="#i-send"/></svg> Отправить команду</button></div>
+                  <div><button class="button primary" type="submit" data-min-role="operator" data-mutates><svg><use href="#i-send"/></svg> Отправить команду</button><button class="icon-button" type="button" id="console-pin-catalog" title="Закрепить это действие" aria-label="Закрепить это действие" data-min-role="operator">☆</button></div>
                 </form>
                 <form class="console-form hidden" id="console-raw-form">
-                  <label class="form-field"><span>Команда Vintage Story</span><div class="console-raw-row"><input id="console-raw-input" autocomplete="off" spellcheck="false" maxlength="500" placeholder="Например, /time set noon"><button class="button primary" type="submit"><svg><use href="#i-send"/></svg> Отправить</button></div><small>Строка уходит в консоль игры как есть и записывается в аудит. Только для администратора. ↑ и ↓ листают историю.</small></label>
+                  <label class="form-field"><span>Команда Vintage Story</span>
+                    <div class="console-raw-row combobox-wrap">
+                      <input id="console-raw-input" autocomplete="off" spellcheck="false" maxlength="500" placeholder="Например, /time set noon" role="combobox" aria-expanded="false" aria-controls="console-suggest" aria-autocomplete="list">
+                      <button class="icon-button" type="button" id="console-pin-raw" title="Закрепить текущий текст" aria-label="Закрепить текущий текст">☆</button>
+                      <button class="button primary" type="submit" data-mutates><svg><use href="#i-send"/></svg> Отправить</button>
+                      <ul class="console-suggest hidden" id="console-suggest" role="listbox"></ul>
+                    </div>
+                    <small class="muted" id="console-raw-syntax">Строка уходит в консоль игры как есть и записывается в аудит. Только для администратора. ↑ и ↓ листают историю.</small>
+                  </label>
                 </form>
               </article>
               <article class="surface work-card">
@@ -167,12 +187,12 @@
                 <h3>Действия с игроком</h3><p class="muted-copy">Белый список, блокировка, права и игровой режим. Строку собирает демон, а не браузер.</p>
                 <form id="player-action-form">
                   <div class="form-grid"><label class="form-field"><span>Игрок</span><input id="player-name" maxlength="32" pattern="[A-Za-z0-9_\-]{1,32}" placeholder="Имя игрока" required list="player-names"><datalist id="player-names"></datalist></label><label class="form-field"><span>Действие</span><select id="player-action"><option value="kick">Отключить</option><option value="ban">Заблокировать</option><option value="unban">Разблокировать</option><option value="whitelist-add">Добавить в whitelist</option><option value="whitelist-remove">Убрать из whitelist</option><option value="op">Выдать оператора</option><option value="deop">Снять оператора</option><option value="gamemode">Сменить игровой режим</option></select></label><label class="form-field span-all" id="player-detail-field"><span>Причина</span><input id="player-detail" maxlength="160" placeholder="Необязательно"></label><label class="form-field span-all hidden" id="player-mode-field"><span>Игровой режим</span><select id="player-mode"><option value="survival">Выживание</option><option value="creative">Творческий</option><option value="spectator">Наблюдатель</option><option value="guest">Гость</option></select></label></div>
-                  <div class="inline-actions"><button class="button primary" type="submit" data-min-role="operator">Выполнить действие</button></div>
+                  <div class="inline-actions"><button class="button primary" type="submit" data-min-role="operator" data-mutates>Выполнить действие</button></div>
                 </form>
               </article>
               <article class="surface work-card">
                 <h3>Объявление всем игрокам</h3><p class="muted-copy">Сообщение появится в игре у всех подключённых. Ответить конкретному игроку односторонний канал не позволяет.</p>
-                <form class="inline-form" id="announce-form"><input id="announce-text" maxlength="300" placeholder="Например, сервер перезапустится через 10 минут" required><button class="button primary" type="submit" data-min-role="operator">Отправить</button></form>
+                <form class="inline-form" id="announce-form"><input id="announce-text" maxlength="300" placeholder="Например, сервер перезапустится через 10 минут" required><button class="button primary" type="submit" data-min-role="operator" data-mutates>Отправить</button></form>
                 <h3 class="subheading">Входы и выходы</h3>
                 <div class="event-feed" id="player-events"></div>
               </article>
@@ -185,6 +205,18 @@
               <div class="filter-row"><label class="form-field"><span>Тип событий</span><select id="chat-kind"><option value="all">Все события</option><option value="chat">Чат</option><option value="join">Входы</option><option value="leave">Выходы</option><option value="death">Смерти</option><option value="respawn">Возрождения</option></select></label><label class="form-field"><span>Поиск</span><input id="chat-search" type="search" maxlength="120" placeholder="Игрок или текст"></label><button class="button" type="button" id="chat-refresh"><svg><use href="#i-refresh"/></svg> Обновить</button></div>
               <div class="notice hidden" id="chat-support"></div>
               <div class="event-feed" id="chat-feed"></div>
+            </article>
+          </section>
+
+          <section class="work-panel" data-panel="players:lists">
+            <article class="surface work-card">
+              <div class="card-header"><div><h3>Бан и белый список</h3><p id="lists-source">Файлы игры в каталоге Playerdata; читаются и у остановленного сервера</p></div><button class="button small" type="button" id="lists-refresh"><svg><use href="#i-refresh"/></svg> Обновить</button></div>
+              <div class="notice hidden" id="lists-mode"></div>
+              <div class="console-modes" role="group" aria-label="Список"><button class="active" type="button" data-list="banned" aria-pressed="true">Заблокированные · <span id="lists-banned-count">0</span></button><button type="button" data-list="whitelisted" aria-pressed="false">Белый список · <span id="lists-whitelisted-count">0</span></button></div>
+              <div class="filter-row"><label class="form-field"><span>Поиск</span><input id="lists-search" type="search" maxlength="32" placeholder="Имя игрока или кто выдал"></label></div>
+              <div class="table-wrap"><table><thead><tr id="lists-head"></tr></thead><tbody id="lists-table"></tbody></table></div>
+              <form class="inline-form hidden" id="whitelist-add-form" data-min-role="operator"><input id="whitelist-add-name" maxlength="32" pattern="[A-Za-z0-9_\-]{1,32}" placeholder="Имя игрока" required aria-label="Имя игрока"><button class="button primary" type="submit" data-mutates>Добавить в белый список</button></form>
+              <p class="muted-copy">Снять бан и убрать из белого списка можно только у запущенного сервера: команду выполняет игра. Список перечитывается после действия.</p>
             </article>
           </section>
 

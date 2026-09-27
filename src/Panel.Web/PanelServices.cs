@@ -92,6 +92,7 @@ public static class PanelServices
 		services.AddSingleton<IWorldSchemaStore>(_ => new AgentWorldSchemaStore(agent));
 		services.AddSingleton<ILiveWorldConfig>(_ => new AgentLiveWorldConfig(agent));
 		services.AddSingleton<IPlayerCommands>(_ => new AgentPlayerCommands(agent));
+		services.AddSingleton<IPlayerListStore>(_ => new AgentPlayerListStore(agent));
 		services.AddSingleton<IGameEventFeed>(_ => new AgentGameEventFeed(agent));
 		services.AddSingleton<ITelemetrySource>(_ => new AgentTelemetrySource(agent));
 		services.AddSingleton<IMetricsSource>(_ => new AgentMetricsSource(agent));

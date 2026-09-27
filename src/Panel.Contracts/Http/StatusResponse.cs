@@ -21,6 +21,22 @@ public sealed record StatusResponse
 	[JsonPropertyName("instance")] public required string Instance { get; init; }
 	[JsonPropertyName("unit")] public required string Unit { get; init; }
 	[JsonPropertyName("health")] public required HealthResponse Health { get; init; }
+
+	/// <summary>
+	/// Занят ли сервер долгой операцией (строка операций, интерфейс 2.1 §1); <c>null</c>, если
+	/// свободен. Поле дополняющее (ADR-16).
+	/// </summary>
+	[JsonPropertyName("maintenance")]
+	[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+	public MaintenanceStatus? Maintenance { get; init; }
+}
+
+/// <summary>Кем и с какого момента занят сервер — для строки операций.</summary>
+public sealed record MaintenanceStatus
+{
+	[JsonPropertyName("purpose")] public required string Purpose { get; init; }
+	[JsonPropertyName("title")] public required string Title { get; init; }
+	[JsonPropertyName("started_at")] public required long StartedAt { get; init; }
 }
 
 /// <summary>

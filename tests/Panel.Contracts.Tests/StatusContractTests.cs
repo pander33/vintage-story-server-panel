@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Panel.Contracts;
 using Panel.Runtime.Domain;
+using Panel.SharedKernel;
 using Panel.Web.Application;
 
 namespace Panel.Contracts.Tests;
@@ -57,6 +58,36 @@ public sealed class StatusContractTests
 
 		JsonShape.AssertSameShape(Fixture("status.expected.json"), json);
 		Assert.Equal("unknown", response.Health.State);
+	}
+
+	/// <summary>Поле maintenance — дополняющее (интерфейс 2.1 §1): отсутствует, пока сервер свободен.</summary>
+	[Fact]
+	public void Maintenance_отсутствует_пока_сервер_свободен()
+	{
+		var json = JsonSerializer.Serialize(Response(), PanelJson.Options);
+
+		Assert.DoesNotContain("\"maintenance\"", json, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public void Maintenance_содержит_назначение_и_подпись_занятой_аренды()
+	{
+		var instance = InstanceId.Create("main").Value;
+		var lease = Panel.Maintenance.Domain.MaintenanceLease.Acquire(
+			Panel.Maintenance.Domain.LeasePurpose.Update,
+			instance,
+			new Panel.Maintenance.Domain.LeaseHolder("boot", 1, 2),
+			now.ToUnixTimeSeconds());
+
+		var response = GetServerStatusHandler.Compose(
+			ServiceSnapshot.Stopped with { Unit = "vintagestory.service" },
+			ReadinessVerdict.NotCheckedYet(now),
+			lease: lease);
+
+		Assert.NotNull(response.Maintenance);
+		Assert.Equal("update", response.Maintenance!.Purpose);
+		Assert.Equal("Обновление", response.Maintenance.Title);
+		Assert.Equal(now.ToUnixTimeSeconds(), response.Maintenance.StartedAt);
 	}
 
 	private static Contracts.Http.StatusResponse Response()

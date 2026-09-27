@@ -81,6 +81,7 @@ public static class AgentProtocol
 	// Игроки и лента событий игры.
 	public const string OpPlayerAction = "player-action";
 	public const string OpGameEvents = "game-events";
+	public const string OpPlayerLists = "players-lists";
 
 	// Замер для истории метрик: служба, память, диск, мир, копии и телеметрия разом.
 	public const string OpMetrics = "metrics";

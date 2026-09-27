@@ -63,6 +63,19 @@ public sealed class MaintenanceCoordinator
 	}
 
 	/// <summary>
+	/// Аренда, занимающая указанный сервер, или <c>null</c>, если он свободен. Не захватывает и
+	/// не освобождает аренду — только читает её для строки операций (детализация интерфейса 2.1
+	/// §1).
+	/// </summary>
+	public MaintenanceLease? Current(InstanceId instance)
+	{
+		lock (sync)
+		{
+			return held is { } lease && lease.Instance == instance ? lease.Record : null;
+		}
+	}
+
+	/// <summary>
 	/// Аренда или <c>null</c>, если панель уже занята другой операцией этого или другого живого
 	/// процесса. Если файл не удалось записать, это тоже отказ: без записи на диске после аварии
 	/// не было бы видно, что операция шла.
