@@ -128,6 +128,7 @@ public static partial class SetupEndpoints
 				return PanelResults.Refuse(StatusCodes.Status409Conflict, "Сначала пройдите предыдущий шаг мастера установки");
 			}
 
+			string? firewallWarning = null;
 			foreach (var (key, value) in access.Value.Values)
 			{
 				// Значение проверяется и здесь, чтобы оператор получил понятное «неверный адрес», а не отказ
@@ -143,6 +144,8 @@ public static partial class SetupEndpoints
 				{
 					return Upstream(written.Failure!);
 				}
+
+				firewallWarning = written.Value.FirewallWarning ?? firewallWarning;
 			}
 
 			var remembered = await setup.ChangeAsync(journey => journey.RememberAccess(access.Value), ct).ConfigureAwait(false);
@@ -158,6 +161,7 @@ public static partial class SetupEndpoints
 				["published"] = access.Value.Published,
 				["restart_required"] = true,
 				["url"] = access.Value.Url,
+				["firewall_warning"] = firewallWarning,
 			});
 		});
 

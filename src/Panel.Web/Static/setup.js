@@ -63,6 +63,9 @@ $('#claim-form').addEventListener('submit', async event => {
 
 // ----- шаг 2: доступ -------------------------------------------------------------
 
+// Предупреждение демона о брандмауэре после сохранения доступа: показывается в отчёте проверки.
+let accessNotice = '';
+
 function updatePublishWarning() {
 	$('#access-warning').classList.toggle('hidden', $('#access-bind').value === '127.0.0.1');
 }
@@ -74,12 +77,13 @@ $('#access-form').addEventListener('submit', async event => {
 	const button = event.submitter;
 	if (button) button.disabled = true;
 	try {
-		await api('/api/setup/access', {method: 'POST', body: {
+		const saved = await api('/api/setup/access', {method: 'POST', body: {
 			bind: $('#access-bind').value,
 			port: Number($('#access-port').value),
 			allowed_hosts: $('#access-hosts').value,
 			secure_cookie: $('#access-secure').checked,
 		}});
+		accessNotice = (saved && saved.firewall_warning) || '';
 		await runPreflight('');
 		show('preflight');
 	} catch (error) { $('#access-error').textContent = error.message; }
@@ -105,6 +109,7 @@ function renderPreflight(report) {
 	}
 	for (const blocker of report.blockers || []) rows.push(item('error', 'Препятствие', escapeHtml(blocker)));
 	for (const warning of report.warnings || []) rows.push(item('warn', 'Предупреждение', escapeHtml(warning)));
+	if (accessNotice) rows.push(item('warn', 'Брандмауэр', escapeHtml(accessNotice)));
 	$('#preflight-report').innerHTML = rows.join('');
 	$('#preflight-next').disabled = !report.ok;
 	return report;
@@ -380,9 +385,9 @@ async function loadSummary() {
 	summary = await api('/api/setup/summary');
 	const access = summary.access || {};
 	const draft = summary.draft || {};
-	$('#access-bind').value = (draft.access && draft.access.PANEL_BIND) || access.bind || '127.0.0.1';
+	$('#access-bind').value = (draft.access && draft.access.PANEL_BIND) || access.bind || '0.0.0.0';
 	$('#access-port').value = (draft.access && draft.access.PANEL_PORT) || access.port || 8080;
-	$('#access-hosts').value = (draft.access && draft.access.PANEL_ALLOWED_HOSTS) || access.allowed_hosts || 'localhost,127.0.0.1';
+	$('#access-hosts').value = (draft.access && draft.access.PANEL_ALLOWED_HOSTS) || access.allowed_hosts || '*';
 	$('#access-secure').checked = (draft.access ? draft.access.PANEL_SECURE_COOKIE === 'true' : Boolean(access.secure_cookie));
 	updatePublishWarning();
 	if (draft.server && draft.server.version) chosen = draft.server.version;

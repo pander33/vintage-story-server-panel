@@ -55,14 +55,14 @@
 
     <section id="step-access" class="wizard-step card hidden">
       <h2>Доступ к панели</h2>
-      <p class="muted">Где панель будет слушать. По умолчанию — только сама машина: снаружи к ней ходят через SSH-туннель, и это самый безопасный вариант.</p>
+      <p class="muted">Где панель будет слушать. По умолчанию — все сетевые интерфейсы: панель видна из локальной сети, порт в брандмауэре открыт только для неё и следует за сменой адреса и порта. Безопаснее оставить только эту машину и ходить через SSH-туннель. Открыть панель интернету — при установке: <code>vs-panel repair --access internet</code>.</p>
       <form id="access-form" class="command-form">
         <label>Адрес<select id="access-bind">
-          <option value="127.0.0.1">127.0.0.1 — только эта машина (рекомендуется)</option>
-          <option value="0.0.0.0">0.0.0.0 — любой сетевой интерфейс</option>
+          <option value="0.0.0.0">0.0.0.0 — все интерфейсы, видна в локальной сети (по умолчанию)</option>
+          <option value="127.0.0.1">127.0.0.1 — только эта машина</option>
         </select></label>
         <label>Порт<input id="access-port" type="number" min="1" max="65535" value="8080" required></label>
-        <label>Разрешённые имена хостов<small>Через запятую. Запрос с чужим заголовком Host панель отклонит.</small><input id="access-hosts" value="localhost,127.0.0.1" maxlength="255" required></label>
+        <label>Разрешённые имена хостов<small>Через запятую. Звёздочка разрешает любой хост. Запрос с чужим заголовком Host панель отклонит.</small><input id="access-hosts" value="*" maxlength="255" required></label>
         <label class="check-row"><input id="access-secure" type="checkbox"> Куки только по HTTPS</label>
         <p id="access-warning" class="notice warn hidden">Панель станет доступна из сети. Поставьте её за HTTPS-прокси и включите куки только по HTTPS, иначе пароль уйдёт по открытому каналу.</p>
         <div class="wizard-actions"><button type="submit" class="primary">Сохранить и продолжить</button></div>

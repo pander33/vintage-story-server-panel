@@ -4,6 +4,9 @@ rem Первый шаг установки панели на Windows — дво�
 rem   install.cmd                      установить или обновить
 rem   install.cmd --no-server          не создавать первый игровой сервер
 rem   install.cmd --servers-dir D:\vs-servers   каталог игровых серверов (иначе спросит при первой установке)
+rem   install.cmd --access internet    панель открыта и из интернета (по умолчанию lan — локальная сеть)
+rem   install.cmd --access localhost   панель только на этой машине
+rem   install.cmd --port 9000          порт панели; также --bind, --allowed-hosts, --secure-cookie, --firewall
 rem Всё остальное делает vs-panel install (Panel.Cli.exe) из этого же каталога.
 setlocal
 

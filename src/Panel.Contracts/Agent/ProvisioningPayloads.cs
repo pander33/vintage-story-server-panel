@@ -115,6 +115,12 @@ public sealed record PanelEnvironmentSetPayload
 	[JsonPropertyName("key")] public string Key { get; init; } = string.Empty;
 
 	[JsonPropertyName("panel_restart_required")] public bool PanelRestartRequired { get; init; } = true;
+
+	/// <summary>
+	/// Новое в 2.0: правило брандмауэра для порта панели не удалось привести к новому адресу или
+	/// порту. Строка записана; <see langword="null"/> — с брандмауэром всё в порядке или он не менялся.
+	/// </summary>
+	[JsonPropertyName("firewall_warning")] public string? FirewallWarning { get; init; }
 }
 
 /// <summary>

@@ -87,6 +87,19 @@ public sealed class ManageCommandsTests : IDisposable
 		Assert.NotNull(ClaimToken.Create(File.ReadAllText(Options.SetupTokenPath)));
 	}
 
+	/// <summary>
+	/// Панель слушает все адреса — ссылку печатают и по адресам машины в сети: с сервера без
+	/// рабочего стола мастер открывают с другого компьютера.
+	/// </summary>
+	[Fact]
+	public void Ссылка_мастера_по_адресам_в_сети()
+	{
+		var machine = new[] { System.Net.IPAddress.Loopback, System.Net.IPAddress.Parse("192.168.1.10") };
+
+		Assert.Equal(["http://192.168.1.10:8181/setup?token=abc"], ManageCommands.NetworkSetupLinks(Options, "abc", machine));
+		Assert.Empty(ManageCommands.NetworkSetupLinks(Options with { Bind = "127.0.0.1" }, "abc", machine));
+	}
+
 	[Fact]
 	public async Task Новый_токен_отменяет_прежний()
 	{

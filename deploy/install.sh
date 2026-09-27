@@ -6,6 +6,9 @@
 #   sudo sh install.sh                      установить или обновить
 #   sudo VS_PANEL_CREATE_SERVER=0 sh install.sh    не создавать первый сервер
 #   sudo sh install.sh --servers-dir /data/vs-servers   каталог игровых серверов
+#   sudo sh install.sh --access internet    панель открыта и из интернета (по умолчанию lan)
+#   sudo sh install.sh --access localhost   только эта машина, доступ через SSH-туннель
+#   sudo sh install.sh --port 9000 --secure-cookie true   отдельные строки vs-panel.env
 set -eu
 
 fail() {

@@ -81,19 +81,8 @@ internal sealed partial class PanelCommands
 	/// <summary>Адрес панели, а до завершения мастера ещё и одноразовая ссылка на него.</summary>
 	public async Task<int> AccessAsync()
 	{
-		var environment = EnvironmentFile.Load(this.host.Paths.PanelEnv);
-		var bind = EnvironmentFile.Value(environment, "PANEL_BIND", "127.0.0.1");
-		var port = EnvironmentFile.Value(environment, "PANEL_PORT", "8080");
-		if (bind is "127.0.0.1" or "localhost" or "::1")
-		{
-			Output.WriteLine($"Панель слушает только эту машину: {bind}:{port}");
-			Output.WriteLine($"С рабочего компьютера откройте туннель и затем http://127.0.0.1:{port}/");
-			Output.WriteLine($"  ssh -L {port}:127.0.0.1:{port} {Environment.GetEnvironmentVariable("SUDO_USER") ?? "user"}@{Environment.MachineName}\n");
-		}
-		else
-		{
-			Output.WriteLine($"Панель опубликована: http://{bind}:{port}/\n");
-		}
+		PanelAccess.Print(Output, EnvironmentFile.Load(this.host.Paths.PanelEnv), PanelAccess.MachineAddresses(), tunnel: true);
+		Output.WriteLine();
 
 		if (this.host.SetupCompleted())
 		{

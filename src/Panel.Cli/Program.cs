@@ -28,6 +28,18 @@ public static class Program
 		                             состояние, настройки и пользователя vs-panel
 		  version                    версия этой команды и активная версия панели
 
+		Доступ к панели — при install, update и repair; не заданное не меняется:
+		  --access localhost|lan|internet
+		                             localhost — только эта машина (SSH-туннель); lan — все
+		                             интерфейсы и любое имя, порт открыт сети (умолчание);
+		                             internet — все интерфейсы, порт открыт всем
+		  --bind <адрес>  --port <порт>  --allowed-hosts <имена через запятую, * — любые>
+		  --secure-cookie true|false  куки только по HTTPS (нужен HTTPS-прокси перед панелью)
+		  --firewall lan|internet|off кому открыть порт панели в ufw; off — правила ведёте вы
+		  То же переменными: VS_PANEL_ACCESS, VS_PANEL_BIND, VS_PANEL_PORT,
+		  VS_PANEL_ALLOWED_HOSTS, VS_PANEL_SECURE_COOKIE, VS_PANEL_FIREWALL.
+		  Пример: sudo vs-panel repair --access internet
+
 		Панель:
 		  status                     состояние демона и панели
 		  start | stop | restart     запуск, остановка, перезапуск панели с ожиданием результата
@@ -65,6 +77,18 @@ public static class Program
 		                             удалить службы панели; --purge удаляет также программу,
 		                             состояние и настройки
 		  version                    версия этой команды и активная версия панели
+
+		Доступ к панели — при install, update и repair; не заданное не меняется:
+		  --access localhost|lan|internet
+		                             localhost — только эта машина (SSH-туннель); lan — все
+		                             интерфейсы и любое имя, порт открыт сети (умолчание);
+		                             internet — все интерфейсы, порт открыт всем
+		  --bind <адрес>  --port <порт>  --allowed-hosts <имена через запятую, * — любые>
+		  --secure-cookie true|false  куки только по HTTPS (нужен HTTPS-прокси перед панелью)
+		  --firewall lan|internet|off кому открыть порт панели в брандмауэре Windows; off — правила ведёте вы
+		  То же переменными: VS_PANEL_ACCESS, VS_PANEL_BIND, VS_PANEL_PORT,
+		  VS_PANEL_ALLOWED_HOSTS, VS_PANEL_SECURE_COOKIE, VS_PANEL_FIREWALL.
+		  Пример: vs-panel repair --access internet
 
 		Панель:
 		  status                     состояние служб демона и панели

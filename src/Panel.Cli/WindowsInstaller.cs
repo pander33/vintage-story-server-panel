@@ -5,6 +5,7 @@ using System.Security.AccessControl;
 using System.Security.Principal;
 using Panel.Fleet.Domain;
 using Panel.Fleet.Infrastructure;
+using Panel.Provisioning.Domain;
 
 namespace Panel.Cli;
 
@@ -104,12 +105,25 @@ internal sealed class WindowsInstaller
 		this.host.Step("Настройки, реестр, права");
 		SeedRegistry();
 		WriteFile(Paths.PanelConfig, Templates.KeepChosenPaths(Templates.WindowsPanelConfig(Paths.DataRoot), ReadOrNull(Paths.PanelConfig)));
-		if (!File.Exists(Paths.PanelEnv))
+		var existed = File.Exists(Paths.PanelEnv);
+		var previous = existed ? PanelListener.FromEnvironment(this.host.PanelEnvironment()) : null;
+		if (!existed || options.PanelEnvironment.Count > 0)
 		{
-			WriteFile(Paths.PanelEnv, Templates.WindowsPanelEnvironment(Paths.DataRoot));
+			var text = existed ? File.ReadAllText(Paths.PanelEnv) : Templates.WindowsPanelEnvironment(Paths.DataRoot);
+			WriteFile(Paths.PanelEnv, PanelAccess.Rewrite(text, options.PanelEnvironment));
 		}
 
 		RestrictDataAccess();
+		this.host.Step("Доступ к панели и брандмауэр");
+		var firewall = await PanelAccess.ApplyWindowsAsync(previous, PanelListener.FromEnvironment(this.host.PanelEnvironment())).ConfigureAwait(false);
+		if (firewall is { Failed: true })
+		{
+			this.host.Warn(firewall.Message);
+		}
+		else if (firewall is not null)
+		{
+			Output.WriteLine(firewall.Message);
+		}
 		if (!options.Repair)
 		{
 			await InstallTelemetryAsync(artifact.Value).ConfigureAwait(false);
@@ -660,8 +674,8 @@ internal sealed class WindowsInstaller
 
 	private void PrintSummary(int serverPort)
 	{
-		var address = PanelState.LocalAddress(this.host.PanelEnvironment());
-		Output.WriteLine($"\nПанель установлена: {address}");
+		Output.WriteLine("\nПанель установлена.");
+		PanelAccess.Print(Output, this.host.PanelEnvironment(), PanelAccess.MachineAddresses(), tunnel: false);
 		Output.WriteLine("Ярлык «Vintage Story Panel» — в меню «Пуск» и на рабочем столе.");
 		if (serverPort > 0)
 		{

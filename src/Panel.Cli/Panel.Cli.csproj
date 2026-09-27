@@ -4,6 +4,7 @@
     <ProjectReference Include="..\Panel.SharedKernel\Panel.SharedKernel.csproj" />
     <ProjectReference Include="..\Panel.Contracts\Panel.Contracts.csproj" />
     <ProjectReference Include="..\Panel.Fleet\Panel.Fleet.csproj" />
+    <ProjectReference Include="..\Panel.Provisioning\Panel.Provisioning.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

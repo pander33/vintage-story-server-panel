@@ -1,4 +1,5 @@
 using System.Globalization;
+using Panel.Provisioning.Domain;
 using Panel.SharedKernel;
 
 namespace Panel.Cli;
@@ -46,6 +47,59 @@ internal sealed record InstallOptions
 
 	/// <summary>Windows: открыть мастер установки в браузере; с <c>--no-browser</c> только напечатать ссылку.</summary>
 	public bool OpenBrowser { get; init; } = true;
+
+	/// <summary>
+	/// Строки <c>vs-panel.env</c>, которые оператор задал при установке: <c>--access</c>,
+	/// <c>--bind</c>, <c>--port</c>, <c>--allowed-hosts</c>, <c>--secure-cookie</c>,
+	/// <c>--firewall</c> или переменные <c>VS_PANEL_*</c> с теми же именами. Записываются и при
+	/// первой установке, и при обновлении или восстановлении; не заданные не меняются.
+	/// </summary>
+	public IReadOnlyDictionary<string, string> PanelEnvironment { get; init; } = new Dictionary<string, string>(StringComparer.Ordinal);
+
+	/// <summary>Параметры доступа к панели: имя параметра, переменная окружения, ключ <c>vs-panel.env</c>.</summary>
+	private static readonly (string Argument, string Variable, string Key)[] accessParameters =
+	[
+		("--bind", "VS_PANEL_BIND", "PANEL_BIND"),
+		("--port", "VS_PANEL_PORT", "PANEL_PORT"),
+		("--allowed-hosts", "VS_PANEL_ALLOWED_HOSTS", "PANEL_ALLOWED_HOSTS"),
+		("--secure-cookie", "VS_PANEL_SECURE_COOKIE", "PANEL_SECURE_COOKIE"),
+		("--firewall", "VS_PANEL_FIREWALL", PanelListener.FirewallKey),
+	];
+
+	/// <summary>
+	/// <c>--access</c>: готовый набор. <c>localhost</c> — только эта машина; <c>lan</c> — все
+	/// интерфейсы, порт открыт локальной сети; <c>internet</c> — все интерфейсы, порт открыт всем.
+	/// Сетевые наборы разрешают любое имя в Host: по адресу в сети панель ищут чаще, чем по имени,
+	/// а прежний список <c>localhost,127.0.0.1</c> ответил бы на такой запрос 400.
+	/// Отдельные параметры уточняют набор, в каком бы порядке ни стояли.
+	/// </summary>
+	private static Result<Dictionary<string, string>> Preset(string access) => access switch
+	{
+		"localhost" => new Dictionary<string, string>(StringComparer.Ordinal) { ["PANEL_BIND"] = "127.0.0.1" },
+		"lan" => new Dictionary<string, string>(StringComparer.Ordinal) { ["PANEL_BIND"] = "0.0.0.0", ["PANEL_ALLOWED_HOSTS"] = "*", [PanelListener.FirewallKey] = "lan" },
+		"internet" => new Dictionary<string, string>(StringComparer.Ordinal) { ["PANEL_BIND"] = "0.0.0.0", ["PANEL_ALLOWED_HOSTS"] = "*", [PanelListener.FirewallKey] = "internet" },
+		_ => Failure.Invalid($"--access: ожидается localhost, lan или internet, получено «{access}»."),
+	};
+
+	/// <summary>Значение строки <c>vs-panel.env</c>: те же правила, что у мастера установки и демона.</summary>
+	private static Result<string> Check(string key, string value)
+	{
+		if (key == PanelListener.FirewallKey)
+		{
+			return FirewallScopeWire.FromWire(value) is null
+				? Failure.Invalid($"--firewall: ожидается lan, internet или off, получено «{value}».")
+				: value;
+		}
+
+		if (key == "PANEL_PORT" && !(int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var port) && port is >= 1 and <= 65535))
+		{
+			return Failure.Invalid("Порт панели должен быть от 1 до 65535.");
+		}
+
+		return !PanelSetting.Create(key, value).IsSuccess
+			? Failure.Invalid($"Недопустимое значение {key}: «{value}».")
+			: value;
+	}
 
 	public static Result<InstallOptions> Parse(IReadOnlyList<string> arguments, IReadOnlyDictionary<string, string> environment, InstallPaths paths)
 	{
@@ -98,10 +152,35 @@ internal sealed record InstallOptions
 			options = options with { GamePort = number };
 		}
 
+		var access = Env("VS_PANEL_ACCESS");
+		var explicitValues = new Dictionary<string, string>(StringComparer.Ordinal);
+		foreach (var (_, variable, key) in accessParameters)
+		{
+			if (Env(variable) is { Length: > 0 } value)
+			{
+				explicitValues[key] = value;
+			}
+		}
+
 		for (var index = 0; index < arguments.Count; index++)
 		{
+			var parameter = Array.Find(accessParameters, item => item.Argument == arguments[index]);
+			if (parameter.Argument is not null)
+			{
+				if (index + 1 >= arguments.Count || arguments[index + 1].Trim().Length == 0)
+				{
+					return Failure.Invalid($"{parameter.Argument}: не задано значение.");
+				}
+
+				explicitValues[parameter.Key] = arguments[++index].Trim();
+				continue;
+			}
+
 			switch (arguments[index])
 			{
+				case "--access" when index + 1 < arguments.Count:
+					access = arguments[++index].Trim();
+					break;
 				case "--from" when index + 1 < arguments.Count:
 					options = options with { From = arguments[++index] };
 					break;
@@ -125,6 +204,32 @@ internal sealed record InstallOptions
 			}
 		}
 
-		return options;
+		var environmentValues = new Dictionary<string, string>(StringComparer.Ordinal);
+		if (access.Length > 0)
+		{
+			var preset = Preset(access);
+			if (!preset.IsSuccess)
+			{
+				return preset.Failure!;
+			}
+
+			environmentValues = preset.Value;
+		}
+
+		foreach (var (key, value) in explicitValues)
+		{
+			environmentValues[key] = value;
+		}
+
+		foreach (var (key, value) in environmentValues)
+		{
+			var checkedValue = Check(key, value);
+			if (!checkedValue.IsSuccess)
+			{
+				return checkedValue.Failure!;
+			}
+		}
+
+		return options with { PanelEnvironment = environmentValues };
 	}
 }

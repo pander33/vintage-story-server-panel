@@ -45,7 +45,7 @@ public sealed partial record PanelSetting
 			return Failure.Invalid("This panel setting cannot be changed from the web interface");
 		}
 
-		return value is not null && pattern.IsMatch(value)
+		return value is not null && pattern.IsMatch(value) && (key != "PANEL_ALLOWED_HOSTS" || value.Split(',').All(IsHostPattern))
 			? new PanelSetting(key, value)
 			: Failure.Invalid($"Invalid value for {key}");
 	}
@@ -74,7 +74,17 @@ public sealed partial record PanelSetting
 	[GeneratedRegex(@"\A\d{1,5}\z", RegexOptions.CultureInvariant)]
 	private static partial Regex PortPattern { get; }
 
-	[GeneratedRegex(@"\A[A-Za-z0-9.,:_-]{1,255}\z", RegexOptions.CultureInvariant)]
+	/// <summary>
+	/// Звёздочка — только так, как её понимает HostFiltering: <c>*</c> целиком (любой хост) или
+	/// <c>*.</c> в начале имени (любой поддомен). <c>a*b</c> фильтр сравнил бы буквально.
+	/// </summary>
+	private static bool IsHostPattern(string item) =>
+		!item.Contains('*', StringComparison.Ordinal)
+		|| item == "*"
+		|| (item.StartsWith("*.", StringComparison.Ordinal) && item.Length > 2 && !item[1..].Contains('*', StringComparison.Ordinal));
+
+	/// <summary>Имена хостов через запятую; <c>*</c> — любой хост, как в HostFiltering.</summary>
+	[GeneratedRegex(@"\A[A-Za-z0-9.,:_*-]{1,255}\z", RegexOptions.CultureInvariant)]
 	private static partial Regex HostsPattern { get; }
 
 	[GeneratedRegex(@"\A(?:true|false)\z", RegexOptions.CultureInvariant)]
@@ -106,7 +116,7 @@ public sealed record AccessSettings
 	public bool SecureCookie { get; }
 
 	/// <summary>Видна ли панель за пределами машины, как <c>published()</c>.</summary>
-	public bool Published => Bind is not ("127.0.0.1" or "::1" or "localhost");
+	public bool Published => !PanelListener.IsLoopback(Bind);
 
 	public static Result<AccessSettings> Create(string? bind, long port, string? allowedHosts, bool secureCookie)
 	{

@@ -890,10 +890,42 @@ public sealed class ProvisionBackend
 			return Failure.Unavailable($"Cannot read panel environment: {exception.Message}");
 		}
 
-		var written = await WriteAtomicallyAsync(path, setting.Rewrite(lines), mode640, ct).ConfigureAwait(false);
-		return written.IsSuccess
-			? new PanelEnvironmentSetPayload { Key = setting.Key }
-			: written.Failure!;
+		var rewritten = setting.Rewrite(lines);
+		var written = await WriteAtomicallyAsync(path, rewritten, mode640, ct).ConfigureAwait(false);
+		if (!written.IsSuccess)
+		{
+			return written.Failure!;
+		}
+
+		// Мастер меняет адрес и порт по одному ключу; правило брандмауэра следует за каждым, чтобы
+		// после перезапуска панель была видна там же, где её открыли при установке.
+		string? warning = null;
+		if (setting.Key is "PANEL_BIND" or "PANEL_PORT")
+		{
+			warning = await platform.SyncPanelFirewallAsync(
+					PanelListener.FromEnvironment(EnvironmentValues(lines)),
+					PanelListener.FromEnvironment(EnvironmentValues(rewritten.Split('\n'))),
+					ct)
+				.ConfigureAwait(false);
+		}
+
+		return new PanelEnvironmentSetPayload { Key = setting.Key, FirewallWarning = warning };
+	}
+
+	/// <summary>Строки <c>KEY=VALUE</c> файла окружения; комментарии и пустые строки пропускаются.</summary>
+	private static Dictionary<string, string> EnvironmentValues(IEnumerable<string> lines)
+	{
+		var values = new Dictionary<string, string>(StringComparer.Ordinal);
+		foreach (var line in lines.Select(item => item.Trim()))
+		{
+			var separator = line.IndexOf('=', StringComparison.Ordinal);
+			if (separator > 0 && !line.StartsWith('#'))
+			{
+				values[line[..separator].Trim()] = line[(separator + 1)..].Trim();
+			}
+		}
+
+		return values;
 	}
 
 	/// <summary>

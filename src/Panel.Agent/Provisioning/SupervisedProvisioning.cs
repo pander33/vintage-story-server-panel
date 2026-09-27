@@ -131,6 +131,30 @@ public sealed class SupervisedProvisioning : IProvisioningPlatform
 		return Task.FromResult<Result<PanelRestartPayload>>(new PanelRestartPayload { Unit = PanelService });
 	}
 
+	/// <summary>
+	/// Правило брандмауэра Windows для порта панели, как у установщика (<c>PanelAccess</c>).
+	/// Правило одно, по имени: прежнее снимается, каким бы ни был прежний порт.
+	/// </summary>
+	public async Task<string?> SyncPanelFirewallAsync(PanelListener previous, PanelListener current, CancellationToken ct)
+	{
+		ArgumentNullException.ThrowIfNull(previous);
+		ArgumentNullException.ThrowIfNull(current);
+		if (previous == current)
+		{
+			return null;
+		}
+
+		var netsh = Path.Combine(Environment.SystemDirectory, "netsh.exe");
+		await HostTools.RunAsync(netsh, PanelListener.NetshDelete, TimeSpan.FromSeconds(30), ct).ConfigureAwait(false);
+		if (current.NetshAdd is not { } rule)
+		{
+			return null;
+		}
+
+		var added = await HostTools.RunAsync(netsh, rule, TimeSpan.FromSeconds(30), ct).ConfigureAwait(false);
+		return added.ExitCode == 0 ? null : $"Порт панели {current.Port} в брандмауэре Windows не открыт: {added.Tail("netsh отказал")}";
+	}
+
 	private static async Task RestartPanelLaterAsync()
 	{
 		await Task.Delay(restartDelay).ConfigureAwait(false);

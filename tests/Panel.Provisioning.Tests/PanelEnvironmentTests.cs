@@ -36,6 +36,25 @@ public sealed class PanelEnvironmentTests
 	}
 
 	[Fact]
+	public void Звёздочка_разрешает_любой_хост()
+	{
+		Assert.True(PanelSetting.Create("PANEL_ALLOWED_HOSTS", "*").IsSuccess);
+		Assert.True(PanelSetting.Create("PANEL_ALLOWED_HOSTS", "localhost,127.0.0.1,*.local").IsSuccess);
+	}
+
+	/// <summary>HostFiltering понимает звёздочку только целиком или в начале имени; иначе сравнил бы её буквально.</summary>
+	[Theory]
+	[InlineData("a*b")]
+	[InlineData("**")]
+	[InlineData("*.")]
+	[InlineData("*.a*.local")]
+	[InlineData("localhost,panel*")]
+	public void Звёздочка_в_середине_имени_отклоняется(string hosts)
+	{
+		Assert.False(PanelSetting.Create("PANEL_ALLOWED_HOSTS", hosts).IsSuccess);
+	}
+
+	[Fact]
 	public void Строка_заменяется_а_отсутствующая_дописывается()
 	{
 		var lines = new[] { "# панель", "PANEL_PORT=8080", "PANEL_BIND=127.0.0.1" };

@@ -206,16 +206,59 @@ public static class ManageCommands
 
 		output.WriteLine("Откройте мастер установки и завершите настройку:");
 		output.WriteLine($"  {SetupLink(options, token)}");
+		var network = NetworkSetupLinks(options, token, MachineAddresses());
+		if (network.Count > 0)
+		{
+			output.WriteLine("С другого компьютера в сети:");
+			foreach (var link in network)
+			{
+				output.WriteLine($"  {link}");
+			}
+		}
+
 		output.WriteLine("Ссылка одноразовая: после создания администратора токен удаляется.");
 		return Done.Ok;
 	}
 
-	/// <summary>Адрес мастера. Если панель слушает все адреса, используется 127.0.0.1, то есть туннель.</summary>
+	/// <summary>
+	/// Адрес мастера на этой машине. Если панель слушает все адреса, используется 127.0.0.1:
+	/// эту ссылку установщик Windows открывает в браузере, поэтому она печатается первой.
+	/// </summary>
 	public static string SetupLink(PanelOptions options, string token)
 	{
 		ArgumentNullException.ThrowIfNull(options);
 		var host = options.Bind is "0.0.0.0" or "::" ? "127.0.0.1" : options.Bind;
 		return $"http://{host}:{options.Port.ToString(CultureInfo.InvariantCulture)}/setup?token={token}";
+	}
+
+	/// <summary>Адреса мастера с других машин: по адресу каждого интерфейса, если панель видна снаружи.</summary>
+	public static IReadOnlyList<string> NetworkSetupLinks(PanelOptions options, string token, IEnumerable<System.Net.IPAddress> machine)
+	{
+		ArgumentNullException.ThrowIfNull(options);
+		return
+		[
+			.. PanelListener.Create(options.Bind, options.Port, FirewallScope.Lan)
+				.NetworkUrls(machine)
+				.Select(url => $"{url}setup?token={token}"),
+		];
+	}
+
+	private static IReadOnlyList<System.Net.IPAddress> MachineAddresses()
+	{
+		try
+		{
+			return
+			[
+				.. System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces()
+					.Where(nic => nic.OperationalStatus == System.Net.NetworkInformation.OperationalStatus.Up)
+					.SelectMany(nic => nic.GetIPProperties().UnicastAddresses)
+					.Select(unicast => unicast.Address),
+			];
+		}
+		catch (System.Net.NetworkInformation.NetworkInformationException)
+		{
+			return [];
+		}
 	}
 
 	/// <summary>

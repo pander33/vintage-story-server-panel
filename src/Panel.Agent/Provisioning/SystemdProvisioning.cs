@@ -25,6 +25,8 @@ public sealed class SystemdProvisioning : IProvisioningPlatform
 
 	private const string stat = "/usr/bin/stat";
 
+	private const string ufw = "/usr/sbin/ufw";
+
 	private static readonly UnixFileMode mode644 =
 		UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead;
 
@@ -264,6 +266,42 @@ public sealed class SystemdProvisioning : IProvisioningPlatform
 		var restarted = await HostTools.SystemctlAsync(["restart", "--no-block", panelUnit], TimeSpan.FromSeconds(30), ct)
 			.ConfigureAwait(false);
 		return restarted.IsSuccess ? new PanelRestartPayload { Unit = panelUnit } : restarted.Failure!;
+	}
+
+	/// <summary>
+	/// Правила ufw для порта панели, как у установщика (<c>PanelAccess</c>). Без ufw или при
+	/// неактивном ufw ничего не делается: правил, которые никто не применяет, не заводим.
+	/// </summary>
+	public async Task<string?> SyncPanelFirewallAsync(PanelListener previous, PanelListener current, CancellationToken ct)
+	{
+		ArgumentNullException.ThrowIfNull(previous);
+		ArgumentNullException.ThrowIfNull(current);
+		if (previous == current || !File.Exists(ufw))
+		{
+			return null;
+		}
+
+		var status = await HostTools.RunAsync(ufw, ["status"], TimeSpan.FromSeconds(30), ct).ConfigureAwait(false);
+		if (status.ExitCode != 0 || !status.StandardOutput.Contains("Status: active", StringComparison.Ordinal))
+		{
+			return null;
+		}
+
+		foreach (var rule in previous.UfwDelete)
+		{
+			await HostTools.RunAsync(ufw, rule, TimeSpan.FromSeconds(30), ct).ConfigureAwait(false);
+		}
+
+		foreach (var rule in current.UfwAllow)
+		{
+			var added = await HostTools.RunAsync(ufw, rule, TimeSpan.FromSeconds(30), ct).ConfigureAwait(false);
+			if (added.ExitCode != 0)
+			{
+				return $"Порт панели {current.Port.ToString(CultureInfo.InvariantCulture)} в ufw не открыт: {added.Tail("ufw отказал")}";
+			}
+		}
+
+		return null;
 	}
 
 	/// <summary><c>str.splitlines()</c> для вывода journalctl: без пустого хвоста и без <c>\r</c>.</summary>

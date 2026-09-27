@@ -23,8 +23,8 @@ public sealed record PanelOptions
 	public TimeSpan SessionLifetime { get; init; } = TimeSpan.FromHours(12);
 
 	/// <summary>
-	/// PANEL_BIND: адрес, на котором слушает панель. По умолчанию только эта машина; открыть
-	/// панель наружу можно в мастере или установщике.
+	/// PANEL_BIND: адрес, на котором слушает панель. Без ключа — только эта машина; поставка
+	/// (<c>deploy/*.env</c>) задаёт <c>0.0.0.0</c>, и сменить это можно в мастере или установщике.
 	/// </summary>
 	public string Bind { get; init; } = "127.0.0.1";
 

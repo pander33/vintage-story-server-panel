@@ -59,7 +59,8 @@ public sealed class WindowsInstallTests : IDisposable
 		var environment = EnvironmentFile.Parse(Templates.WindowsPanelEnvironment(@"C:\ProgramData\vs-panel"));
 
 		Assert.Equal(@"C:\ProgramData\vs-panel\state", environment["PANEL_STATE_DIR"]);
-		Assert.Equal("127.0.0.1", environment["PANEL_BIND"]);
+		Assert.Equal("0.0.0.0", environment["PANEL_BIND"]);
+		Assert.Equal("*", environment["PANEL_ALLOWED_HOSTS"]);
 		Assert.Equal("false", environment["PANEL_SECURE_COOKIE"]);
 		Assert.DoesNotContain(environment.Keys, key => key.StartsWith("PANEL_HELPER", StringComparison.Ordinal));
 	}

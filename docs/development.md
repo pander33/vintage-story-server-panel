@@ -8,7 +8,7 @@
 
 ```bash
 dotnet build
-dotnet test                         # 1240 тестов, ни одному не нужен сервер
+dotnet test                         # 1467 тестов, ни одному не нужен сервер
 ```
 
 Нужен .NET SDK 10. Стиль — `.editorconfig`; проверка:
@@ -102,7 +102,9 @@ self-contained single-file пакет (ADR-09) в `artifacts/<цель>`: три
 - юниты демона и панели, среда .NET для игры;
 - каталог серверов: вопрос в терминале, `--servers-dir` или `VS_PANEL_SERVERS_DIR`;
 - первый сервер с настройками мастера, если реестр пуст (`VS_PANEL_CREATE_SERVER=0` — нет);
-- одноразовая ссылка на мастер.
+- доступ к панели: заданные строки `vs-panel.env` (`--access`, `--bind`, `--port`, …) и
+  правила ufw для порта панели, если ufw активен;
+- одноразовая ссылка на мастер — на 127.0.0.1 и по адресам машины в сети.
 
 Поверх 1.2.x удаляются sudo-правило и хелпер.
 
@@ -114,9 +116,26 @@ self-contained single-file пакет (ADR-09) в `artifacts/<цель>`: три
 - программа в `Program Files\vs-panel\releases\<версия>`, ссылка `current` в PATH;
 - данные в `ProgramData\vs-panel`, доступ только SYSTEM и администраторам;
 - мод телеметрии — и в уже созданные серверы;
+- доступ к панели — как на Linux; правило брандмауэра одно, `Vintage Story Panel`, через `netsh`;
 - задачи планировщика 1.2.x удаляются.
 
 Службы останавливаются до копирования версии: каталог с работающим `.exe` не переименовать.
+
+### Доступ к панели и брандмауэр
+
+Поставка слушает `0.0.0.0` с `PANEL_ALLOWED_HOSTS=*` и `PANEL_FIREWALL=lan` (findings §72).
+Что открыть и кому, решает `PanelListener` (`Panel.Provisioning`). Его используют и
+установщик (`PanelAccess` в `Panel.Cli`), и демон:
+- параметры установки — `InstallOptions`: набор `--access localhost|lan|internet` и
+  отдельные ключи поверх него; `lan` и `internet` ставят и `PANEL_ALLOWED_HOSTS=*`, иначе
+  фильтр Host ответил бы 400 на обращение по адресу машины; значения проверяет `PanelSetting`, как в мастере;
+- заданные строки переписываются в `vs-panel.env` на месте при `install`, `update` и
+  `repair`; без ключей файл не меняется;
+- смена `PANEL_BIND` или `PANEL_PORT` в мастере идёт через `panel-env-set`, и демон
+  переставляет правило (`IProvisioningPlatform.SyncPanelFirewallAsync`); неудача
+  возвращается аддитивным полем `firewall_warning`, строка всё равно записывается;
+- `PANEL_FIREWALL` не входит в `PanelSetting`: из браузера охват не меняется;
+- `uninstall` снимает правило панели.
 
 Каталог серверов (findings §70) проверяет и готовит демон, операцией `instances-root-set`.
 Требования:

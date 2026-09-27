@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Runtime.Versioning;
+using Panel.Provisioning.Domain;
 
 namespace Panel.Cli;
 
@@ -103,11 +104,18 @@ internal sealed class Installer
 
 		SeedRegistry();
 		LinuxHost.WriteFile(Paths.PanelConfig, Templates.KeepChosenPaths(Templates.PanelConfig, File.Exists(Paths.PanelConfig) ? File.ReadAllText(Paths.PanelConfig) : null), readable);
-		if (!File.Exists(Paths.PanelEnv))
+		var existed = File.Exists(Paths.PanelEnv);
+		var previous = existed ? PanelListener.FromEnvironment(EnvironmentFile.Load(Paths.PanelEnv)) : null;
+		if (!existed || options.PanelEnvironment.Count > 0)
 		{
-			LinuxHost.WriteFile(Paths.PanelEnv, Templates.PanelEnvironment, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead);
+			var text = existed ? File.ReadAllText(Paths.PanelEnv) : Templates.PanelEnvironment;
+			LinuxHost.WriteFile(Paths.PanelEnv, PanelAccess.Rewrite(text, options.PanelEnvironment), UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead);
 			await this.host.ChownAsync($"root:{InstallPaths.PanelUser}", Paths.PanelEnv).ConfigureAwait(false);
 		}
+
+		this.host.Step("Доступ к панели и брандмауэр");
+		var firewall = await PanelAccess.ApplyUfwAsync(previous, PanelListener.FromEnvironment(EnvironmentFile.Load(Paths.PanelEnv))).ConfigureAwait(false);
+		ReportFirewall(firewall);
 
 		LinuxHost.WriteFile(Paths.AgentUnit, Templates.AgentUnit(uid), readable);
 		LinuxHost.WriteFile(Paths.PanelUnit, Templates.PanelUnit, readable);
@@ -163,7 +171,7 @@ internal sealed class Installer
 		await Require(this.host.SystemctlAsync("restart", "--no-block", InstallPaths.PanelUnitName), "Перезапуск панели не принят").ConfigureAwait(false);
 		var started = await this.host.WaitForStartAsync(InstallPaths.PanelUnitName, oldPid, options.WaitSeconds).ConfigureAwait(false);
 
-		PrintSummary(created, setupLink.Length > 0);
+		PrintSummary(created);
 		if (setupLink.Length > 0)
 		{
 			Output.WriteLine();
@@ -426,6 +434,23 @@ internal sealed class Installer
 		Output.WriteLine($"В ufw открыт игровой порт {text} (tcp и udp).");
 	}
 
+	private void ReportFirewall(FirewallOutcome? outcome)
+	{
+		if (outcome is null)
+		{
+			return;
+		}
+
+		if (outcome.Failed)
+		{
+			this.host.Warn(outcome.Message);
+		}
+		else
+		{
+			Output.WriteLine(outcome.Message);
+		}
+	}
+
 	/// <summary>
 	/// Пакеты для среды .NET игры и для <c>setpriv</c>, только Debian/Ubuntu. Из пакетов с
 	/// номером версии в имени (<c>libicu74</c>, <c>libssl3t64</c>) берётся самый новый.
@@ -514,25 +539,13 @@ internal sealed class Installer
 		return true;
 	}
 
-	private void PrintSummary(int serverPort, bool claimPending)
+	private void PrintSummary(int serverPort)
 	{
-		var environment = EnvironmentFile.Load(Paths.PanelEnv);
-		var bind = EnvironmentFile.Value(environment, "PANEL_BIND", "127.0.0.1");
-		var port = EnvironmentFile.Value(environment, "PANEL_PORT", "8080");
-		Output.WriteLine($"\nПанель установлена и слушает {bind}:{port}.");
+		Output.WriteLine("\nПанель установлена.");
+		PanelAccess.Print(Output, EnvironmentFile.Load(Paths.PanelEnv), PanelAccess.MachineAddresses(), tunnel: true);
 		if (serverPort > 0)
 		{
 			Output.WriteLine($"Игровой сервер main создан и запущен, порт {serverPort.ToString(CultureInfo.InvariantCulture)}.");
-		}
-
-		if (bind is "127.0.0.1" or "localhost" or "::1")
-		{
-			Output.WriteLine($"С рабочего компьютера откройте туннель: ssh -L {port}:127.0.0.1:{port} user@server");
-		}
-
-		if (!claimPending)
-		{
-			Output.WriteLine($"Затем откройте http://127.0.0.1:{port}");
 		}
 
 		Output.WriteLine("\nУправление: sudo vs-panel help");

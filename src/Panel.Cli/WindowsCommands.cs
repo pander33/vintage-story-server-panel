@@ -82,7 +82,8 @@ internal sealed class WindowsCommands
 	public async Task<int> AccessAsync(bool openBrowser)
 	{
 		var address = PanelState.LocalAddress(this.host.PanelEnvironment());
-		Output.WriteLine($"Панель: {address}\n");
+		PanelAccess.Print(Output, this.host.PanelEnvironment(), PanelAccess.MachineAddresses(), tunnel: false);
+		Output.WriteLine();
 		if (this.host.SetupCompleted())
 		{
 			Output.WriteLine("Мастер установки завершён — вход обычным логином и паролем.");

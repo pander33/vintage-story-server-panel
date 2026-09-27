@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using Panel.Provisioning.Domain;
 
 namespace Panel.Cli;
 
@@ -65,6 +66,9 @@ internal sealed class WindowsUninstaller
 				Output.WriteLine($"Служба {service} удалена.");
 			}
 		}
+
+		// Порт панели больше никто не слушает; повторная установка откроет его снова.
+		await PanelAccess.RemoveAsync(PanelListener.FromEnvironment(this.host.PanelEnvironment()), windows: true).ConfigureAwait(false);
 
 		foreach (var folder in WindowsInstaller.ShortcutFolders())
 		{

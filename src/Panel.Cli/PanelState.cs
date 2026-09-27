@@ -41,17 +41,9 @@ internal static class PanelState
 	public static bool HasAdministrator(string stateDirectory) =>
 		NonEmpty(Path.Combine(stateDirectory, "accounts.json")) || NonEmpty(Path.Combine(stateDirectory, "admin.password"));
 
-	/// <summary>
-	/// Адрес панели на этой машине. Если панель слушает все адреса, используется 127.0.0.1, как в
-	/// ссылке мастера (<c>ManageCommands.SetupLink</c>).
-	/// </summary>
-	public static string LocalAddress(IReadOnlyDictionary<string, string> environment)
-	{
-		var bind = EnvironmentFile.Value(environment, "PANEL_BIND", "127.0.0.1");
-		var port = EnvironmentFile.Value(environment, "PANEL_PORT", "8080");
-		var host = bind is "0.0.0.0" or "::" ? "127.0.0.1" : bind;
-		return $"http://{host}:{port}/";
-	}
+	/// <summary>Адрес панели на этой машине: если панель слушает все адреса, 127.0.0.1.</summary>
+	public static string LocalAddress(IReadOnlyDictionary<string, string> environment) =>
+		Panel.Provisioning.Domain.PanelListener.FromEnvironment(environment).LocalUrl;
 
 	/// <summary>Ссылка мастера из вывода <c>manage claim-token</c>; <c>null</c>, если не найдена.</summary>
 	public static string? ClaimLink(string output) =>

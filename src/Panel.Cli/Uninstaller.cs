@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using Panel.Provisioning.Domain;
 
 namespace Panel.Cli;
 
@@ -61,6 +62,9 @@ internal sealed class Uninstaller
 		}
 
 		await this.host.SystemctlAsync("daemon-reload").ConfigureAwait(false);
+
+		// Порт панели больше никто не слушает; повторная установка откроет его снова.
+		await PanelAccess.RemoveAsync(PanelListener.FromEnvironment(EnvironmentFile.Load(Paths.PanelEnv)), windows: false).ConfigureAwait(false);
 
 		if (!purge)
 		{
