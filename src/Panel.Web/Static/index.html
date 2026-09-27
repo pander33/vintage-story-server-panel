@@ -141,7 +141,17 @@
           </div>
 
           <div class="dashboard-grid">
-            <article class="surface card-pad"><div class="card-header"><div><div class="eyebrow">ЖИВАЯ ЛЕНТА</div><h3>Последние события</h3></div><button class="text-button" type="button" data-goto="logs:events">Все события <svg><use href="#i-arrow"/></svg></button></div><div class="activity-list" id="activity-list"></div></article>
+            <article class="surface card-pad feed-card">
+              <div class="card-header"><div><div class="eyebrow">ЖИВАЯ ЛЕНТА <span class="feed-live" id="feed-live" hidden title="Лента обновляется сама, без перезагрузки">● в эфире</span></div><h3>Последние события</h3></div><button class="text-button" type="button" data-goto="logs:events">Все события <svg><use href="#i-arrow"/></svg></button></div>
+              <div class="feed-filters" id="feed-filters" role="group" aria-label="Какие события показывать">
+                <button type="button" data-feed="all" class="active">Все</button>
+                <button type="button" data-feed="important">Важные <b id="feed-important-count" hidden></b></button>
+                <button type="button" data-feed="players">Игроки</button>
+                <button type="button" data-feed="system">Сервер и панель</button>
+              </div>
+              <div class="activity-list" id="activity-list" aria-live="polite"></div>
+              <button class="text-button feed-more" type="button" id="feed-more" hidden>Показать ещё</button>
+            </article>
             <article class="surface card-pad"><div class="card-header"><div><div class="eyebrow">ПО РАСПИСАНИЮ</div><h3>Следующее обслуживание</h3></div></div><div id="next-maintenance"></div><button class="card-link" type="button" data-goto="maintenance:schedule">Открыть расписание <svg><use href="#i-arrow"/></svg></button></article>
           </div>
         </section>

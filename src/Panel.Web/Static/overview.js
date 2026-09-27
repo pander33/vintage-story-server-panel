@@ -245,16 +245,134 @@
 		chip.className = `status-chip ${percent >= 90 ? "ok" : (percent >= 60 ? "warn" : "error")}`;
 	}
 
-	// ---------- события и расписание ----------
+	// ---------- живая лента ----------
 
-	async function loadActivity() {
-		const data = await api('/api/events?limit=60&severity=all');
-		const events = data.events || [];
+	// Раздел по началу вида события: подпись строки и куда ведёт щелчок. Пустой адрес — события
+	// некуда вести, строка не кликается.
+	const FEED_GROUPS = {
+		player: ['Игроки', 'players:activity'],
+		server: ['Сервер', 'logs:stream'],
+		watchdog: ['Наблюдатель', 'maintenance:watchdog'],
+		automation: ['Обслуживание', 'maintenance:schedule'],
+		update: ['Обновления', 'maintenance:updates'],
+		provision: ['Создание сервера', ''],
+		admin: ['Действие в панели', 'logs:events'],
+		config: ['Настройки сервера', 'settings:server'],
+		world: ['Настройки мира', 'settings:world'],
+		backup: ['Резервные копии', 'backups:list'],
+		disk: ['Диск', ''],
+		notification: ['Уведомления', 'settings:notifications'],
+		history: ['История', ''],
+	};
+	const FEED_EXACT = {'server.long_tick': 'logs:performance', 'player.ping_critical': 'players:quality'};
+	const FEED_IMPORTANT = ['warning', 'error', 'critical'];
+	const FEED_FILTERS = {
+		all: () => true,
+		important: item => FEED_IMPORTANT.includes(item.severity),
+		players: item => String(item.kind || '').startsWith('player.'),
+		system: item => !String(item.kind || '').startsWith('player.'),
+	};
+	const FEED_SHORT = 6, FEED_LONG = 20;
+	const FEED_FILTER_KEY = 'vs-feed-filter';
+
+	let feedEvents = [];
+	let feedFilter = (() => { try { return FEED_FILTERS[localStorage.getItem(FEED_FILTER_KEY)] ? localStorage.getItem(FEED_FILTER_KEY) : 'all'; } catch { return 'all'; } })();
+	let feedExpanded = false;
+	// Ключи уже показанных событий: новое подсвечивается, первая отрисовка — нет.
+	let feedSeen = null;
+
+	const feedGroup = kind => FEED_GROUPS[String(kind || '').split('.')[0]] || ['Панель', ''];
+	const feedKey = item => item.id || `${item.ts}|${item.kind}|${item.title}`;
+
+	/** Подряд идущие одинаковые события — одна строка со счётчиком: десять входов одного игрока не вытесняют остальное. */
+	function collapse(items) {
+		const rows = [];
+		for (const item of items) {
+			const last = rows[rows.length - 1];
+			if (last && last.kind === item.kind && last.title === item.title && last.severity === item.severity) {
+				last.count += 1;
+				last.keys.push(feedKey(item));
+				continue;
+			}
+			rows.push({...item, count: 1, keys: [feedKey(item)]});
+		}
+		return rows;
+	}
+
+	function feedTime(ts) {
+		const day = fmtDay(ts);
+		if (day === 'сегодня') return VS.fmtAgo(ts);
+		return day === 'вчера' ? `вчера, ${fmtShortTime(ts)}` : fmtDateTime(ts);
+	}
+
+	function feedRow(row, fresh) {
+		const [group, fallback] = feedGroup(row.kind);
+		const target = FEED_EXACT[row.kind] ?? fallback;
+		const tag = target ? 'button' : 'div';
+		const attributes = target ? ` type="button" data-goto="${esc(target)}" title="Открыть: ${esc(group)}"` : '';
+		const repeat = row.count > 1 ? ` <b class="feed-repeat">×${row.count}</b>` : '';
+		const detail = row.detail ? `<small>${esc(row.detail)}</small>` : '';
+		return `<${tag} class="feed-row${fresh ? " fresh" : ""}"${attributes}><span class="activity-dot ${esc(row.severity || "info")}"></span><span><strong>${esc(row.title || row.kind)}${repeat}</strong>${detail}<em class="feed-group">${esc(group)}</em></span><time datetime="${esc(VS.toDate(row.ts)?.toISOString() || "")}" title="${esc(fmtDateTime(row.ts))}">${esc(feedTime(row.ts))}</time></${tag}>`;
+	}
+
+	function renderFeed() {
+		const important = feedEvents.filter(FEED_FILTERS.important).filter(item => (item.ts || 0) > Date.now() / 1000 - 86400).length;
+		const count = $('#feed-important-count');
+		count.hidden = !important;
+		count.textContent = important > 9 ? '9+' : String(important);
+		$$('#feed-filters [data-feed]').forEach(button => button.classList.toggle('active', button.dataset.feed === feedFilter));
+
+		const rows = collapse(feedEvents.filter(FEED_FILTERS[feedFilter]));
+		const shown = rows.slice(0, feedExpanded ? FEED_LONG : FEED_SHORT);
+		const known = feedSeen;
+		$('#activity-list').innerHTML = shown.map(row => feedRow(row, known !== null && row.keys.some(key => !known.has(key)))).join('')
+			|| `<div class="empty">${feedEvents.length ? "Под этот фильтр событий нет." : "Событий пока нет."}</div>`;
+		feedSeen = new Set(feedEvents.map(feedKey));
+
+		const more = $('#feed-more');
+		more.hidden = rows.length <= FEED_SHORT;
+		more.textContent = feedExpanded ? 'Свернуть' : `Показать ещё ${Math.min(rows.length, FEED_LONG) - FEED_SHORT}`;
+	}
+
+	function takeEvents(events) {
+		feedEvents = Array.isArray(events) ? events : [];
 		const dayAgo = Date.now() / 1000 - 86400;
-		recentProblems = events.filter(item => ['warning', 'error', 'critical'].includes(item.severity) && (item.ts || 0) > dayAgo);
-		$('#activity-list').innerHTML = events.slice(0, 6).map(item => `<div><span class="activity-dot ${esc(item.severity || "info")}"></span><span><strong>${esc(item.title || item.kind)}</strong><small>${esc(item.detail || item.source || "")}</small></span><time>${esc(fmtDay(item.ts) === "сегодня" ? fmtShortTime(item.ts) : fmtDateTime(item.ts))}</time></div>`).join('') || '<div class="empty">Событий пока нет.</div>';
+		recentProblems = feedEvents.filter(item => FEED_IMPORTANT.includes(item.severity) && (item.ts || 0) > dayAgo);
+		renderFeed();
 		renderHealth();
 	}
+
+	async function loadActivity() {
+		const data = await api('/api/events?limit=50&severity=all');
+		takeEvents(data.events || []);
+	}
+
+	/** Поток отдаёт последние 50 событий целиком, когда лента изменилась. */
+	function watchFeed() {
+		const live = $('#feed-live');
+		VS.stream('overview-feed', '/api/events/stream', {
+			page: 'overview',
+			onMessage: takeEvents,
+			onOpen: () => { live.hidden = false; },
+			onError: () => { live.hidden = true; },
+		});
+	}
+
+	$('#feed-filters').addEventListener('click', event => {
+		const button = event.target.closest('[data-feed]');
+		if (!button || button.dataset.feed === feedFilter) return;
+		feedFilter = button.dataset.feed;
+		feedExpanded = false;
+		try { localStorage.setItem(FEED_FILTER_KEY, feedFilter); } catch { /* приватный режим */ }
+		renderFeed();
+	});
+
+	$('#feed-more').addEventListener('click', () => {
+		feedExpanded = !feedExpanded;
+		renderFeed();
+	});
+
+	// ---------- расписание ----------
 
 	async function loadNextMaintenance() {
 		const data = await api('/api/automation');
@@ -421,7 +539,10 @@
 			if (state.telemetry) renderTelemetry(state.telemetry);
 			refreshAll();
 			VS.every('overview-metrics', 60000, loadMetrics, {page: 'overview', now: false});
-			VS.every('overview-activity', 30000, () => Promise.all([loadActivity(), loadNextMaintenance()]), {page: 'overview', now: false});
+			watchFeed();
+			// Относительное время («5 мин назад») стареет и без новых событий.
+			VS.every('overview-feed-clock', 30000, renderFeed, {page: 'overview', now: false});
+			VS.every('overview-activity', 60000, loadNextMaintenance, {page: 'overview', now: false});
 		},
 	};
 })();
