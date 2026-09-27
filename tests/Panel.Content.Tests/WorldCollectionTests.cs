@@ -87,17 +87,37 @@ public sealed class WorldCollectionTests
 	public void Верная_фраза_принимается() =>
 		Assert.True(Confirmation.ToDelete("old.vcdbs").Check("  УДАЛИТЬ old.vcdbs  ").IsSuccess);
 
+	/// <summary>
+	/// Панель проверяет только форму кода: набор стилей объявляют игра и моды, и есть ли стиль на
+	/// сервере, решает демон по схеме этого сервера.
+	/// </summary>
 	[Theory]
 	[InlineData("surviveandbuild", true)]
 	[InlineData("creativebuilding", true)]
-	[InlineData("hardcore", false)]
+	[InlineData("mymod-hardcore", true)]
 	[InlineData("", false)]
-	public void Стиль_игры_выбирается_из_закрытого_набора(string value, bool accepted) =>
-		Assert.Equal(accepted, PlayStyleWire.FromWire(value).IsSuccess);
+	[InlineData("../etc", false)]
+	[InlineData("with space", false)]
+	public void Стиль_игры_проверяется_по_форме_кода(string value, bool accepted) =>
+		Assert.Equal(accepted, PlayStyle.Create(value).IsSuccess);
 
 	[Fact]
-	public void Код_языка_выводится_из_стиля() =>
-		Assert.Equal("preset-exploration", PlayStyleWire.LanguageCode(PlayStyle.Exploration));
+	public void Без_схемы_код_языка_по_прежнему_правилу() =>
+		Assert.Equal("preset-exploration", PlayStyle.Create("exploration").Value.LanguageCode);
+
+	/// <summary>У творческого стиля игры 1.22.7 ключ подписи без приставки — берётся из схемы.</summary>
+	[Fact]
+	public void Объявленный_стиль_несёт_ключ_подписи_схемы()
+	{
+		var style = PlayStyle.CreateDeclared("creativebuilding", "creativebuilding").Value;
+
+		Assert.Equal("creativebuilding", style.Code);
+		Assert.Equal("creativebuilding", style.LanguageCode);
+	}
+
+	[Fact]
+	public void Встроенный_набор_совпадает_со_стилями_игры() =>
+		Assert.Equal(["surviveandbuild", "exploration", "wildernesssurvival", "homosapiens", "creativebuilding"], PlayStyle.Builtin);
 
 	[Theory]
 	[InlineData("archive", true)]

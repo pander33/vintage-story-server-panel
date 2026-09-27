@@ -558,3 +558,49 @@ tr.picked td { background: #3a2a21; }
 	.tiny-track { width: 32px; }
 	.button { font-size: 10px; padding: 0 9px; }
 }
+
+.link-button { background: transparent; border: 0; padding: 0; margin-left: 6px; color: var(--accent-text); font: inherit; text-decoration: underline; cursor: pointer; }
+.link-button:disabled { opacity: .5; cursor: default; }
+.dependency-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-top: 1px solid var(--border); }
+.dependency-row input { margin-top: 3px; }
+
+.catalog-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; align-items: center; }
+.catalog-filters input[type="search"] { flex: 2 1 200px; }
+.catalog-filters select { flex: 1 1 160px; }
+.tag-filter { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.tag-chip { --tag: #6b5747; display: inline-flex; align-items: center; border-radius: 10px; padding: 2px 8px; font-size: 10px; font-weight: 700; color: #fff; border: 1px solid var(--tag); background: transparent; }
+.tag-chip.selectable { cursor: pointer; color: var(--text-2); }
+.tag-chip.selectable.on { background: var(--tag); color: #fff; }
+.mod-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; margin-top: 16px; }
+.mod-card { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-2); overflow: hidden; cursor: pointer; }
+.mod-card:hover, .mod-card:focus-visible { border-color: var(--accent-line); outline: none; }
+.mod-card.installed { border-color: var(--ok-bg); }
+.badge.installed { background: var(--ok-bg); color: var(--ok); }
+.mod-logo { height: 110px; background: var(--deep); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.mod-logo img { width: 100%; height: 100%; object-fit: cover; }
+.mod-logo-empty { font-size: 34px; color: var(--muted); }
+.mod-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.mod-body h4 { margin: 0; font-size: 13px; }
+.mod-body small { color: var(--muted); font-size: 10px; }
+.mod-body p { margin: 0; font-size: 11px; color: var(--text-2); line-height: 1.5; flex: 1; overflow-wrap: anywhere; }
+.mod-tags { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.mod-head { display: flex; gap: 14px; align-items: flex-start; }
+.mod-head-logo { width: 96px; height: 96px; object-fit: cover; border-radius: 7px; flex: none; }
+.mod-description { margin-top: 14px; font-size: 12px; line-height: 1.7; color: var(--text-2); max-height: 320px; overflow: auto; overflow-wrap: anywhere; }
+.mod-description a, .mod-links a { color: var(--accent-text); }
+.mod-description pre { white-space: pre-wrap; background: var(--deep); padding: 8px 10px; border-radius: 5px; font: 11px/1.6 var(--mono); }
+.mod-inline-image { max-width: 100%; height: auto; }
+.mod-links { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 10px; font-size: 11px; }
+.mod-shots { display: flex; gap: 8px; margin-top: 12px; overflow-x: auto; }
+.mod-shots img { height: 90px; border-radius: 5px; cursor: zoom-in; flex: none; }
+.mod-shot-large { max-width: 100%; max-height: 70vh; display: block; margin: 0 auto; }
+
+.password-field { display: flex; gap: 6px; }
+.password-field input { flex: 1; }
+
+.mode-tabs { display: flex; gap: 6px; margin-top: 14px; }
+.mode-tabs .button.active { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-text); }
+.config-nested { grid-column: 1 / -1; border: 1px solid var(--border); border-radius: 7px; padding: 10px 14px; }
+.config-nested > summary { cursor: pointer; font: 500 11px var(--mono); color: var(--accent-text); margin-bottom: 10px; }
+.config-field textarea { min-height: 60px; font: 11px/1.6 var(--mono); }
+.inline-form .form-field.grow { flex: 1; }

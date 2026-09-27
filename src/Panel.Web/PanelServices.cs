@@ -77,6 +77,10 @@ public static class PanelServices
 		// задаются для каждого запроса внутри клиентов.
 		var external = new HttpClient();
 		services.AddSingleton(new ModDbClient(external));
+		services.AddSingleton(p => new ModCatalogueCache(p.GetRequiredService<ModDbClient>(), TimeProvider.System));
+
+		// Картинки — через свой клиент без переадресаций: проверка хоста иначе не имела бы смысла.
+		services.AddSingleton(_ => new ModImageProxy(new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }), TimeProvider.System));
 		services.AddSingleton(p => new VersionCatalogue(
 			options.CatalogueCachePath,
 			VersionCatalogue.FromNetwork(external),
@@ -85,6 +89,7 @@ public static class PanelServices
 			OperatingSystem.IsWindows() ? ServerPlatform.Windows : ServerPlatform.Linux));
 		services.AddSingleton<GameVersions>();
 		services.AddSingleton<IServerConfigStore>(_ => new AgentServerConfigStore(agent));
+		services.AddSingleton<IWorldSchemaStore>(_ => new AgentWorldSchemaStore(agent));
 		services.AddSingleton<ILiveWorldConfig>(_ => new AgentLiveWorldConfig(agent));
 		services.AddSingleton<IPlayerCommands>(_ => new AgentPlayerCommands(agent));
 		services.AddSingleton<IGameEventFeed>(_ => new AgentGameEventFeed(agent));

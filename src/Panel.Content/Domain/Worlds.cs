@@ -38,44 +38,64 @@ public static class WorldDispositionWire
 			: Confirmation.ToDelete(world.Value);
 }
 
-/// <summary>Стиль игры нового мира; набор закрыт и совпадает с <c>PLAYSTYLES</c>.</summary>
-public enum PlayStyle
+/// <summary>
+/// Стиль игры нового мира: значение <c>WorldConfig.PlayStyle</c> и ключ его подписи
+/// <c>WorldConfig.PlayStyleLangCode</c>.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Набор стилей не закрыт: его объявляют игра и моды (<c>playstyles</c> в схеме параметров мира).
+/// Панель проверяет только форму кода; есть ли такой стиль на сервере, решает демон по схеме
+/// этого сервера — он же берёт из схемы ключ подписи. У игры 1.22.7 он не всегда
+/// <c>"preset-" + код</c>: у творческого стиля это <c>creativebuilding</c>.
+/// </para>
+/// <para>
+/// Если схему прочитать не из чего (нет сборок игры), демон принимает только
+/// <see cref="Builtin"/> с прежним правилом <c>"preset-" + код</c>, как 1.2.x.
+/// </para>
+/// </remarks>
+public sealed partial record PlayStyle
 {
-	SurviveAndBuild,
-	Exploration,
-	WildernessSurvival,
-	HomoSapiens,
-	CreativeBuilding,
-}
+	private PlayStyle(string code, string languageCode)
+	{
+		Code = code;
+		LanguageCode = languageCode;
+	}
 
-public static class PlayStyleWire
-{
-	private static readonly (PlayStyle Style, string Wire)[] map =
-	[
-		(PlayStyle.SurviveAndBuild, "surviveandbuild"),
-		(PlayStyle.Exploration, "exploration"),
-		(PlayStyle.WildernessSurvival, "wildernesssurvival"),
-		(PlayStyle.HomoSapiens, "homosapiens"),
-		(PlayStyle.CreativeBuilding, "creativebuilding"),
-	];
+	/// <summary>Стили игры 1.22 — запасной набор, когда схемы нет.</summary>
+	public static IReadOnlyList<string> Builtin { get; } =
+		["surviveandbuild", "exploration", "wildernesssurvival", "homosapiens", "creativebuilding"];
 
-	public static string ToWire(PlayStyle value) => map.First(item => item.Style == value).Wire;
+	public string Code { get; }
 
-	/// <summary>
-	/// Код языка, который игра ожидает рядом со стилем: <c>"preset-" + стиль</c>.
-	/// </summary>
-	public static string LanguageCode(PlayStyle value) => "preset-" + ToWire(value);
+	public string LanguageCode { get; }
 
-	public static Result<PlayStyle> FromWire(string? raw)
+	/// <summary>Код из запроса: только форма, ключ подписи — по прежнему правилу.</summary>
+	public static Result<PlayStyle> Create(string? raw)
 	{
 		var value = (raw ?? string.Empty).Trim();
-
-		return map.FirstOrDefault(item => item.Wire == value) is { Wire.Length: > 0 } found
-			? found.Style
+		return Shape().IsMatch(value)
+			? new PlayStyle(value, "preset-" + value)
 			: Failure.Invalid("Недопустимый стиль игры");
 	}
 
-	public static IReadOnlyList<string> All => [.. map.Select(item => item.Wire)];
+	/// <summary>Стиль, объявленный схемой сервера, с её ключом подписи.</summary>
+	public static Result<PlayStyle> CreateDeclared(string? code, string? languageCode)
+	{
+		var style = Create(code);
+		if (!style.IsSuccess)
+		{
+			return style;
+		}
+
+		var language = (languageCode ?? string.Empty).Trim();
+		return Shape().IsMatch(language)
+			? new PlayStyle(style.Value.Code, language)
+			: style;
+	}
+
+	[System.Text.RegularExpressions.GeneratedRegex(@"\A[A-Za-z0-9._-]{1,64}\z", System.Text.RegularExpressions.RegexOptions.CultureInvariant)]
+	private static partial System.Text.RegularExpressions.Regex Shape();
 }
 
 /// <summary>Мир на диске.</summary>

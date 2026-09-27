@@ -12,10 +12,13 @@
   <link rel="apple-touch-icon" href="/static/apple-touch-icon.png?v=0.2.0" sizes="180x180">
   <link rel="stylesheet" href="/static/panel.css?v=0.2.0">
   <script src="/static/core.js?v=0.2.0" defer></script>
+  <script src="/static/world-schema.js?v=0.2.0" defer></script>
   <script src="/static/overview.js?v=0.2.0" defer></script>
   <script src="/static/players.js?v=0.2.0" defer></script>
   <script src="/static/logs.js?v=0.2.0" defer></script>
+  <script src="/static/dependencies.js?v=0.2.0" defer></script>
   <script src="/static/content.js?v=0.2.0" defer></script>
+  <script src="/static/catalog.js?v=0.2.0" defer></script>
   <script src="/static/backups.js?v=0.2.0" defer></script>
   <script src="/static/maintenance.js?v=0.2.0" defer></script>
   <script src="/static/settings.js?v=0.2.0" defer></script>
@@ -289,10 +292,23 @@
 
           <section class="work-panel" data-panel="content:moddb">
             <article class="surface work-card">
-              <div class="card-header"><div><h3>Поиск в ModDB</h3><p>Панель установит только выбранный релиз, совместимый с версией игры сервера.</p></div></div>
+              <div class="card-header"><div><h3>Каталог ModDB</h3><p>Панель установит только выбранный релиз, совместимый с версией игры сервера. Отметка «для версии» — подсказка ModDB, решает проверка релиза.</p></div><span class="badge" id="catalog-count"></span></div>
+              <form class="catalog-filters" id="catalog-form">
+                <input id="catalog-query" type="search" maxlength="80" placeholder="Название или автор" aria-label="Название или автор">
+                <select id="catalog-sort" aria-label="Порядок"><option value="downloads">Больше скачиваний</option><option value="follows">Больше подписчиков</option><option value="trending">В тренде</option><option value="updated">Недавно обновлённые</option></select>
+                <select id="catalog-side" aria-label="Сторона"><option value="">Любая сторона</option><option value="both">Клиент и сервер</option><option value="server">Только сервер</option><option value="client">Только клиент</option></select>
+                <label class="check-row"><input type="checkbox" id="catalog-compatible"><span id="catalog-compatible-label">Только совместимые</span></label>
+                <label class="check-row"><input type="checkbox" id="catalog-hide-installed"><span>Скрыть установленные</span></label>
+              </form>
+              <div class="tag-filter" id="catalog-tags"></div>
+              <div class="notice hidden" id="catalog-state"></div>
+              <div class="mod-grid" id="catalog-grid"></div>
+              <div class="inline-actions"><button class="button hidden" type="button" id="catalog-more">Показать ещё</button></div>
+            </article>
+            <article class="surface work-card">
+              <div class="card-header"><div><h3>Поиск в ModDB</h3><p>Поиск по строке прямо на ModDB — для мода, которого нет в каталоге выше.</p></div></div>
               <form class="inline-form" id="moddb-search-form"><input id="moddb-query" type="search" minlength="2" maxlength="80" placeholder="Название мода" required><button class="button primary" type="submit">Найти</button></form>
               <div class="catalog-grid" id="moddb-results"></div>
-              <div id="moddb-releases"></div>
             </article>
           </section>
 
@@ -444,11 +460,16 @@
               </article>
               <article class="surface work-card">
                 <h3>Шаблон нового мира</h3><p class="muted-copy">WorldConfig.WorldConfiguration применяется только при создании следующего мира.</p>
-                <textarea class="json-editor" id="world-template" spellcheck="false"></textarea>
+                <div class="inline-form"><label class="form-field grow"><span>Стиль — заполняет параметры ниже</span><select id="world-template-style"><option value="">— не менять —</option></select></label></div>
+                <div class="mode-tabs" id="world-template-mode"><button class="button small active" type="button" data-mode="form">Форма</button><button class="button small" type="button" data-mode="json">JSON</button></div>
+                <div id="world-template-form" class="config-groups"></div>
+                <textarea class="json-editor hidden" id="world-template" spellcheck="false"></textarea>
                 <div class="inline-actions"><button class="button primary" type="button" id="world-template-save" data-min-role="admin">Сохранить шаблон</button></div>
                 <h3 class="subheading">Конфигурация модов</h3><p class="muted-copy">JSON-файлы из ModConfig; перед заменой создаётся .bak.</p>
                 <label class="form-field subheading"><span>Файл</span><select id="mod-config-select"></select></label>
-                <textarea class="json-editor" id="mod-config-editor" spellcheck="false"></textarea>
+                <div class="mode-tabs" id="mod-config-mode"><button class="button small active" type="button" data-mode="form">Форма</button><button class="button small" type="button" data-mode="json">JSON</button></div>
+                <div id="mod-config-form" class="config-groups"></div>
+                <textarea class="json-editor hidden" id="mod-config-editor" spellcheck="false"></textarea>
                 <div class="inline-actions"><button class="button primary" type="button" id="mod-config-save" data-min-role="admin">Сохранить</button></div>
               </article>
             </div>

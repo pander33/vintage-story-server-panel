@@ -219,7 +219,20 @@ public sealed class UpdateServiceTests : IDisposable
 		await service.LaunchModsAsync(main, [new ModUpdateItem("example", 7)], 900);
 		await service.StopAsync(default);
 
-		Assert.Equal("Пакетная операция допускает только совместимые стабильные релизы", (await HistoryAsync())[0]["detail"]!.GetValue<string>());
+		Assert.Equal("Пакетная операция допускает только совместимые релизы", (await HistoryAsync())[0]["detail"]!.GetValue<string>());
+	}
+
+	/// <summary>Предрелиз ставится, если оператор отметил его сам: план предлагает его рядом со стабильным.</summary>
+	[Fact]
+	public async Task Пакет_модов_принимает_совместимый_предрелиз()
+	{
+		mods.Installed = [Mod("example", "1.0.0")];
+		ServeRelease("example", 7, ["1.22.7"], Zip("""{"modid":"example","version":"2.0.0-rc.1"}"""), "2.0.0-rc.1");
+
+		await service.LaunchModsAsync(main, [new ModUpdateItem("example", 7)], 900);
+		await service.StopAsync(default);
+
+		Assert.Equal("Обновлено модов: 1", (await HistoryAsync())[0]["detail"]!.GetValue<string>());
 	}
 
 	[Fact]
@@ -299,7 +312,7 @@ public sealed class UpdateServiceTests : IDisposable
 		Version = version,
 	};
 
-	private void ServeRelease(string mod, long release, string[] tags, byte[] archive)
+	private void ServeRelease(string mod, long release, string[] tags, byte[] archive, string version = "2.0.0")
 	{
 		web[$"mods.vintagestory.at/api/mod/{mod}"] = () => Json(new JsonObject
 		{
@@ -309,7 +322,7 @@ public sealed class UpdateServiceTests : IDisposable
 				["releases"] = new JsonArray(new JsonObject
 				{
 					["releaseid"] = release,
-					["modversion"] = "2.0.0",
+					["modversion"] = version,
 					["tags"] = new JsonArray([.. tags.Select(tag => (JsonNode) tag)]),
 					["mainfile"] = "https://moddbcdn.vintagestory.at/mod.zip",
 					["filename"] = "mod.zip",

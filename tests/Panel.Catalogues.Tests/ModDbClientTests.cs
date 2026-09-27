@@ -34,7 +34,11 @@ public sealed class ModDbClientTests
 		Assert.Null(releases[2]!["compatibility"]);
 		Assert.Equal("example", value.LookupIdentifier);
 		Assert.Equal(
-			["modid", "name", "author", "urlalias", "side", "homepageurl", "releases", "game_version", "lookup_identifier"],
+			[
+				"modid", "name", "author", "urlalias", "side", "homepageurl", "sourcecodeurl", "issuetrackerurl", "wikiurl",
+				"trailervideourl", "downloads", "follows", "tags", "created", "lastreleased", "text", "logo", "screenshots",
+				"releases", "game_version", "lookup_identifier",
+			],
 			value.Json.Select(pair => pair.Key));
 	}
 
@@ -120,6 +124,18 @@ public sealed class ModDbClientTests
 		Assert.Equal(
 			"prerelease_only",
 			(await prerelease.CompatibleReleaseAsync("example", game, false, string.Empty, default)).Value.Lookup.Reason);
+	}
+
+	[Fact]
+	public async Task Предрелиз_новее_стабильного_предлагается_рядом()
+	{
+		var client = Client(new() { ["/api/mod/example"] = Mod(Release(2, "2.1.0-rc.1", ["1.22.7"]), Release(1, "2.0.0", ["1.22.7"])) });
+
+		var candidate = (await client.CompatibleReleaseAsync("example", game, false, string.Empty, default)).Value;
+
+		Assert.Equal("2.0.0", candidate.Release!["version"]!.GetValue<string>());
+		Assert.Equal("2.1.0-rc.1", candidate.Prerelease!["version"]!.GetValue<string>());
+		Assert.Equal("example", candidate.Prerelease!["identifier"]!.GetValue<string>());
 	}
 
 	[Fact]

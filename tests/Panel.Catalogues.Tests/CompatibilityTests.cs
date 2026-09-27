@@ -65,6 +65,22 @@ public sealed class CompatibilityTests
 		Assert.IsType<ReleaseLookup.Found>(ReleaseLookup.Choose([Release("2.0.0-rc.1", CompatibilityKind.Exact)], true));
 	}
 
+	/// <summary>
+	/// Предрелиз предлагается рядом со стабильным, только если он новее: ModDB перечисляет релизы
+	/// от нового к старому, и предрелиз старше выбранного стабильного не нужен.
+	/// </summary>
+	[Fact]
+	public void Предрелиз_предлагается_только_новее_стабильного()
+	{
+		IReadOnlyList<ModRelease> newer = [Release("2.1.0-rc.1", CompatibilityKind.Exact), Release("2.0.0", CompatibilityKind.Exact), Release("2.0.0-rc.2", CompatibilityKind.Exact)];
+		IReadOnlyList<ModRelease> older = [Release("2.0.0", CompatibilityKind.Exact), Release("2.0.0-rc.2", CompatibilityKind.Exact)];
+		IReadOnlyList<ModRelease> only = [Release("2.0.0-rc.1", CompatibilityKind.None), Release("1.9.0-rc.1", CompatibilityKind.SameBranch)];
+
+		Assert.Equal("2.1.0-rc.1", ReleaseLookup.NewerPrerelease(newer, ReleaseLookup.Choose(newer, false))!.VersionText);
+		Assert.Null(ReleaseLookup.NewerPrerelease(older, ReleaseLookup.Choose(older, false)));
+		Assert.Equal("1.9.0-rc.1", ReleaseLookup.NewerPrerelease(only, ReleaseLookup.Choose(only, false))!.VersionText);
+	}
+
 	[Fact]
 	public void Зависимости_отсутствующая_устаревшая_и_непроверенная_без_блокировки()
 	{

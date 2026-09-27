@@ -37,6 +37,21 @@ public sealed class AgentServerConfigStore : IServerConfigStore
 		client.CallAsync<ConfigRollbackPayload>(AgentProtocol.OpConfigRollback, instance, [backup.Value], ct);
 }
 
+/// <summary>Схема параметров мира через протокол демона.</summary>
+public sealed class AgentWorldSchemaStore : IWorldSchemaStore
+{
+	private readonly AgentClient client;
+
+	public AgentWorldSchemaStore(AgentClient client)
+	{
+		ArgumentNullException.ThrowIfNull(client);
+		this.client = client;
+	}
+
+	public Task<Result<WorldSchemaPayload>> ReadAsync(InstanceId instance, CancellationToken ct) =>
+		client.CallAsync<WorldSchemaPayload>(AgentProtocol.OpWorldConfigSchema, instance, [], ct);
+}
+
 /// <summary>
 /// Живая конфигурация мира: читается из телеметрии, меняется отдельной операцией демона,
 /// а не консольным действием из каталога.

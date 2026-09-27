@@ -29,6 +29,7 @@ public sealed class ContentOperations : IServerOperations
 	private readonly IServiceBackend service;
 	private readonly HistoryBackend history;
 	private readonly OperationTracker tracker;
+	private readonly WorldSchemaReader schemas;
 
 	public ContentOperations(
 		ModBackend mods,
@@ -37,10 +38,13 @@ public sealed class ContentOperations : IServerOperations
 		IServiceBackend service,
 		HistoryBackend history,
 		StagingArea staging,
-		OperationTracker tracker)
+		OperationTracker tracker,
+		WorldSchemaReader schemas)
 	{
 		ArgumentNullException.ThrowIfNull(tracker);
 		this.tracker = tracker;
+		ArgumentNullException.ThrowIfNull(schemas);
+		this.schemas = schemas;
 		ArgumentNullException.ThrowIfNull(staging);
 		this.staging = staging;
 		ArgumentNullException.ThrowIfNull(history);
@@ -280,6 +284,26 @@ public sealed class ContentOperations : IServerOperations
 		return Reply(activated.Map(_ => new WorldChangePayload { Active = name.Value.Value }));
 	}
 
+	/// <summary>
+	/// Стиль, который объявляет схема этого сервера (игра и включённые моды), с её ключом подписи.
+	/// Без схемы — только встроенные стили игры с прежним ключом <c>"preset-" + код</c>.
+	/// </summary>
+	private Result<PlayStyle> Declared(PlayStyle requested, RegisteredServer server)
+	{
+		var declared = schemas.Read(server).Value.Playstyles;
+		if (declared.Count == 0)
+		{
+			return PlayStyle.Builtin.Contains(requested.Code, StringComparer.Ordinal)
+				? requested
+				: Failure.Invalid("Недопустимый стиль игры");
+		}
+
+		var found = declared.FirstOrDefault(style => string.Equals(style.Code, requested.Code, StringComparison.Ordinal));
+		return found is null
+			? Failure.Invalid("Недопустимый стиль игры")
+			: PlayStyle.CreateDeclared(found.Code, found.LanguageCode);
+	}
+
 	private async Task<AgentReply> WorldCreateAsync(AgentRequest request, RegisteredServer server, CancellationToken ct)
 	{
 		var name = WorldFileName.Create(Argument(request, 0));
@@ -288,7 +312,7 @@ public sealed class ContentOperations : IServerOperations
 			return Failed(name.Failure!);
 		}
 
-		var style = PlayStyleWire.FromWire(Argument(request, 3));
+		var style = PlayStyle.Create(Argument(request, 3)).Bind(requested => Declared(requested, server));
 		if (!style.IsSuccess)
 		{
 			return Failed(style.Failure!);

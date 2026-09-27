@@ -403,8 +403,8 @@ public sealed class WorldBackend
 			world["WorldName"] = plan.DisplayName;
 			// Пустое зерно означает, что его выберет игра: null, а не "".
 			world["Seed"] = plan.Seed.Length > 0 ? plan.Seed : null;
-			world["PlayStyle"] = PlayStyleWire.ToWire(plan.Style);
-			world["PlayStyleLangCode"] = PlayStyleWire.LanguageCode(plan.Style);
+			world["PlayStyle"] = plan.Style.Code;
+			world["PlayStyleLangCode"] = plan.Style.LanguageCode;
 		}
 
 		var temporary = Path.Combine(

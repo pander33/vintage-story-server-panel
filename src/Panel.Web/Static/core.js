@@ -173,6 +173,22 @@ const VS = (() => {
 	}
 	const confirmAction = (title, text, confirm = 'Продолжить', danger = false) => dialog({title, text, confirm, danger}).then(result => result !== null);
 
+	/**
+	 * Диалог со своим содержимым: заголовок, тело и панель кнопок заполняет вызывающий.
+	 * wide — широкое окно. Возвращает {box, body, actions, close}; onClose вызывается при закрытии любым способом.
+	 */
+	function modal({eyebrow = '', title, text = '', wide = false, onClose = null}) {
+		const box = document.createElement('dialog');
+		box.className = `dialog ${wide ? '' : 'small'}`.trim();
+		box.innerHTML = `<div class="dialog-head"><div>${eyebrow ? `<span class="eyebrow">${esc(eyebrow)}</span>` : ''}<h2>${esc(title)}</h2>${text ? `<p>${esc(text)}</p>` : ''}</div><button class="dialog-close" type="button" aria-label="Закрыть">×</button></div><div class="dialog-fields" data-body></div><div class="dialog-actions" data-actions></div>`;
+		document.body.append(box);
+		const close = () => { if (box.open) box.close(); };
+		$('.dialog-close', box).addEventListener('click', close);
+		box.addEventListener('close', () => { box.remove(); if (onClose) onClose(); });
+		box.showModal();
+		return {box, body: $('[data-body]', box), actions: $('[data-actions]', box), close};
+	}
+
 	// ---------- ход долгой операции ----------
 
 	/**
@@ -499,7 +515,7 @@ const VS = (() => {
 
 	return {
 		$, $$, esc, fmtBytes, fmtDuration, fmtDateTime, fmtTime, fmtShortTime, fmtAgo, fmtDay, toDate,
-		state, can, roleTitles, on, emit, toast, fail, api, applyRoles, busy, dialog, confirmAction,
+		state, can, roleTitles, on, emit, toast, fail, api, applyRoles, busy, dialog, confirmAction, modal,
 		stream, closeStream, every, stopTimer, pages, selectPage, selectTab,
 		loadInstances, currentServer, selectInstance, refreshStatus, healthTitles, healthLevel,
 		lineChart, timeLabels,

@@ -323,9 +323,10 @@ public sealed partial class UpdateService : IHostedService
 			{
 				var details = Require(await moddb.DetailsAsync(item.Identifier, game, string.Empty, ct).ConfigureAwait(false));
 				var release = details.Releases.FirstOrDefault(entry => entry.Release.Id == item.ReleaseId);
-				if (release is null || release.Release.IsPrerelease || !release.Release.Compatibility.IsCompatible)
+				// Предрелиз допустим: его отмечает оператор сам, по умолчанию в плане он не выбран.
+				if (release is null || !release.Release.Compatibility.IsCompatible)
 				{
-					throw new UpdateFailed(Failure.Invalid("Пакетная операция допускает только совместимые стабильные релизы"));
+					throw new UpdateFailed(Failure.Invalid("Пакетная операция допускает только совместимые релизы"));
 				}
 
 				var download = Require(await moddb.ResolveDownloadAsync(item.Identifier, item.ReleaseId, game, ct).ConfigureAwait(false));

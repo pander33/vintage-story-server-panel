@@ -31,6 +31,15 @@ public interface IServerConfigStore
 }
 
 /// <summary>
+/// Схема параметров мира: стили игры и параметры, объявленные игрой и включёнными модами. Читает
+/// демон — он знает каталог программы и модов сервера.
+/// </summary>
+public interface IWorldSchemaStore
+{
+	Task<Result<WorldSchemaPayload>> ReadAsync(InstanceId instance, CancellationToken ct);
+}
+
+/// <summary>
 /// Хранилище отметки трекера: <c>instances/&lt;id&gt;/config-apply.json</c> в каталоге
 /// состояния панели. Файл принадлежит веб-процессу.
 /// </summary>

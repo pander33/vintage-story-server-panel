@@ -152,4 +152,24 @@ public abstract record ReleaseLookup
 			? new PrereleaseOnly()
 			: new NoCompatibleRelease();
 	}
+
+	/// <summary>
+	/// Совместимый предрелиз новее стабильного выбора: ModDB перечисляет релизы от нового к старому,
+	/// поэтому это предрелиз, стоящий в списке раньше выбранного стабильного (или любой, если
+	/// стабильного нет). Точный тег предпочтительнее. <c>null</c> — предлагать нечего.
+	/// </summary>
+	public static ModRelease? NewerPrerelease(IReadOnlyList<ModRelease> releases, ReleaseLookup stable)
+	{
+		ArgumentNullException.ThrowIfNull(releases);
+		ArgumentNullException.ThrowIfNull(stable);
+
+		var newer = stable is Found found
+			? releases.TakeWhile(release => !ReferenceEquals(release, found.Release))
+			: releases;
+		var eligible = newer
+			.Where(release => release.Compatibility.IsCompatible && release.IsPrerelease)
+			.ToList();
+		return eligible.FirstOrDefault(release => release.Compatibility.Kind is CompatibilityKind.Exact)
+			   ?? eligible.FirstOrDefault();
+	}
 }

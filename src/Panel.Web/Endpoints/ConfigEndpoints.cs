@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Routing;
 using Panel.Access.Authorization;
 using Panel.Access.Domain;
 using Panel.Configuration.Domain;
+using Panel.Configuration.Ports;
 using Panel.Contracts.Http;
 using Panel.Contracts.ServerCommands;
 using Panel.Runtime.Ports;
@@ -125,6 +126,21 @@ public static class ConfigEndpoints
 
 			return allowed.IsSuccess
 				? PanelResults.From(await handler.ReadWorldTemplateAsync(Instance(http), ct).ConfigureAwait(false))
+				: PanelResults.Refuse(allowed.Failure!);
+		});
+
+		// ADR-17: маршрут 2.0, из fixtures/routes-2.0.txt. То же право, что у GET /api/world-config:
+		// схема нужна, чтобы построить форму шаблона, а не отдельное действие.
+		routes.MapGet("/api/world-config/schema", async (
+			HttpContext http,
+			CommandAuthorizer authorizer,
+			IWorldSchemaStore schema,
+			CancellationToken ct) =>
+		{
+			var allowed = PanelResults.Authorize(http, authorizer, typeof(ReadWorldTemplate), requireCsrf: false);
+
+			return allowed.IsSuccess
+				? PanelResults.From(await schema.ReadAsync(Instance(http), ct).ConfigureAwait(false))
 				: PanelResults.Refuse(allowed.Failure!);
 		});
 

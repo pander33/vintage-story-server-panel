@@ -166,6 +166,7 @@ public static class Program
 		var backups = new BackupBackend(TimeProvider.System);
 		var editor = new RegistryEditor(panelConfig);
 		var tracker = new OperationTracker(TimeProvider.System);
+		var schemas = new WorldSchemaReader();
 		var content = new ContentOperations(
 			new ModBackend(staging, TimeProvider.System),
 			new WorldBackend(staging, TimeProvider.System),
@@ -173,7 +174,8 @@ public static class Program
 			service,
 			new HistoryBackend(),
 			staging,
-			tracker);
+			tracker,
+			schemas);
 
 		return new AgentDispatcher(
 			registry,
@@ -183,6 +185,7 @@ public static class Program
 			[
 				content,
 				new ConfigOperations(new ConfigBackend(staging, TimeProvider.System)),
+				new WorldSchemaOperations(schemas),
 				new MetricsCollector(service, telemetry, backups),
 				new GameOperations(new GameBackend(staging, TimeProvider.System), service, editor),
 			],

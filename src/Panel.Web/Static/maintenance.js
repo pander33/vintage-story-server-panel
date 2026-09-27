@@ -130,14 +130,21 @@
 	$('#batch-plan').addEventListener('click', async event => {
 		try {
 			const data = await busy(event.currentTarget, () => api('/api/mods/updates'));
-			modUpdates = (data.updates || []).filter(item => item.available && item.available.version !== item.installed);
-			$('#batch-list').innerHTML = modUpdates.map((item, index) => `<div><label class="check-row grow"><input type="checkbox" data-update-index="${index}" checked><span><b>${esc(item.modid)}</b><small>${esc(item.installed || "—")} → ${esc(item.available.version)}${item.available.compatibility === "same_minor" ? ` · метка ${esc(item.available.compatible_tag)}` : ""}</small></span></label></div>`).join('') || '<div class="empty">Совместимых стабильных обновлений нет.</div>';
+			// Предварительный релиз предлагается рядом со стабильным, но не отмечается сам.
+			modUpdates = VS.modUpdates(data.updates || []);
+			$('#batch-list').innerHTML = modUpdates.map(({item, release}, index) => `<div><label class="check-row grow"><input type="checkbox" data-update-index="${index}" data-update-mod="${esc(item.modid)}" ${release.prerelease ? "" : "checked"}><span><b>${esc(item.modid)}</b>${release.prerelease ? ' <span class="badge warn">предварительный</span>' : ''}<small>${esc(item.installed || "—")} → ${esc(release.version)}${release.compatibility === "same_minor" ? ` · метка ${esc(release.compatible_tag)}` : ""}</small></span></label></div>`).join('') || '<div class="empty">Совместимых обновлений нет.</div>';
 			$('#batch-apply').disabled = !modUpdates.length;
 		} catch (error) { fail(error); }
 	});
 
+	// У мода отмечается одна версия: пакет заменяет каждый мод один раз.
+	$('#batch-list').addEventListener('change', event => {
+		const input = event.target.closest('[data-update-mod]');
+		if (input?.checked) $$('[data-update-mod]').forEach(other => { if (other !== input && other.dataset.updateMod === input.dataset.updateMod) other.checked = false; });
+	});
+
 	$('#batch-apply').addEventListener('click', async event => {
-		const items = $$('[data-update-index]:checked').map(input => { const release = modUpdates[Number(input.dataset.updateIndex)].available; return {identifier: release.identifier, release_id: Number(release.releaseid)}; });
+		const items = $$('[data-update-index]:checked').map(input => { const release = modUpdates[Number(input.dataset.updateIndex)].release; return {identifier: release.identifier, release_id: Number(release.releaseid)}; });
 		if (!items.length) return;
 		const result = await dialog({eyebrow: 'ОБНОВЛЕНИЕ МОДОВ', title: `Обновить модов: ${items.length}?`, text: 'Панель скачает релизы, остановит сервер, создаст копию офлайн, заменит моды и дождётся готовности. При ошибке вернёт прежние версии.', phrase: 'ОБНОВИТЬ МОДЫ', confirm: 'Обновить'});
 		if (!result) return;

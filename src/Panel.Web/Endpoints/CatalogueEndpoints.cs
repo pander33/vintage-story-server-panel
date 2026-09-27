@@ -1,11 +1,14 @@
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Panel.Access.Authorization;
+using Panel.Catalogues.Domain;
 using Panel.Catalogues.Infrastructure;
 using Panel.Content.Ports;
+using Panel.Contracts.Content;
 using Panel.SharedKernel;
 using Panel.Web.Application;
 using Panel.Web.Middleware;
@@ -63,6 +66,88 @@ public static class CatalogueEndpoints
 
 			var game = await versions.OfAsync(Instance(http), ct).ConfigureAwait(false);
 			return PanelResults.Json(new JsonObject { ["mods"] = found.Value, ["game_version"] = game.Text });
+		});
+
+		// Каталог: список целиком держит панель, отбирает и сортирует тоже она, браузер получает страницу.
+		routes.MapGet("/api/moddb/mods", async (
+			HttpContext http,
+			CommandAuthorizer authorizer,
+			ModCatalogueCache catalogue,
+			IModStore mods,
+			GameVersions versions,
+			CancellationToken ct,
+			string? sort = null,
+			[FromQuery(Name = "tag")] string[]? tag = null,
+			string? side = null,
+			string? compatible = null,
+			[FromQuery(Name = "hide_installed")] string? hideInstalled = null,
+			string? q = null,
+			int? offset = null,
+			int? limit = null) =>
+		{
+			var allowed = PanelResults.Authorize(http, authorizer, typeof(ReadMods), requireCsrf: false);
+			if (!allowed.IsSuccess)
+			{
+				return PanelResults.Refuse(allowed.Failure!);
+			}
+
+			var game = await versions.OfAsync(Instance(http), ct).ConfigureAwait(false);
+			var snapshot = await catalogue.SnapshotAsync(game, ct).ConfigureAwait(false);
+			if (!snapshot.IsSuccess)
+			{
+				return Upstream(snapshot.Failure!);
+			}
+
+			// Установленные моды — пометка на карточке и отбор. Демон недоступен — каталог всё равно
+			// показывается, только без пометок.
+			var listed = await mods.ListAsync(Instance(http), ct).ConfigureAwait(false);
+			var installed = listed.IsSuccess ? Installed(listed.Value) : null;
+			var installedIds = installed?.Keys.ToHashSet(StringComparer.Ordinal);
+
+			var query = CatalogueQuery.ParseParameters(sort, tag ?? [], side, QueryFlag(compatible), q, offset, limit)
+				with
+			{ HideInstalled = QueryFlag(hideInstalled) };
+			var page = ModCatalogue.Page(snapshot.Value.Entries, query, snapshot.Value.Compatible, installedIds);
+			return PanelResults.Json(new JsonObject
+			{
+				["mods"] = new JsonArray([.. page.Items.Select(entry => (JsonNode) Card(entry, snapshot.Value.Compatible, installed))]),
+				["total"] = page.Total,
+				["offset"] = query.Offset,
+				["limit"] = query.Limit,
+				["game_version"] = game.Text,
+				["compatible_known"] = snapshot.Value.Compatible is not null,
+				["installed_known"] = installed is not null,
+				["stale"] = snapshot.Value.Stale,
+				["available_tags"] = new JsonArray([.. ModCatalogue.PopularTags(snapshot.Value.Entries, snapshot.Value.Tags).Select(item => (JsonNode) new JsonObject
+				{
+					["name"] = item.Tag.Name,
+					["color"] = item.Tag.Color,
+					["count"] = item.Count,
+				})]),
+			});
+		});
+
+		// Картинки ModDB: CSP разрешает только свой хост, а no-store не даёт браузеру их сохранить.
+		routes.MapGet("/api/moddb/image", async (
+			HttpContext http,
+			string url,
+			CommandAuthorizer authorizer,
+			ModImageProxy images,
+			CancellationToken ct) =>
+		{
+			var allowed = PanelResults.Authorize(http, authorizer, typeof(ReadMods), requireCsrf: false);
+			if (!allowed.IsSuccess)
+			{
+				return PanelResults.Refuse(allowed.Failure!);
+			}
+
+			var image = await images.GetAsync(url, ct).ConfigureAwait(false);
+			if (image.IsSuccess)
+			{
+				return Results.Bytes(image.Value.Data, image.Value.ContentType);
+			}
+
+			return image.Failure!.Code == FailureCode.Invalid ? PanelResults.Refuse(image.Failure!) : Upstream(image.Failure!);
 		});
 
 		routes.MapGet("/api/moddb/mod/{identifier}", async (
@@ -131,6 +216,7 @@ public static class CatalogueEndpoints
 							["modid"] = mod.ModId,
 							["installed"] = mod.Version,
 							["available"] = release.Value.Release,
+							["available_prerelease"] = release.Value.Prerelease,
 							["compatibility_unlisted"] = release.Value.Lookup.Reason == "no_compatible_release",
 							["unavailable_reason"] = release.Value.Lookup.Reason,
 						}
@@ -215,6 +301,39 @@ public static class CatalogueEndpoints
 			}
 		});
 	}
+
+	/// <summary>Установленные моды по <c>modid</c> в нижнем регистре; у повторов — первый по списку.</summary>
+	private static Dictionary<string, ModEntryPayload> Installed(ModsPayload listed)
+	{
+		var installed = new Dictionary<string, ModEntryPayload>(StringComparer.Ordinal);
+		foreach (var mod in listed.Mods.Where(mod => !string.IsNullOrEmpty(mod.ModId)))
+		{
+			installed.TryAdd(mod.ModId!.ToLowerInvariant(), mod);
+		}
+
+		return installed;
+	}
+
+	private static JsonObject Card(CatalogueEntry entry, IReadOnlySet<long>? compatible, Dictionary<string, ModEntryPayload>? installed) => new()
+	{
+		["modid"] = entry.ModId,
+		["identifier"] = entry.LookupKey,
+		["modidstrs"] = new JsonArray([.. entry.Identifiers.Select(id => (JsonNode) JsonValue.Create(id)!)]),
+		["name"] = entry.Name,
+		["summary"] = entry.Summary,
+		["author"] = entry.Author,
+		["side"] = entry.Side,
+		["tags"] = new JsonArray([.. entry.Tags.Select(name => (JsonNode) JsonValue.Create(name)!)]),
+		["downloads"] = entry.Downloads,
+		["follows"] = entry.Follows,
+		["lastreleased"] = entry.LastReleased,
+		["logo"] = ModDbClient.ProxiedImage(entry.Logo),
+		["compatible"] = compatible is null ? null : compatible.Contains(entry.ModId),
+		["installed"] = installed is null
+			|| entry.Identifiers.Select(id => installed.GetValueOrDefault(id.ToLowerInvariant())).FirstOrDefault(mod => mod is not null) is not { } mod
+			? null
+			: new JsonObject { ["version"] = mod.Version, ["enabled"] = mod.Enabled },
+	};
 
 	/// <summary>Отказ внешнего API: 502 с его текстом при любой причине.</summary>
 	private static IResult Upstream(Failure failure) =>

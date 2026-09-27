@@ -72,7 +72,13 @@
 		finally { event.target.value = ''; }
 	});
 
+	// Список стилей — из данных игры и включённых модов; статичный запасной вариант — на случай,
+	// если демон недоступен или схему прочитать не удалось.
 	$('#world-create-playstyle').innerHTML = Object.entries(PLAYSTYLES).map(([value, title]) => `<option value="${esc(value)}">${esc(title)}</option>`).join('');
+	VS.loadWorldSchema().then(schema => {
+		if (!schema.playstyles?.length) return;
+		$('#world-create-playstyle').innerHTML = schema.playstyles.map(style => `<option value="${esc(style.code)}" title="${esc(style.description)}">${esc(style.label)}</option>`).join('');
+	}).catch(() => {});
 	$('#world-create-form').addEventListener('submit', async event => {
 		event.preventDefault();
 		try {
@@ -91,6 +97,9 @@
 		return `${issue.modid}: версию проверить не удалось (установлена ${issue.installed || "—"}, нужна ${issue.required || "—"})`;
 	}
 
+	/** Проблемы зависимостей, которые можно решить установкой. */
+	const fixable = issue => issue.status === 'missing' || issue.status === 'outdated';
+
 	async function loadMods() {
 		const data = await api('/api/mods');
 		mods = {mods: data.mods || [], rollbacks: data.rollbacks || {}, profiles: data.profiles || []};
@@ -100,12 +109,13 @@
 			const issues = mod.dependency_issues || [];
 			const deps = Object.entries(mod.dependencies || {}).map(([id, version]) => `${id}${version ? ` ≥ ${version}` : ""}`);
 			const detail = [mod.version ? `v${mod.version}` : '', fmtBytes(mod.size), deps.length ? `зависит от ${deps.join(", ")}` : 'без зависимостей'].filter(Boolean).join(' · ');
-			return `<div><span class="item-symbol">✥</span><span class="grow"><b>${esc(mod.display_name || mod.modid || mod.name)}</b><small>${esc(mod.name)} · ${esc(detail)}</small>${issues.map(issue => `<small class="accent">${esc(issueText(issue))}</small>`).join("")}${mod.error ? `<small class="accent">${esc(mod.error)}</small>` : ""}</span>
+			return `<div><span class="item-symbol">✥</span><span class="grow"><b>${esc(mod.display_name || mod.modid || mod.name)}</b><small>${esc(mod.name)} · ${esc(detail)}</small>${issues.map(issue => `<small class="accent">${esc(issueText(issue))}${fixable(issue) ? ` <button class="link-button" type="button" data-fix="${esc(issue.modid)}" ${admin}>${issue.status === "outdated" ? "Обновить" : "Доустановить"}</button>` : ""}</small>`).join("")}${mod.error ? `<small class="accent">${esc(mod.error)}</small>` : ""}</span>
 				<em class="${mod.enabled ? (issues.length ? "warn" : "ok") : "off"}">${mod.enabled ? (issues.length ? "ПРОБЛЕМЫ" : "ВКЛЮЧЁН") : "ОТКЛЮЧЁН"}</em>
 				<span class="row-actions"><button class="button small" type="button" data-mod="toggle" data-name="${esc(mod.name)}" ${admin}>${mod.enabled ? "Отключить" : "Включить"}</button><button class="button small danger" type="button" data-mod="delete" data-name="${esc(mod.name)}" ${admin}>Удалить</button></span></div>`;
 		}).join('') || '<div class="empty">Моды не найдены.</div>';
 		const problems = [...(data.duplicate_ids || []).map(id => `Повторяющийся modid: ${id}`), ...mods.mods.flatMap(mod => (mod.dependency_issues || []).map(issue => `${mod.modid || mod.name}: ${issueText(issue)}`))];
-		$('#mods-warning').textContent = problems.join(' · ');
+		const fixes = mods.mods.flatMap(mod => (mod.dependency_issues || []).filter(fixable));
+		$('#mods-warning').innerHTML = `${esc(problems.join(' · '))}${fixes.length ? ` <button class="button small" type="button" id="mods-fix-all" ${admin}>Доустановить все недостающие</button>` : ''}`;
 		$('#mods-warning').classList.toggle('hidden', !problems.length);
 		$('#mod-profile-select').innerHTML = mods.profiles.length ? mods.profiles.map(name => `<option>${esc(name)}</option>`).join('') : '<option value="">Нет наборов</option>';
 		const rollbacks = Object.entries(mods.rollbacks).flatMap(([modid, archives]) => archives.map(archive => ({modid, archive})));
@@ -118,7 +128,29 @@
 		$('#mods-log').textContent = (data.lines || []).slice(-80).join('\n') || 'Сообщений модов не найдено.';
 	}
 
+	/** Свежий список модов и диалог зависимостей для названных модов (или для всех, если список пуст). */
+	async function reloadAndOffer(names, chain = new Set()) {
+		await loadMods();
+		const wanted = new Set((names || []).map(name => name.toLowerCase()));
+		const issues = mods.mods
+			.filter(mod => !wanted.size || wanted.has(String(mod.modid || '').toLowerCase()))
+			.flatMap(mod => (mod.dependency_issues || []).filter(fixable));
+		const unique = [...new Map(issues.map(issue => [issue.modid.toLowerCase(), issue])).values()];
+		if (unique.length) await VS.dependencies.offer(unique, chain, mods.mods);
+	}
+	VS.mods = {reload: reloadAndOffer};
+
+	$('#mods-warning').addEventListener('click', event => {
+		if (event.target.closest('#mods-fix-all')) reloadAndOffer([]).catch(fail);
+	});
+
 	$('#mods-list').addEventListener('click', async event => {
+		const fix = event.target.closest('[data-fix]');
+		if (fix) {
+			const issue = mods.mods.flatMap(mod => mod.dependency_issues || []).find(item => item.modid === fix.dataset.fix);
+			if (issue) VS.dependencies.offer([issue], new Set(), mods.mods).catch(fail);
+			return;
+		}
 		const button = event.target.closest('[data-mod]');
 		if (!button) return;
 		const name = button.dataset.name;
@@ -142,7 +174,7 @@
 		if (!file) return;
 		const body = new FormData();
 		body.append('file', file);
-		try { const data = await api('/api/mods/upload', {method: 'POST', body}); toast(`Установлен ${data.modid} ${data.version}`, 'ok'); await loadMods(); }
+		try { const data = await api('/api/mods/upload', {method: 'POST', body}); toast(`Установлен ${data.modid} ${data.version}`, 'ok'); await reloadAndOffer([data.modid]); }
 		catch (error) { fail(error); }
 		finally { event.target.value = ''; }
 	});
@@ -151,7 +183,8 @@
 		if (!await VS.confirmAction('Установить выбранный релиз?', 'Текущая версия мода сохранится в истории для отката. Изменение подействует после перезапуска сервера.', 'Установить')) return false;
 		const data = await busy(button, () => api('/api/mods/install-release', {method: 'POST', body: {identifier, release_id: Number(releaseId)}}));
 		toast(`Установлен ${data.modid} ${data.version}`, 'ok');
-		await loadMods();
+		VS.catalog?.markInstalled(data.modid, data.version);
+		await reloadAndOffer([data.modid]);
 		return true;
 	}
 
@@ -162,16 +195,16 @@
 		try {
 			const data = await busy(event.currentTarget, () => api('/api/mods/updates'));
 			const items = data.updates || [];
-			const updates = items.filter(item => item.available && item.available.version !== item.installed);
+			const rows = VS.modUpdates(items);
 			const branch = (data.game_version || '').split('.').slice(0, 2).join('.');
 			const groups = [
-				[items.filter(item => item.unavailable_reason === 'no_compatible_release'), `ModDB не указал релиз для ветки ${branch}.x`],
+				[items.filter(item => item.unavailable_reason === 'no_compatible_release' && !item.available_prerelease), `ModDB не указал релиз для ветки ${branch}.x`],
 				[items.filter(item => item.unavailable_reason === 'no_releases'), 'На странице ModDB нет опубликованных релизов'],
-				[items.filter(item => item.unavailable_reason === 'prerelease_only'), 'Найдены только предварительные релизы'],
 				[items.filter(item => item.error), 'Страница ModDB не найдена или недоступна'],
 			].filter(([list]) => list.length);
-			box.className = `notice ${updates.length ? "ok" : ""}`;
-			box.innerHTML = (updates.length ? `<strong>Доступны стабильные совместимые релизы (игра ${esc(data.game_version || "—")}):</strong><div class="data-list">${updates.map(item => `<div><span class="grow"><b>${esc(item.modid)}</b><small>${esc(item.installed || "—")} → ${esc(item.available.version)}${item.available.compatibility === "same_minor" ? ` · метка ${esc(item.available.compatible_tag)}, не точная версия — проверьте changelog` : ""}</small></span><button class="button small primary" type="button" data-release-id="${esc(item.available.releaseid)}" data-identifier="${esc(item.available.identifier)}" ${VS.can("admin") ? "" : "disabled"}>Обновить</button></div>`).join("")}</div>` : 'Новых стабильных совместимых версий не найдено.')
+			const admin = VS.can('admin') ? '' : 'disabled';
+			box.className = `notice ${rows.length ? "ok" : ""}`;
+			box.innerHTML = (rows.length ? `<strong>Доступны совместимые релизы (игра ${esc(data.game_version || "—")}):</strong><div class="data-list">${rows.map(({item, release}) => `<div><span class="grow"><b>${esc(item.modid)}</b>${release.prerelease ? ' <span class="badge warn">предварительный</span>' : ''}<small>${esc(item.installed || "—")} → ${esc(release.version)}${release.compatibility === "same_minor" ? ` · метка ${esc(release.compatible_tag)}, не точная версия — проверьте changelog` : ""}</small></span><button class="button small ${release.prerelease ? "" : "primary"}" type="button" data-release-id="${esc(release.releaseid)}" data-identifier="${esc(release.identifier)}" ${admin}>Обновить</button></div>`).join("")}</div>` : 'Новых совместимых версий не найдено.')
 				+ groups.map(([list, title]) => `<p>${esc(title)}: ${list.map(item => esc(item.modid)).join(", ")}</p>`).join('');
 		} catch (error) { box.className = 'notice error'; box.textContent = error.message; }
 	});
@@ -215,25 +248,15 @@
 		event.preventDefault();
 		const box = $('#moddb-results');
 		box.innerHTML = '<div class="empty">Поиск…</div>';
-		$('#moddb-releases').innerHTML = '';
 		try {
 			const data = await busy(event.submitter, () => api(`/api/moddb/search?q=${encodeURIComponent($("#moddb-query").value.trim())}`));
-			box.innerHTML = (data.mods || []).map(mod => `<article class="catalog-item"><h4>${esc(mod.name)}</h4><small>${esc(mod.author || "—")} · ${esc(mod.side || "—")}</small><p>${esc(mod.summary || "")}</p><div><button class="button small" type="button" data-moddb="${esc(mod.urlalias || mod.modid)}">Релизы</button></div></article>`).join('') || '<div class="empty">Ничего не найдено.</div>';
+			box.innerHTML = (data.mods || []).map(mod => `<article class="catalog-item"><h4>${esc(mod.name)}</h4><small>${esc(mod.author || "—")} · ${esc(mod.side || "—")}</small><p>${esc(mod.summary || "")}</p><div><button class="button small" type="button" data-moddb="${esc(mod.urlalias || mod.modid)}" data-ids="${esc((mod.modidstrs || []).join(","))}">Страница мода</button></div></article>`).join('') || '<div class="empty">Ничего не найдено.</div>';
 		} catch (error) { box.innerHTML = `<div class="notice error">${esc(error.message)}</div>`; }
 	});
 
-	$('#moddb-results').addEventListener('click', async event => {
+	$('#moddb-results').addEventListener('click', event => {
 		const button = event.target.closest('[data-moddb]');
-		if (!button) return;
-		const identifier = button.dataset.moddb;
-		const box = $('#moddb-releases');
-		box.innerHTML = '<div class="empty">Загрузка релизов…</div>';
-		try {
-			const data = await busy(button, () => api(`/api/moddb/mod/${encodeURIComponent(identifier)}`));
-			const compatible = (data.releases || []).filter(release => release.compatible);
-			box.innerHTML = `<h3 class="subheading">${esc(data.name)} · релизы для ${esc(data.game_version)}</h3>` + (compatible.length ? compatible.map(release => `<div class="release-row"><div class="card-header"><div><b>${esc(release.version || "—")}</b>${release.compatibility === "same_minor" ? ` <span class="badge warn">для ${esc(release.compatible_tag)}</span>` : ""}<small class="muted mono"> ${esc(release.filename || "")}</small></div><button class="button small primary" type="button" data-release-id="${esc(release.releaseid)}" data-identifier="${esc(data.lookup_identifier || identifier)}" ${VS.can("admin") ? "" : "disabled"}>Установить</button></div><pre>${esc(release.changelog || "Без changelog")}</pre></div>`).join('') : '<div class="notice warn">Нет релиза для этой ветки игры.</div>');
-			box.scrollIntoView({behavior: 'smooth', block: 'start'});
-		} catch (error) { box.innerHTML = `<div class="notice error">${esc(error.message)}</div>`; }
+		if (button) VS.catalog.openMod(button.dataset.moddb, (button.dataset.ids || '').split(',').filter(Boolean)).catch(fail);
 	});
 
 	// ---------- архив и корзина ----------
@@ -274,7 +297,7 @@
 			if (view === 'worlds') loadWorlds().catch(fail);
 			if (view === 'mods') Promise.all([loadMods(), loadModLog()]).catch(fail);
 			if (view === 'recovery') loadRecovery().catch(fail);
-			if (view === 'moddb') $('#moddb-query').focus();
+			if (view === 'moddb') VS.catalog.enter();
 		},
 	};
 })();

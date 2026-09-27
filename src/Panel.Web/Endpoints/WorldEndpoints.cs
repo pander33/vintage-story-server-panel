@@ -202,7 +202,7 @@ public static class WorldEndpoints
 				return PanelResults.Refuse(name.Failure!);
 			}
 
-			var style = PlayStyleWire.FromWire(body.PlayStyle);
+			var style = PlayStyle.Create(body.PlayStyle);
 			if (!style.IsSuccess)
 			{
 				return PanelResults.Refuse(style.Failure!);

@@ -76,6 +76,7 @@ public static class AgentProtocol
 	public const string OpConfigBackups = "config-backups";
 	public const string OpConfigRollback = "config-rollback";
 	public const string OpWorldConfigAction = "worldconfig-action";
+	public const string OpWorldConfigSchema = "world-config-schema";
 
 	// Игроки и лента событий игры.
 	public const string OpPlayerAction = "player-action";

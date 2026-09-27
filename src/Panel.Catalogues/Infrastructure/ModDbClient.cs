@@ -22,7 +22,11 @@ public sealed record ModDetails(JsonObject Json, IReadOnlyList<ModDbRelease> Rel
 public sealed record ModDownload(Uri Url, string FileName);
 
 /// <summary>Релиз для обновления (с полем <c>identifier</c>) или причина его отсутствия.</summary>
-public sealed record ReleaseCandidate(JsonObject? Release, ReleaseLookup Lookup);
+/// <param name="Prerelease">
+/// Совместимый предрелиз новее стабильного выбора, если предрелизы не входили в выбор. Сам не
+/// выбирается — только предлагается рядом.
+/// </param>
+public sealed record ReleaseCandidate(JsonObject? Release, ReleaseLookup Lookup, JsonObject? Prerelease = null);
 
 /// <summary>
 /// Клиент ModDB: перевод внешнего API в понятия панели.
@@ -46,6 +50,12 @@ public sealed partial class ModDbClient
 	public const string DownloadHost = "moddbcdn.vintagestory.at";
 
 	private const int maxResponseBytes = 4 * 1024 * 1024;
+
+	/// <summary>Весь каталог одним ответом — около 3,8 МБ и растёт, поэтому свой предел.</summary>
+	private const int maxCatalogueBytes = 16 * 1024 * 1024;
+
+	/// <summary>Предел описания мода, которое уходит в браузер.</summary>
+	private const int maxDescriptionChars = 200_000;
 
 	private const string userAgent = "VintageStoryPanel/0.2.0";
 
@@ -100,6 +110,96 @@ public sealed partial class ModDbClient
 
 		return result;
 	}
+
+	/// <summary>
+	/// Весь каталог модов одним запросом. Записи, которые не моды, отбрасываются.
+	/// </summary>
+	public async Task<Result<IReadOnlyList<CatalogueEntry>>> ListCatalogueAsync(CancellationToken ct)
+	{
+		var value = await GetAsync("/mods", string.Empty, ct, maxCatalogueBytes, TimeSpan.FromSeconds(45)).ConfigureAwait(false);
+		if (!value.IsSuccess)
+		{
+			return Result.Fail<IReadOnlyList<CatalogueEntry>>(value.Failure!);
+		}
+
+		IReadOnlyList<CatalogueEntry> entries =
+		[
+			.. (value.Value["mods"] as JsonArray ?? [])
+				.OfType<JsonObject>()
+				.Select(CatalogueEntry.From)
+				.OfType<CatalogueEntry>(),
+		];
+		return Result.Ok(entries);
+	}
+
+	/// <summary>Теги ModDB с цветами для фильтра.</summary>
+	public async Task<Result<IReadOnlyList<CatalogueTag>>> ListTagsAsync(CancellationToken ct)
+	{
+		var value = await GetAsync("/tags", string.Empty, ct).ConfigureAwait(false);
+		if (!value.IsSuccess)
+		{
+			return Result.Fail<IReadOnlyList<CatalogueTag>>(value.Failure!);
+		}
+
+		IReadOnlyList<CatalogueTag> tags =
+		[
+			.. (value.Value["tags"] as JsonArray ?? [])
+				.OfType<JsonObject>()
+				.Select(tag => new CatalogueTag(PythonText.Of(tag["name"]), PythonText.Of(tag["color"])))
+				.Where(tag => tag.Name.Length > 0),
+		];
+		return Result.Ok(tags);
+	}
+
+	/// <summary>
+	/// Номера модов, у которых есть релиз, отмеченный ровно этой версией игры (<c>gameversions[]</c>).
+	/// Это подсказка для каталога: решает проверка релиза при показе и при скачивании. Версии игры
+	/// нет в списке ModDB — пустое множество.
+	/// </summary>
+	public async Task<Result<IReadOnlySet<long>>> ListCompatibleAsync(GameVersion game, CancellationToken ct)
+	{
+		ArgumentNullException.ThrowIfNull(game);
+		var versions = await GetAsync("/gameversions", string.Empty, ct).ConfigureAwait(false);
+		if (!versions.IsSuccess)
+		{
+			return Result.Fail<IReadOnlySet<long>>(versions.Failure!);
+		}
+
+		var tag = (versions.Value["gameversions"] as JsonArray ?? [])
+			.OfType<JsonObject>()
+			.FirstOrDefault(item => PythonText.Of(item["name"]) == game.Text);
+		if (IntegerOf(tag?["tagid"]) is not { } tagId)
+		{
+			return Result.Ok<IReadOnlySet<long>>(new HashSet<long>());
+		}
+
+		var mods = await GetAsync(
+			"/mods",
+			$"?gameversions%5B%5D={tagId.ToString(CultureInfo.InvariantCulture)}",
+			ct,
+			maxCatalogueBytes,
+			TimeSpan.FromSeconds(45)).ConfigureAwait(false);
+		if (!mods.IsSuccess)
+		{
+			return Result.Fail<IReadOnlySet<long>>(mods.Failure!);
+		}
+
+		IReadOnlySet<long> ids = (mods.Value["mods"] as JsonArray ?? [])
+			.OfType<JsonObject>()
+			.Select(item => IntegerOf(item["modid"]))
+			.OfType<long>()
+			.ToHashSet();
+		return Result.Ok(ids);
+	}
+
+	/// <summary>
+	/// Адрес картинки для браузера: через прокси панели, а не с CDN (CSP разрешает только свой хост).
+	/// Чужой хост и не-https дают <c>null</c>.
+	/// </summary>
+	public static string? ProxiedImage(string? url) =>
+		url is not null && TrustedDownload(url) is { } trusted
+			? "/api/moddb/image?url=" + Uri.EscapeDataString(trusted.AbsoluteUri)
+			: null;
 
 	/// <summary>Страница мода и совместимость каждого релиза с версией игры.</summary>
 	public async Task<Result<ModDetails>> DetailsAsync(
@@ -164,6 +264,18 @@ public sealed partial class ModDbClient
 			["urlalias"] = mod["urlalias"]?.DeepClone(),
 			["side"] = mod["side"]?.DeepClone(),
 			["homepageurl"] = mod["homepageurl"]?.DeepClone(),
+			["sourcecodeurl"] = mod["sourcecodeurl"]?.DeepClone(),
+			["issuetrackerurl"] = mod["issuetrackerurl"]?.DeepClone(),
+			["wikiurl"] = mod["wikiurl"]?.DeepClone(),
+			["trailervideourl"] = mod["trailervideourl"]?.DeepClone(),
+			["downloads"] = mod["downloads"]?.DeepClone(),
+			["follows"] = mod["follows"]?.DeepClone(),
+			["tags"] = mod["tags"] is JsonArray modTags ? modTags.DeepClone() : new JsonArray(),
+			["created"] = mod["created"]?.DeepClone(),
+			["lastreleased"] = mod["lastreleased"]?.DeepClone(),
+			["text"] = Truncate(PythonText.Of(mod["text"]), maxDescriptionChars),
+			["logo"] = ProxiedImage(PythonText.Of(mod["logofile"])),
+			["screenshots"] = new JsonArray([.. Screenshots(mod)]),
 			["releases"] = new JsonArray([.. releases.Select(release => (JsonNode) release.Json.DeepClone())]),
 			["game_version"] = game.Text,
 			["lookup_identifier"] = lookup,
@@ -189,16 +301,21 @@ public sealed partial class ModDbClient
 			return Result.Fail<ReleaseCandidate>(details.Failure!);
 		}
 
-		var lookup = ReleaseLookup.Choose([.. details.Value.Releases.Select(item => item.Release)], includePrerelease);
-		if (lookup is not ReleaseLookup.Found found)
-		{
-			return new ReleaseCandidate(null, lookup);
-		}
+		IReadOnlyList<ModRelease> releases = [.. details.Value.Releases.Select(item => item.Release)];
+		var lookup = ReleaseLookup.Choose(releases, includePrerelease);
+		var prerelease = includePrerelease ? null : ReleaseLookup.NewerPrerelease(releases, lookup);
+		var newer = prerelease is null ? null : Candidate(details.Value, prerelease);
+		return lookup is ReleaseLookup.Found found
+			? new ReleaseCandidate(Candidate(details.Value, found.Release), lookup, newer)
+			: new ReleaseCandidate(null, lookup, newer);
+	}
 
-		var chosen = details.Value.Releases.First(item => ReferenceEquals(item.Release, found.Release));
-		var release = (JsonObject) chosen.Json.DeepClone();
-		release["identifier"] = details.Value.LookupIdentifier;
-		return new ReleaseCandidate(release, lookup);
+	/// <summary>Релиз для ответа: его поля и <c>identifier</c>, по которому скачивать.</summary>
+	private static JsonObject Candidate(ModDetails details, ModRelease chosen)
+	{
+		var release = (JsonObject) details.Releases.First(item => ReferenceEquals(item.Release, chosen)).Json.DeepClone();
+		release["identifier"] = details.LookupIdentifier;
+		return release;
 	}
 
 	/// <summary>
@@ -334,6 +451,25 @@ public sealed partial class ModDbClient
 		return new ModDbRelease(domain, json);
 	}
 
+	/// <summary>Скриншоты мода: крупный и уменьшенный адрес, оба через прокси; чужие хосты пропускаются.</summary>
+	private static IEnumerable<JsonNode> Screenshots(JsonObject mod)
+	{
+		foreach (var shot in (mod["screenshots"] as JsonArray ?? []).OfType<JsonObject>().Take(20))
+		{
+			var full = ProxiedImage(PythonText.Of(shot["mainfile"]));
+			if (full is null)
+			{
+				continue;
+			}
+
+			yield return new JsonObject
+			{
+				["url"] = full,
+				["thumbnail"] = ProxiedImage(PythonText.Of(shot["thumbnailfilename"])) ?? full,
+			};
+		}
+	}
+
 	/// <summary><c>str(tag)</c> каждого тега; если это не список, тегов нет.</summary>
 	private static IReadOnlyList<string> TagsOf(JsonObject release) =>
 		release["tags"] is JsonArray tags ? [.. tags.Select(StrOf)] : [];
@@ -365,7 +501,7 @@ public sealed partial class ModDbClient
 			: null;
 	}
 
-	private static Uri? TrustedDownload(string candidate) =>
+	internal static Uri? TrustedDownload(string candidate) =>
 		Uri.TryCreate(candidate, UriKind.Absolute, out var url)
 		&& url.Scheme == Uri.UriSchemeHttps
 		&& url.Host.Equals(DownloadHost, StringComparison.OrdinalIgnoreCase)
@@ -382,10 +518,11 @@ public sealed partial class ModDbClient
 	}
 
 	/// <summary><c>_json</c>: GET к API, не больше 4 МБ, объект со statuscode 200.</summary>
-	private async Task<Result<JsonObject>> GetAsync(string path, string query, CancellationToken ct)
+	private async Task<Result<JsonObject>> GetAsync(
+		string path, string query, CancellationToken ct, int maximum = maxResponseBytes, TimeSpan? limit = null)
 	{
 		using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-		timeout.CancelAfter(TimeSpan.FromSeconds(15));
+		timeout.CancelAfter(limit ?? TimeSpan.FromSeconds(15));
 
 		byte[]? data;
 		try
@@ -401,7 +538,7 @@ public sealed partial class ModDbClient
 			}
 
 			await using var stream = await response.Content.ReadAsStreamAsync(timeout.Token).ConfigureAwait(false);
-			data = await ReadLimitedAsync(stream, maxResponseBytes, timeout.Token).ConfigureAwait(false);
+			data = await ReadLimitedAsync(stream, maximum, timeout.Token).ConfigureAwait(false);
 		}
 		catch (Exception exception) when (exception is HttpRequestException or IOException
 											  || (exception is OperationCanceledException && !ct.IsCancellationRequested))

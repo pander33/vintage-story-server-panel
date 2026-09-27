@@ -158,7 +158,7 @@ public sealed class AgentWorldStore : IWorldStore
 		client.CallAsync<WorldChangePayload>(
 			AgentProtocol.OpWorldCreate,
 			instance,
-			[plan.File.Value, plan.DisplayName, plan.Seed, PlayStyleWire.ToWire(plan.Style)],
+			[plan.File.Value, plan.DisplayName, plan.Seed, plan.Style.Code],
 			cancellationToken);
 
 	public Task<Result<WorldChangePayload>> PutAwayAsync(

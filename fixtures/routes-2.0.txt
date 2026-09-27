@@ -8,3 +8,6 @@ POST /api/server/package
 GET /api/operation
 POST /api/provision/transfer
 POST /api/provision/import
+GET /api/moddb/mods
+GET /api/moddb/image
+GET /api/world-config/schema

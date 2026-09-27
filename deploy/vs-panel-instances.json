@@ -16,7 +16,7 @@
       "mod_config_dir": "/srv/vintagestory/data/ModConfig",
       "program_dir": "/opt/vintagestory",
       "disk_warning_free_gb": 10,
-      "disk_warning_free_percent": 10,
+      "disk_warning_free_percent": 5,
       "command_transport": "fifo",
       "console_fifo": "/run/vintagestory-console.fifo",
       "screen_session": "vintagestory_server",
