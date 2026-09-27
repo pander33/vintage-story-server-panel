@@ -308,7 +308,7 @@
         <section class="page" id="page-backups">
           <div class="page-heading"><div><div class="eyebrow">НАДЁЖНОСТЬ / КОПИИ</div><h1>Резервные копии</h1><p>Создание, проверка, восстановление и очистка хранилища.</p></div><button class="button primary" type="button" id="backup-create" data-min-role="operator"><svg><use href="#i-archive"/></svg> Создать копию</button></div>
           <div class="overview-strip"><div><span>ПОСЛЕДНЯЯ КОПИЯ</span><strong id="backup-last">—</strong><small id="backup-last-detail">—</small></div><div><span>ВСЕГО КОПИЙ</span><strong id="backup-count">—</strong><small id="backup-total">—</small></div><div><span>СВОБОДНО НА ДИСКЕ</span><strong id="backup-free">—</strong><small id="backup-free-detail">—</small></div></div>
-          <div class="work-tabs" role="tablist" data-tabs="backups"><button class="work-tab active" type="button" data-view="list">Копии</button><button class="work-tab" type="button" data-view="extract">Извлечь мир</button><button class="work-tab" type="button" data-view="retention">Очистка</button><button class="work-tab" type="button" data-view="history">Накопленная история</button></div>
+          <div class="work-tabs" role="tablist" data-tabs="backups"><button class="work-tab active" type="button" data-view="list">Копии</button><button class="work-tab" type="button" data-view="extract">Извлечь мир</button><button class="work-tab" type="button" data-view="retention">Очистка</button><button class="work-tab" type="button" data-view="transfer">Перенос сервера</button><button class="work-tab" type="button" data-view="history">Накопленная история</button></div>
 
           <section class="work-panel active" data-panel="backups:list">
             <article class="surface work-card"><div class="card-header"><div><h3>Архивы сервера</h3><p>На время создания копии сервер корректно останавливается. Последнюю копию удалить нельзя.</p></div><button class="button small" type="button" id="backups-refresh"><svg><use href="#i-refresh"/></svg> Обновить</button></div><div class="data-list" id="backups-list"></div></article>
@@ -327,6 +327,27 @@
               <h3>Очистка старых копий</h3><p class="muted-copy">Разовая операция. Копия удаляется, только если она и лишняя по счёту, и старше срока. Сначала панель покажет точный список.</p>
               <form id="retention-form"><div class="form-grid three"><label class="form-field"><span>Оставить минимум копий</span><input id="retention-count" type="number" min="2" max="500" value="10"></label><label class="form-field"><span>Хранить минимум дней</span><input id="retention-days" type="number" min="1" max="3650" value="30"></label><label class="form-field"><span>Желаемый свободный объём, ГБ</span><input id="retention-free" type="number" min="0" max="100000" value="10"></label></div><div class="inline-actions"><button class="button" type="submit">Показать, что будет удалено</button><button class="button danger" type="button" id="retention-apply" disabled>Удалить показанное</button></div></form>
               <div class="notice hidden" id="retention-result"></div>
+            </article>
+          </section>
+
+          <section class="work-panel" data-panel="backups:transfer">
+            <article class="surface work-card" data-min-role="admin" data-hide-denied>
+              <div class="card-header"><div><h3>Перенос сервера</h3><p>Экспорт выбранного сервера и импорт архива как нового сервера. Архив проверяется перед созданием; существующие серверы не заменяются.</p></div><button class="button" type="button" id="package-export">Скачать пакет выбранного сервера</button></div>
+              <form id="package-upload-form"><label class="form-field"><span>Пакет сервера (.tar.gz)</span><input id="package-file" type="file" accept=".tar.gz,application/gzip" required></label><div class="inline-actions"><button class="button" type="submit">Загрузить и проверить</button></div></form>
+              <div class="notice hidden" id="package-inspection" role="status"></div>
+              <form class="hidden" id="package-import-form">
+                <p class="muted-copy">Проверьте мир и задайте параметры нового сервера. Версию игры, идентификатор и порт выберите явно: текущий сервер не меняется.</p>
+                <div class="form-grid three">
+                  <label class="form-field"><span>Идентификатор нового сервера</span><input id="package-id" maxlength="32" pattern="[a-z0-9][a-z0-9_\-]{0,31}" required></label>
+                  <label class="form-field"><span>Название в панели</span><input id="package-name" maxlength="64" required></label>
+                  <label class="form-field"><span>Версия игры</span><input id="package-version" required></label>
+                  <label class="form-field"><span>Игровой порт</span><input id="package-port" type="number" min="1024" max="65535" required></label>
+                  <label class="form-field"><span>Имя сервера в списке</span><input id="package-server-name" maxlength="64" required></label>
+                </div>
+                <div class="check-group"><label><input id="package-world-choice" type="checkbox" required> Использовать показанный активный мир из пакета (без создания нового мира)</label></div>
+                <div class="check-group"><label><input id="package-upgrade" type="checkbox"> Разрешить обновление мира, если выбранная версия игры новее версии в пакете (возврата не будет)</label></div>
+                <div class="inline-actions"><button class="button primary" type="submit">Импортировать как новый сервер</button></div>
+              </form>
             </article>
           </section>
 

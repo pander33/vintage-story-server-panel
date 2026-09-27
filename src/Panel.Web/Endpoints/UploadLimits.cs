@@ -16,6 +16,16 @@ public static class UploadLimits
 {
 	private const long formOverhead = 1024 * 1024;
 
+	/// <summary>Поднять предел тела запроса для маршрута с сырым телом; точный счёт байт ведёт запись.</summary>
+	public static void RaiseBodyLimit(HttpContext http, long limitBytes)
+	{
+		ArgumentNullException.ThrowIfNull(http);
+		if (http.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } body)
+		{
+			body.MaxRequestBodySize = limitBytes;
+		}
+	}
+
 	/// <summary>Форма запроса; <c>null</c>, если запрос не форма. При превышении предела <c>TooLarge</c>.</summary>
 	public static async Task<FormRead> ReadFormAsync(HttpContext http, long limitMegabytes, CancellationToken ct)
 	{

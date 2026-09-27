@@ -171,6 +171,11 @@ public interface IWorldStore
 /// <summary>Резервные копии одного сервера.</summary>
 public interface IBackupStore
 {
+	Task<Result<WorldExportPayload>> ExportPackageAsync(
+		InstanceId instance,
+		StagedFile staged,
+		CancellationToken cancellationToken);
+
 	Task<Result<BackupsPayload>> ListAsync(InstanceId instance, CancellationToken cancellationToken);
 
 	/// <summary>
@@ -216,6 +221,12 @@ public interface IBackupStore
 		RetentionPolicy policy,
 		bool apply,
 		CancellationToken cancellationToken);
+}
+
+/// <summary>Ход идущей долгой операции сервера: копия, восстановление, выгрузка пакета.</summary>
+public interface IOperationProgress
+{
+	Task<Result<OperationPayload>> CurrentAsync(InstanceId instance, CancellationToken cancellationToken);
 }
 
 /// <summary>

@@ -56,8 +56,7 @@
 
 	$('#backup-create').addEventListener('click', async event => {
 		if (!await VS.confirmAction('Создать резервную копию?', 'На время архивации сервер корректно остановится и затем запустится снова: так копия мира будет целостной.', 'Создать копию')) return;
-		toast('Создание копии… Это может занять несколько минут');
-		try { const data = await busy(event.currentTarget, () => api('/api/backups', {method: 'POST'})); toast(`Создана ${data.name}`, 'ok'); await loadBackups(); VS.refreshStatus(); }
+				try { const data = await busy(event.currentTarget, () => api('/api/backups', {method: 'POST'})); toast(`Создана ${data.name}`, 'ok'); await loadBackups(); VS.refreshStatus(); }
 		catch (error) { fail(error); }
 	});
 	$('#backups-refresh').addEventListener('click', event => busy(event.currentTarget, loadBackups).catch(fail));
@@ -146,6 +145,82 @@
 	});
 	$('#history-store').addEventListener('change', renderHistory);
 	$('#history-refresh').addEventListener('click', event => busy(event.currentTarget, loadHistory).catch(fail));
+
+	// ---------- перенос сервера ----------
+
+	let inspectedPackage = null;
+	$('#package-export').addEventListener('click', async event => {
+		const server = VS.currentServer();
+		if (!VS.can('admin') || !server) { toast('Выберите сервер для экспорта', 'error'); return; }
+		if (!await VS.confirmAction('Экспортировать сервер?', 'Сервер будет остановлен на время создания согласованного пакета. Сохраните скачанный архив в безопасном месте.', 'Экспортировать')) return;
+		try {
+			const archive = await busy(event.currentTarget, () => api('/api/server/package', {method: 'POST', response: 'blob'}));
+			const url = URL.createObjectURL(archive);
+			try {
+				const link = document.createElement('a');
+				link.href = url;
+				link.download = `server-${server.id}.tar.gz`;
+				document.body.append(link);
+				link.click();
+				link.remove();
+			} finally { setTimeout(() => URL.revokeObjectURL(url), 60000); }
+			toast('Пакет сервера скачан', 'ok');
+		} catch (error) { fail(error); }
+	});
+
+	$('#package-file').addEventListener('change', () => {
+		inspectedPackage = null;
+		$('#package-import-form').classList.add('hidden');
+		$('#package-inspection').classList.add('hidden');
+	});
+
+	$('#package-upload-form').addEventListener('submit', async event => {
+		event.preventDefault();
+		if (!VS.can('admin')) return;
+		const file = $('#package-file').files[0];
+		if (!file) return;
+		inspectedPackage = null;
+		$('#package-import-form').classList.add('hidden');
+		const notice = $('#package-inspection');
+		notice.className = 'notice warn';
+		notice.textContent = `Загружается и проверяется ${file.name} (${fmtBytes(file.size)})…`;
+		try {
+			const data = await busy(event.submitter, () => api('/api/provision/transfer', {method: 'POST', body: file}));
+			if (!data.plan || !data.sha256 || !Number.isSafeInteger(data.length)) throw new Error('Панель не вернула данные проверенного пакета');
+			inspectedPackage = data;
+			notice.className = 'notice ok';
+			notice.textContent = `Пакет проверен: ${file.name}, ${fmtBytes(data.length)}. Активный мир: ${data.active_world || 'не указан'}. Версия игры в пакете: ${data.game_version || 'неизвестна'}. SHA-256: ${data.sha256}.`;
+			$('#package-id').value = '';
+			$('#package-name').value = '';
+			$('#package-version').value = data.game_version || '';
+			$('#package-port').value = '';
+			$('#package-server-name').value = '';
+			$('#package-world-choice').checked = false;
+			$('#package-upgrade').checked = false;
+			$('#package-import-form').classList.remove('hidden');
+		} catch (error) { notice.className = 'notice error'; notice.textContent = error.message; }
+	});
+
+	$('#package-import-form').addEventListener('submit', async event => {
+		event.preventDefault();
+		if (!VS.can('admin') || !inspectedPackage) return;
+		const packageData = inspectedPackage;
+		const server = {
+			id: $('#package-id').value.trim(), name: $('#package-name').value.trim(), version: $('#package-version').value.trim(),
+			port: Number($('#package-port').value), server_name: $('#package-server-name').value.trim(),
+		};
+		const confirmation = await dialog({eyebrow: 'ИМПОРТ СЕРВЕРА', title: `Создать сервер «${server.name}»?`, text: `Пакет: ${fmtBytes(packageData.length)}. Активный мир: ${packageData.active_world || 'не указан'}. Версия игры в пакете: ${packageData.game_version || 'неизвестна'}. Новый идентификатор: ${server.id}; версия игры: ${server.version}; порт: ${server.port}. Импорт создаст отдельный сервер из проверенного архива.`, phrase: `ИМПОРТИРОВАТЬ ${server.id}`, confirm: 'Импортировать', danger: true});
+		if (!confirmation || packageData !== inspectedPackage) return;
+		try {
+			await busy(event.submitter, () => api('/api/provision/import', {method: 'POST', body: {plan: packageData.plan, server, confirmation: confirmation.phrase, accept_upgrade: $('#package-upgrade').checked}}));
+			inspectedPackage = null;
+			$('#package-import-form').classList.add('hidden');
+			$('#package-upload-form').reset();
+			$('#package-inspection').className = 'notice ok';
+			$('#package-inspection').textContent = `Импорт сервера «${server.name}» запущен. Ход операции показан выше.`;
+			VS.selectPage('overview');
+		} catch (error) { fail(error); }
+	});
 
 	// ---------- раздел ----------
 

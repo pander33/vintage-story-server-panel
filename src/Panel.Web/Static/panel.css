@@ -468,6 +468,8 @@ tr.picked td { background: #3a2a21; }
 .progress-steps li.failed { color: var(--error); }
 .progress-steps li.failed::before { content: "✕"; color: var(--error); }
 .progress-steps li.skipped::before { content: "–"; }
+.operation-meter { height: 6px; margin-top: 14px; background: var(--surface-3); border-radius: 3px; overflow: hidden; }
+.operation-meter i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .4s ease; }
 .progress-steps small { display: block; color: var(--muted); font-size: 10px; margin-top: 2px; }
 
 .catalog-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin-top: 16px; }

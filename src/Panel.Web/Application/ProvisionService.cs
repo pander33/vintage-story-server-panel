@@ -101,6 +101,9 @@ public sealed partial class ProvisionService : IHostedService
 	/// <summary>Предел размера пакета, 4 ГБ.</summary>
 	public long MaxPackageBytes { get; init; } = PackageDownloader.MaxPackageBytes;
 
+	/// <summary>Независимый от лимитов миров и модов предел переносимого архива.</summary>
+	public long MaxTransferBytes { get; init; } = 16L * 1024 * 1024 * 1024;
+
 	public bool IsBusy
 	{
 		get
@@ -221,7 +224,9 @@ public sealed partial class ProvisionService : IHostedService
 	/// Идентификатор записи возвращается как ответ: по нему мастер найдёт операцию после
 	/// перезапуска панели.
 	/// </summary>
-	public async Task<Result<OperationId>> LaunchAsync(ServerSpec spec)
+	public Task<Result<OperationId>> LaunchAsync(ServerSpec spec) => LaunchAsync(spec, null);
+
+	public async Task<Result<OperationId>> LaunchAsync(ServerSpec spec, TransferPlan? transfer)
 	{
 		ArgumentNullException.ThrowIfNull(spec);
 		await RecoverAsync().ConfigureAwait(false);
@@ -247,7 +252,7 @@ public sealed partial class ProvisionService : IHostedService
 				{
 					try
 					{
-						await CreateAsync(spec, id).ConfigureAwait(false);
+						await CreateAsync(spec, id, transfer).ConfigureAwait(false);
 					}
 					catch (Exception exception)
 					{
@@ -272,16 +277,15 @@ public sealed partial class ProvisionService : IHostedService
 	}
 
 	/// <summary>Повторяет <c>ProvisionManager.create</c>.</summary>
-	private async Task CreateAsync(ServerSpec spec, OperationId id)
+	private async Task CreateAsync(ServerSpec spec, OperationId id, TransferPlan? transfer)
 	{
 		var ct = CancellationToken.None;
 		var operation = Operation.CreateProvision(id, spec.Id, spec.Version, Now());
-		await SaveAsync(operation).ConfigureAwait(false);
-
 		StagedFile? package = null;
 		var registered = false;
 		try
 		{
+			await SaveAsync(operation).ConfigureAwait(false);
 			await EnsureAvailableAsync(spec, ct).ConfigureAwait(false);
 
 			var release = Require(await catalogue.FindAsync(spec.Version, refresh: false, ct).ConfigureAwait(false));
@@ -296,7 +300,19 @@ public sealed partial class ProvisionService : IHostedService
 			operation.Advance(new OperationStep(StepAction.Download, StepResult.Ok) { Bytes = written });
 			await SaveAsync(operation).ConfigureAwait(false);
 
-			var created = Require(await host.CreateInstanceAsync(spec, package.Value, ct).ConfigureAwait(false));
+			if (transfer is not null)
+			{
+				var checkedTransfer = Require(await host.InspectTransferAsync(transfer.File, transfer.Sha256, transfer.Length, ct).ConfigureAwait(false));
+				if (!string.Equals(checkedTransfer.ActiveWorld, transfer.ActiveWorld, StringComparison.Ordinal)
+					|| !string.Equals(checkedTransfer.ManifestSha256, transfer.Inspection.ManifestSha256, StringComparison.Ordinal))
+				{
+					throw new ProvisionFailed(Failure.Conflict("Манифест пакета изменился после проверки"));
+				}
+			}
+
+			var created = Require(transfer is null
+				? await host.CreateInstanceAsync(spec, package.Value, ct).ConfigureAwait(false)
+				: await host.ImportInstanceAsync(spec, package.Value, transfer.File, transfer.Sha256, transfer.Length, ct).ConfigureAwait(false));
 			registered = true;
 			operation.Advance(new OperationStep(StepAction.Create, StepResult.Ok) { Root = created.Root, TelemetryMod = created.TelemetryMod });
 			await SaveAsync(operation).ConfigureAwait(false);
@@ -315,7 +331,7 @@ public sealed partial class ProvisionService : IHostedService
 			operation.Advance(new OperationStep(StepAction.Ready, ready ? StepResult.Ok : StepResult.Warning) { Detail = Text(health["detail"]) });
 			await FinishAsync(operation, null).ConfigureAwait(false);
 		}
-		catch (ProvisionFailed failure)
+		catch (Exception failure)
 		{
 			if (registered)
 			{
@@ -327,13 +343,18 @@ public sealed partial class ProvisionService : IHostedService
 				});
 			}
 
-			await FinishAsync(operation, failure.Reason).ConfigureAwait(false);
+			await FinishAsync(operation, failure is ProvisionFailed refused ? refused.Reason : Failure.Unavailable(failure.Message)).ConfigureAwait(false);
 		}
 		finally
 		{
 			if (package is { } staged)
 			{
 				staging.Discard(staged);
+			}
+
+			if (transfer is not null)
+			{
+				staging.Discard(transfer.File);
 			}
 		}
 	}

@@ -20,6 +20,12 @@ public interface IProvisioningHost
 	/// <summary>Создать дерево и записать сервер в реестр. Пакет уже лежит в staging.</summary>
 	Task<Result<InstanceCreatedPayload>> CreateInstanceAsync(ServerSpec spec, StagedFile package, CancellationToken ct);
 
+	/// <summary>Проверить переносимый пакет без распаковки в каталог сервера.</summary>
+	Task<Result<TransferInspectionPayload>> InspectTransferAsync(StagedFile transfer, string sha256, long length, CancellationToken ct);
+
+	/// <summary>Импортировать проверенный пакет в новый сервер; демон повторяет проверку.</summary>
+	Task<Result<InstanceCreatedPayload>> ImportInstanceAsync(ServerSpec spec, StagedFile gamePackage, StagedFile transfer, string sha256, long length, CancellationToken ct);
+
 	Task<Result<ServiceInstalledPayload>> InstallServiceAsync(InstanceId instance, CancellationToken ct);
 
 	Task<Result<PanelEnvironmentSetPayload>> SetPanelEnvironmentAsync(PanelSetting setting, CancellationToken ct);

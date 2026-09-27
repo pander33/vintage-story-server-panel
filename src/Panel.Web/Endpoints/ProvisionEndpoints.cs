@@ -1,4 +1,6 @@
 using System.Text.Json.Serialization;
+using Panel.Contracts.Agent;
+using Panel.Web.Middleware;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -86,6 +88,127 @@ public static class ProvisionEndpoints
 			return PanelResults.Json(new LaunchResponse { Run = launched.Value.ToString() });
 		});
 
+		routes.MapPost("/api/provision/transfer", async (
+			HttpContext http,
+			CommandAuthorizer authorizer,
+			IProvisioningHost host,
+			ProvisionService provision,
+			TransferPlans plans,
+			StagingWriter staging,
+			CancellationToken ct) =>
+		{
+			var allowed = PanelResults.Authorize(http, authorizer, typeof(ManageProvision));
+			if (!allowed.IsSuccess)
+			{
+				return PanelResults.Refuse(allowed.Failure!);
+			}
+
+			if (!string.Equals(http.Request.ContentType, "application/octet-stream", StringComparison.OrdinalIgnoreCase))
+			{
+				return PanelResults.Refuse(StatusCodes.Status415UnsupportedMediaType, "Ожидается application/octet-stream");
+			}
+
+			var limit = provision.MaxTransferBytes;
+			if (http.Request.ContentLength > limit)
+			{
+				return PanelResults.Refuse(StatusCodes.Status413PayloadTooLarge, "Переносимый пакет превышает допустимый размер");
+			}
+
+			UploadLimits.RaiseBodyLimit(http, limit);
+
+			var transfer = StagingWriter.Reserve(StagedFile.Purpose.Transfer, ".tar.gz");
+			var retained = false;
+			try
+			{
+				var written = await TransferUpload.WriteAsync(http.Request.Body, staging.PathOf(transfer), limit, ct).ConfigureAwait(false);
+				if (!written.IsSuccess)
+				{
+					return PanelResults.Refuse(written.Failure!);
+				}
+
+				var inspection = await host.InspectTransferAsync(transfer, written.Value.Sha256, written.Value.Length, ct).ConfigureAwait(false);
+				if (!inspection.IsSuccess)
+				{
+					return PanelResults.Refuse(inspection.Failure!);
+				}
+
+				var plan = new TransferPlan(transfer, written.Value.Sha256, written.Value.Length, inspection.Value.ActiveWorld, inspection.Value);
+				var token = plans.Add(plan, http.Request.Cookies[PanelContextMiddleware.SessionCookie]!);
+				retained = true;
+				return PanelResults.Json(new TransferPlanResponse(token, written.Value.Sha256, written.Value.Length, inspection.Value.ActiveWorld, inspection.Value.GameVersion, inspection.Value.ManifestSha256));
+			}
+			finally
+			{
+				if (!retained)
+				{
+					staging.Discard(transfer);
+				}
+			}
+		});
+
+		routes.MapPost("/api/provision/import", async (
+			HttpContext http,
+			ImportRequest body,
+			CommandAuthorizer authorizer,
+			ProvisionService provision,
+			TransferPlans plans,
+			StagingWriter staging,
+			AuditLog audit,
+			CancellationToken ct) =>
+		{
+			var allowed = PanelResults.Authorize(http, authorizer, typeof(ManageProvision));
+			if (!allowed.IsSuccess)
+			{
+				return PanelResults.Refuse(allowed.Failure!);
+			}
+
+			if (body.Server.Id is null || body.Server.Name is null || body.Server.Version is null || body.Server.ServerName is null)
+			{
+				return PanelResults.Refuse(StatusCodes.Status422UnprocessableEntity, "Не заполнены обязательные поля: id, name, version, server_name");
+			}
+
+			var spec = ServerSpec.FromProvisionRequest(body.Server.ToAnswers(ServerRequest.ProvisionDefaults));
+			if (!spec.IsSuccess)
+			{
+				return PanelResults.Refuse(spec.Failure!);
+			}
+
+			var confirmed = Confirmation.Exactly($"ИМПОРТИРОВАТЬ {spec.Value.Id.Value}").Check(body.Confirmation);
+			if (!confirmed.IsSuccess)
+			{
+				return PanelResults.Refuse(confirmed.Failure!);
+			}
+
+			var session = http.Request.Cookies[PanelContextMiddleware.SessionCookie]!;
+			var plan = plans.Peek(body.Plan, session);
+			if (provision.IsBusy || plan is null)
+			{
+				return PanelResults.Refuse(StatusCodes.Status409Conflict, "Создание уже идёт либо план импорта истёк или принадлежит другой сессии");
+			}
+
+			var versionRefused = TransferVersion.Check(plan.Inspection.GameVersion, spec.Value.Version, body.AcceptUpgrade);
+			if (versionRefused is not null)
+			{
+				return PanelResults.Refuse(versionRefused);
+			}
+
+			var taken = plans.Take(body.Plan, http.Request.Cookies[PanelContextMiddleware.SessionCookie]!);
+			if (!taken.IsSuccess)
+			{
+				return PanelResults.Refuse(taken.Failure!);
+			}
+
+			var launched = await provision.LaunchAsync(spec.Value, taken.Value).ConfigureAwait(false);
+			if (!launched.IsSuccess)
+			{
+				staging.Discard(taken.Value.File);
+				return PanelResults.Refuse(launched.Failure!);
+			}
+
+			await audit.RecordAsync(http, "instance_import_started", $"{spec.Value.Id.Value} {taken.Value.Sha256}", ct).ConfigureAwait(false);
+			return PanelResults.Json(new LaunchResponse { Run = launched.Value.ToString() });
+		});
+
 		// Каталог новых серверов — маршруты 2.0 (ADR-17).
 		routes.MapGet("/api/settings/servers-root", async (
 			HttpContext http,
@@ -154,6 +277,29 @@ public static class ProvisionEndpoints
 			});
 		});
 	}
+}
+
+/// <summary>Ответ проверки переносимого пакета.</summary>
+public sealed record TransferPlanResponse(
+	[property: JsonPropertyName("plan")] string Plan,
+	[property: JsonPropertyName("sha256")] string Sha256,
+	[property: JsonPropertyName("length")] long Length,
+	[property: JsonPropertyName("active_world")] string ActiveWorld,
+	[property: JsonPropertyName("game_version")] string GameVersion,
+	[property: JsonPropertyName("manifest_sha256")] string ManifestSha256)
+{
+	[JsonPropertyName("ok")] public bool Ok => true;
+}
+
+/// <summary>Подтверждённый запрос импорта ранее проверенного пакета.</summary>
+public sealed record ImportRequest
+{
+	[JsonPropertyName("plan")] public string? Plan { get; init; }
+	[JsonPropertyName("confirmation")] public string Confirmation { get; init; } = string.Empty;
+	[JsonPropertyName("server")] public ServerRequest Server { get; init; } = new();
+
+	/// <summary>Согласие на необратимое обновление мира, если выбранная версия игры новее версии в пакете.</summary>
+	[JsonPropertyName("accept_upgrade")] public bool AcceptUpgrade { get; init; }
 }
 
 /// <summary>Тело проверки машины.</summary>

@@ -398,6 +398,8 @@ public sealed class UpdateServiceTests : IDisposable
 
 	private sealed class FakeBackups(List<string> calls) : IBackupStore
 	{
+		public Task<Result<WorldExportPayload>> ExportPackageAsync(InstanceId instance, StagedFile destination, CancellationToken ct) => throw new NotSupportedException();
+
 		public Task<Result<BackupChangePayload>> CreateAsync(InstanceId instance, bool offline, CancellationToken ct)
 		{
 			calls.Add(offline ? "backup-create-offline" : "backup-create");

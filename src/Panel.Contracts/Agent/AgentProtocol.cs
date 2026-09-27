@@ -59,6 +59,10 @@ public static class AgentProtocol
 	public const string OpBackupDelete = "backup-delete";
 	public const string OpBackupRestoreWorld = "backup-restore-world";
 	public const string OpBackupRetention = "backup-retention";
+	public const string OpTransferExport = "transfer-export";
+
+	/// <summary>Ход идущей долгой операции сервера: стадия, прочитанные байты, прошедшее время.</summary>
+	public const string OpOperation = "operation";
 
 	// История «на всякий случай»: три команды над тремя хранилищами.
 	public const string OpHistory = "history";
@@ -103,6 +107,8 @@ public static class AgentProtocol
 	public const string OpRuntimeProbe = "runtime-probe";
 	public const string OpDiskFree = "disk-free";
 	public const string OpInstanceCreate = "instance-create";
+	public const string OpTransferInspect = "transfer-inspect";
+	public const string OpInstanceImport = "instance-import";
 	public const string OpInstanceServiceInstall = "instance-service-install";
 	public const string OpPanelEnvSet = "panel-env-set";
 	public const string OpPanelRestart = "panel-restart";

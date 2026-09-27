@@ -40,6 +40,7 @@ public readonly record struct StagedFile
 
 		/// <summary>Пакет сервера <c>.tar.gz</c> для обновления игры.</summary>
 		public const string Game = "game-";
+		public const string Transfer = "transfer-";
 	}
 
 	public static Result<StagedFile> Create(string? raw)
@@ -54,7 +55,8 @@ public readonly record struct StagedFile
 		var known = value.StartsWith(Purpose.Mod, StringComparison.Ordinal)
 			|| value.StartsWith(Purpose.World, StringComparison.Ordinal)
 			|| value.StartsWith(Purpose.Config, StringComparison.Ordinal)
-			|| value.StartsWith(Purpose.Game, StringComparison.Ordinal);
+			|| value.StartsWith(Purpose.Game, StringComparison.Ordinal)
+			|| value.StartsWith(Purpose.Transfer, StringComparison.Ordinal);
 
 		return known
 			? new StagedFile(value)

@@ -27,6 +27,15 @@ public sealed record ChangeWorlds : ICommand;
 [Requires(Permission.ObserveServer)]
 public sealed record ReadBackups : ICommand;
 
+/// <summary>Ход идущей долгой операции: наблюдателю виден так же, как и сама работа сервера.</summary>
+[Requires(Permission.ObserveServer)]
+public sealed record ReadOperation : ICommand;
+
+/// <summary>Выгрузка всего переносимого содержимого сервера доступна администратору.</summary>
+[Requires(Permission.Administer)]
+[MutatesServer]
+public sealed record ExportServerPackage : ICommand;
+
 /// <summary>
 /// Снятие копии доступно оператору: он делает его перед любым действием, и требование прав
 /// администратора подталкивало бы действовать без копии.

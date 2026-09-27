@@ -30,6 +30,15 @@ public sealed class AgentProvisioningHost : IProvisioningHost
 			[spec.ToJson(package).ToJsonString(PanelJson.Options)],
 			ct);
 
+	public Task<Result<TransferInspectionPayload>> InspectTransferAsync(StagedFile transfer, string sha256, long length, CancellationToken ct) =>
+		client.CallAsync<TransferInspectionPayload>(AgentProtocol.OpTransferInspect, InstanceId.Registry,
+			[transfer.Name, sha256, length.ToString(System.Globalization.CultureInfo.InvariantCulture)], ct);
+
+	public Task<Result<InstanceCreatedPayload>> ImportInstanceAsync(ServerSpec spec, StagedFile gamePackage, StagedFile transfer, string sha256, long length, CancellationToken ct) =>
+		client.CallAsync<InstanceCreatedPayload>(AgentProtocol.OpInstanceImport, InstanceId.Registry,
+			[spec.ToJson(gamePackage).ToJsonString(PanelJson.Options), transfer.Name, sha256,
+				length.ToString(System.Globalization.CultureInfo.InvariantCulture)], ct);
+
 	public Task<Result<ServiceInstalledPayload>> InstallServiceAsync(InstanceId instance, CancellationToken ct) =>
 		client.CallAsync<ServiceInstalledPayload>(
 			AgentProtocol.OpInstanceServiceInstall, InstanceId.Registry, [instance.Value], ct);

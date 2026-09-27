@@ -115,6 +115,7 @@ public sealed class InstanceLayoutTests
 		Assert.Null(world["Seed"]);
 		Assert.Equal("/srv/vs-panel/creative/data/Saves/default.vcdbs", (string?) world["SaveFileLocation"]);
 		Assert.Equal("preset-creativebuilding", (string?) world["PlayStyleLangCode"]);
+		Assert.Contains(applied["ModPaths"]!.AsArray(), path => (string?) path == Layout().ModsDirectory);
 
 		// Исходный документ не изменился: значения накладываются на копию.
 		Assert.Equal("123", (string?) generated["WorldConfig"]!["Seed"]);

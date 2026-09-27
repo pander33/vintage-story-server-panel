@@ -23,6 +23,8 @@ public sealed class ProvisionOperations : IRegistryOperations
 		[AgentProtocol.OpRuntimeProbe] = 0,
 		[AgentProtocol.OpDiskFree] = 0,
 		[AgentProtocol.OpInstanceCreate] = 1,
+		[AgentProtocol.OpTransferInspect] = 3,
+		[AgentProtocol.OpInstanceImport] = 4,
 		[AgentProtocol.OpInstanceServiceInstall] = 1,
 		[AgentProtocol.OpPanelEnvSet] = 2,
 		[AgentProtocol.OpPanelRestart] = 0,
@@ -62,6 +64,8 @@ public sealed class ProvisionOperations : IRegistryOperations
 				AgentProtocol.OpRuntimeProbe => Ok(await backend.ProbeRuntimeAsync(ct).ConfigureAwait(false)),
 				AgentProtocol.OpDiskFree => Reply(await backend.DiskFreeAsync(ct).ConfigureAwait(false)),
 				AgentProtocol.OpInstanceCreate => Reply(await CreateAsync(request.Args[0], ct).ConfigureAwait(false)),
+				AgentProtocol.OpTransferInspect => Reply(await backend.InspectTransferAsync(request.Args[0], request.Args[1], request.Args[2], ct).ConfigureAwait(false)),
+				AgentProtocol.OpInstanceImport => Reply(await ImportAsync(request.Args, ct).ConfigureAwait(false)),
 				AgentProtocol.OpInstanceServiceInstall => Reply(await InstallAsync(request.Args[0], ct).ConfigureAwait(false)),
 				AgentProtocol.OpPanelEnvSet => Reply(await SetAsync(request.Args[0], request.Args[1], ct).ConfigureAwait(false)),
 				AgentProtocol.OpInstanceDelete => Reply(await DeleteAsync(request.Args[0], ct).ConfigureAwait(false)),
@@ -97,6 +101,21 @@ public sealed class ProvisionOperations : IRegistryOperations
 	}
 
 	private Task<Result<ServiceInstalledPayload>> InstallAsync(string text, CancellationToken ct)
+		=> InstallCoreAsync(text, ct);
+
+	private Task<Result<InstanceCreatedPayload>> ImportAsync(IReadOnlyList<string> args, CancellationToken ct)
+	{
+		try
+		{
+			return backend.ImportAsync(JsonNode.Parse(args[0]), args[1], args[2], args[3], ct);
+		}
+		catch (JsonException exception)
+		{
+			return Task.FromResult<Result<InstanceCreatedPayload>>(Failure.Invalid($"Cannot read instance specification: {exception.Message}"));
+		}
+	}
+
+	private Task<Result<ServiceInstalledPayload>> InstallCoreAsync(string text, CancellationToken ct)
 	{
 		var id = InstanceId.Create(text);
 		return id.IsSuccess && !id.Value.IsRegistry

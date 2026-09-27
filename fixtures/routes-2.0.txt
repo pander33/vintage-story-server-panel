@@ -4,3 +4,7 @@ POST /api/server/console
 GET /api/settings/servers-root
 PUT /api/settings/servers-root
 GET /favicon.ico
+POST /api/server/package
+GET /api/operation
+POST /api/provision/transfer
+POST /api/provision/import

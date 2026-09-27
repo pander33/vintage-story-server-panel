@@ -87,14 +87,24 @@ const VS = (() => {
 	}
 
 	async function api(path, options = {}) {
+		const method = options.method || 'GET';
+		const tracked = method !== 'GET' && !UNTRACKED.test(path);
+		if (tracked) trackBegin();
+		try { return await request(path, options); }
+		finally { if (tracked) trackEnd(); }
+	}
+
+	async function request(path, options) {
 		const init = {method: options.method || 'GET', headers: {...(options.headers || {})}};
 		if (state.csrf && init.method !== 'GET') init.headers['X-CSRF-Token'] = state.csrf;
 		if (options.body instanceof FormData) init.body = options.body;
+		else if (options.body instanceof Blob) { init.headers['Content-Type'] = 'application/octet-stream'; init.body = options.body; }
 		else if (options.body !== undefined) { init.headers['Content-Type'] = 'application/json'; init.body = JSON.stringify(options.body); }
 		let response;
 		try { response = await fetch(path, init); }
 		catch { setConnection(false, 'Нет связи с панелью'); throw new ApiError('Панель недоступна: проверьте соединение', 0); }
 		let data = {};
+		if (response.ok && options.response === 'blob') return response.blob();
 		try { data = await response.json(); } catch { /* пустое тело */ }
 		if (response.status === 401 && !options.allowAnonymous) { showLogin(); throw new ApiError('Требуется вход', 401); }
 		if (!response.ok) {
@@ -162,6 +172,90 @@ const VS = (() => {
 		});
 	}
 	const confirmAction = (title, text, confirm = 'Продолжить', danger = false) => dialog({title, text, confirm, danger}).then(result => result !== null);
+
+	// ---------- ход долгой операции ----------
+
+	/**
+	 * Любое изменяющее действие, которое длится дольше пары секунд, показывает ход: демон ведёт
+	 * текущую операцию сервера, панель отдаёт её на /api/operation. Отдельно подключать каждое
+	 * действие не нужно: следит сам api(). Диалог модальный и сам не закрывается — сервер в это
+	 * время останавливается, перезапускается или меняется, и править настройки некогда.
+	 */
+	const UNTRACKED = /^\/api\/(login|logout|session|operation|instances\/select|server\/console|provision(\/|$))/;
+	const operation = {pending: 0, delay: null, box: null, watching: false, last: null};
+
+	function trackBegin() {
+		operation.pending++;
+		if (operation.pending === 1 && !operation.box) operation.delay = setTimeout(openOperation, 1500);
+	}
+	function trackEnd() {
+		operation.pending = Math.max(0, operation.pending - 1);
+		if (operation.pending === 0 && !operation.watching) closeOperation();
+	}
+
+	function openOperation() {
+		operation.delay = null;
+		if (operation.box) return;
+		const box = document.createElement('dialog');
+		box.className = 'dialog small';
+		box.innerHTML = `<div class="dialog-head"><div><span class="eyebrow">ВЫПОЛНЯЕТСЯ</span><h2 data-title>Операция на сервере</h2><p>Не закрывайте страницу, пока операция не завершится.</p></div></div>
+			<div class="dialog-fields"><ol class="progress-steps" data-steps><li class="running">Передача данных и ожидание ответа сервера</li></ol><div class="operation-meter hidden" data-meter><i></i></div><small class="muted" data-elapsed></small></div>`;
+		box.addEventListener('cancel', event => event.preventDefault());
+		document.body.append(box);
+		operation.box = box;
+		box.showModal();
+		every('operation', 1000, pollOperation);
+	}
+
+	function closeOperation() {
+		if (operation.delay) { clearTimeout(operation.delay); operation.delay = null; }
+		if (!operation.box) return;
+		stopTimer('operation');
+		operation.box.close();
+		operation.box.remove();
+		operation.box = null;
+		operation.watching = false;
+		operation.last = null;
+	}
+
+	async function pollOperation() {
+		const data = await api('/api/operation');
+		if (!operation.box) return;
+		if (data.active) { operation.last = data; renderOperation(data); }
+		else if (operation.watching && operation.pending === 0) {
+			closeOperation();
+			toast('Операция завершена', 'ok');
+			emit('operation-finished');
+		}
+	}
+
+	function renderOperation(data) {
+		const box = operation.box, meter = $('[data-meter]', box);
+		$('[data-title]', box).textContent = data.title || 'Операция на сервере';
+		$('[data-steps]', box).innerHTML = (data.stages || []).map((stage, index) => {
+			const state = index < data.stage ? 'done' : (index === data.stage ? 'running' : '');
+			const counting = index === data.stage && data.total_bytes > 0;
+			const detail = counting ? ` — ${fmtBytes(data.done_bytes || 0)} из ${fmtBytes(data.total_bytes)}` : '';
+			return `<li class="${state}"><span>${esc(stage)}${esc(detail)}</span></li>`;
+		}).join('');
+		const counting = data.total_bytes > 0;
+		meter.classList.toggle('hidden', !counting);
+		if (counting) $('i', meter).style.width = `${Math.min(100, Math.round((data.done_bytes || 0) * 100 / data.total_bytes))}%`;
+		const seconds = Math.floor(data.elapsed_seconds || 0);
+		$('[data-elapsed]', box).textContent = `Прошло ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+	}
+
+	/** После перезагрузки страницы: если демон ещё работает над операцией, снова показать её ход. */
+	async function resumeOperation() {
+		try {
+			const data = await api('/api/operation');
+			if (!data.active || operation.box) return;
+			operation.watching = true;
+			openOperation();
+			operation.last = data;
+			renderOperation(data);
+		} catch { /* ход не показывается, сама работа от этого не зависит */ }
+	}
 
 	// ---------- живые потоки и таймеры ----------
 
@@ -351,6 +445,7 @@ const VS = (() => {
 		$('#user-avatar').textContent = state.user.slice(0, 2);
 		applyRoles();
 		try { await loadInstances(); } catch (error) { fail(error); }
+		resumeOperation();
 		every('status', 5000, refreshStatus);
 		every('instances', 20000, () => loadInstances().catch(() => {}), {now: false});
 		connectTelemetry();

@@ -68,6 +68,7 @@ public static class PanelServices
 		services.AddSingleton<IModStore>(_ => new AgentModStore(agent));
 		services.AddSingleton<IWorldStore>(_ => new AgentWorldStore(agent));
 		services.AddSingleton<IBackupStore>(_ => new AgentBackupStore(agent));
+		services.AddSingleton<IOperationProgress>(_ => new AgentOperationProgress(agent));
 		services.AddSingleton<IHistoryStore>(_ => new AgentHistoryStore(agent));
 		services.AddSingleton<IRegistryAdministration>(_ => new AgentRegistryAdministration(agent));
 		services.AddSingleton<StagingWriter>();
@@ -114,6 +115,7 @@ public static class PanelServices
 		services.AddSingleton<AutomationService>();
 		services.AddSingleton<IReadinessWaiter>(provider => provider.GetRequiredService<AutomationService>());
 		services.AddSingleton<UpdateService>();
+		services.AddSingleton<TransferPlans>();
 		services.AddSingleton<ProvisionService>();
 		services.AddSingleton<SetupService>();
 		services.AddSingleton<InstanceRemoval>();

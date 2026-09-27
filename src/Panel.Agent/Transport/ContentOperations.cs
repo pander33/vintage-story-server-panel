@@ -25,16 +25,24 @@ public sealed class ContentOperations : IServerOperations
 	private readonly ModBackend mods;
 	private readonly WorldBackend worlds;
 	private readonly BackupBackend backups;
+	private readonly StagingArea staging;
 	private readonly IServiceBackend service;
 	private readonly HistoryBackend history;
+	private readonly OperationTracker tracker;
 
 	public ContentOperations(
 		ModBackend mods,
 		WorldBackend worlds,
 		BackupBackend backups,
 		IServiceBackend service,
-		HistoryBackend history)
+		HistoryBackend history,
+		StagingArea staging,
+		OperationTracker tracker)
 	{
+		ArgumentNullException.ThrowIfNull(tracker);
+		this.tracker = tracker;
+		ArgumentNullException.ThrowIfNull(staging);
+		this.staging = staging;
 		ArgumentNullException.ThrowIfNull(history);
 		this.history = history;
 		ArgumentNullException.ThrowIfNull(mods);
@@ -60,7 +68,7 @@ public sealed class ContentOperations : IServerOperations
 		or AgentProtocol.OpWorldStoredDelete
 		or AgentProtocol.OpBackups or AgentProtocol.OpBackupCreate or AgentProtocol.OpBackupInspect
 		or AgentProtocol.OpBackupRestore or AgentProtocol.OpBackupDelete or AgentProtocol.OpBackupRestoreWorld
-		or AgentProtocol.OpBackupRetention
+		or AgentProtocol.OpBackupRetention or AgentProtocol.OpTransferExport or AgentProtocol.OpOperation
 		or AgentProtocol.OpHistory or AgentProtocol.OpHistoryDelete or AgentProtocol.OpHistoryPrune;
 
 	bool IServerOperations.Serves(string op) => Handles(op);
@@ -112,6 +120,8 @@ public sealed class ContentOperations : IServerOperations
 
 			AgentProtocol.OpBackups => Reply(backups.List(server).Map(ContentMapping.ToPayload)),
 			AgentProtocol.OpBackupCreate => await BackupCreateAsync(request, server, ct).ConfigureAwait(false),
+			AgentProtocol.OpTransferExport => await TransferExportAsync(request, server, ct).ConfigureAwait(false),
+			AgentProtocol.OpOperation => Reply(Result.Ok(tracker.Snapshot(server.Id.Value))),
 			AgentProtocol.OpBackupInspect => await BackupInspectAsync(request, server, ct).ConfigureAwait(false),
 			AgentProtocol.OpBackupRestore => await BackupRestoreAsync(request, server, ct).ConfigureAwait(false),
 			AgentProtocol.OpBackupDelete => await BackupDeleteAsync(request, server, ct).ConfigureAwait(false),
@@ -411,15 +421,20 @@ public sealed class ContentOperations : IServerOperations
 		}
 
 		var stop = running && !offline;
+		using var scope = tracker.Begin(server.Id.Value, "backup", OperationStages.Backup, OperationStages.BackupTitle);
 		if (stop)
 		{
 			await service.ServiceAsync(server, "stop", TimeSpan.FromSeconds(180), ct).ConfigureAwait(false);
+			if (await IsRunningAsync(server, ct).ConfigureAwait(false))
+			{
+				return Failed(Failure.Conflict("Сервер не остановился перед созданием пакета"));
+			}
 		}
 
 		try
 		{
 			var created = await backups
-				.CreateAsync(server, BackupName.RoutinePrefix, ct)
+				.CreateAsync(server, BackupName.RoutinePrefix, ct, scope)
 				.ConfigureAwait(false);
 
 			return Reply(created.Map(backup => new BackupChangePayload
@@ -432,6 +447,53 @@ public sealed class ContentOperations : IServerOperations
 		{
 			if (stop)
 			{
+				scope.Enter(OperationStages.Start);
+				await service.ServiceAsync(server, "start", TimeSpan.FromSeconds(180), ct).ConfigureAwait(false);
+			}
+		}
+	}
+
+	private async Task<AgentReply> TransferExportAsync(AgentRequest request, RegisteredServer server, CancellationToken ct)
+	{
+		var staged = StagedFile.Create(Argument(request, 0));
+		if (!staged.IsSuccess || !staged.Value.Name.StartsWith(StagedFile.Purpose.Transfer, StringComparison.Ordinal)
+			|| !staged.Value.Name.EndsWith(".tar.gz", StringComparison.Ordinal))
+		{
+			return Failed(Failure.Invalid("Недопустимое имя пакета для выгрузки"));
+		}
+
+		var path = await staging.ReserveAsync(staged.Value, ct).ConfigureAwait(false);
+		if (!path.IsSuccess)
+		{
+			return Failed(path.Failure!);
+		}
+
+		var running = await IsRunningAsync(server, ct).ConfigureAwait(false);
+		using var scope = tracker.Begin(server.Id.Value, "export", OperationStages.Export, OperationStages.ExportTitle);
+		try
+		{
+			if (running)
+			{
+				await service.ServiceAsync(server, "stop", TimeSpan.FromSeconds(180), ct).ConfigureAwait(false);
+				if (await IsRunningAsync(server, ct).ConfigureAwait(false))
+				{
+					return Failed(Failure.Conflict("Сервер не остановился перед созданием пакета"));
+				}
+			}
+
+			var exported = await backups.ExportAsync(server, path.Value, ct, scope).ConfigureAwait(false);
+			return Reply(exported.Map(size => new WorldExportPayload
+			{
+				Name = $"server-{server.Id.Value}.tar.gz",
+				Staged = staged.Value.Name,
+				Size = size,
+			}));
+		}
+		finally
+		{
+			if (running)
+			{
+				scope.Enter(OperationStages.Start);
 				await service.ServiceAsync(server, "start", TimeSpan.FromSeconds(180), ct).ConfigureAwait(false);
 			}
 		}
@@ -464,14 +526,20 @@ public sealed class ContentOperations : IServerOperations
 		}
 
 		var running = await IsRunningAsync(server, ct).ConfigureAwait(false);
+		using var scope = tracker.Begin(server.Id.Value, "restore", OperationStages.Restore, OperationStages.RestoreTitle);
 		if (running)
 		{
+			scope.Enter(OperationStages.Stop);
 			await service.ServiceAsync(server, "stop", TimeSpan.FromSeconds(180), ct).ConfigureAwait(false);
+			if (await IsRunningAsync(server, ct).ConfigureAwait(false))
+			{
+				return Failed(Failure.Conflict("Сервер не остановился перед восстановлением"));
+			}
 		}
 
 		try
 		{
-			var restored = await backups.RestoreAsync(server, name.Value, ct).ConfigureAwait(false);
+			var restored = await backups.RestoreAsync(server, name.Value, ct, scope).ConfigureAwait(false);
 
 			return Reply(restored.Map(safety => new BackupChangePayload
 			{
@@ -483,6 +551,7 @@ public sealed class ContentOperations : IServerOperations
 		{
 			if (running)
 			{
+				scope.Enter(OperationStages.Start);
 				await service.ServiceAsync(server, "start", TimeSpan.FromSeconds(180), ct).ConfigureAwait(false);
 			}
 		}
@@ -538,8 +607,9 @@ public sealed class ContentOperations : IServerOperations
 			return Failed(Failure.Conflict("Остановите сервер Vintage Story перед изменением миров"));
 		}
 
+		using var scope = tracker.Begin(server.Id.Value, "restore-world", OperationStages.RestoreWorld, OperationStages.RestoreWorldTitle);
 		var restored = await backups
-			.RestoreWorldAsync(server, backup.Value, world.Value, target.Value, ct)
+			.RestoreWorldAsync(server, backup.Value, world.Value, target.Value, ct, scope)
 			.ConfigureAwait(false);
 
 		return Reply(restored.Map(item => new WorldChangePayload

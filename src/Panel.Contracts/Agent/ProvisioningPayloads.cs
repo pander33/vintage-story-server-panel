@@ -68,6 +68,14 @@ public sealed record InstancesRootSetPayload
 	[JsonPropertyName("previous")] public string Previous { get; init; } = string.Empty;
 }
 
+/// <summary>Ответ <c>transfer-inspect</c>: пакет проверен, ничего не создано.</summary>
+public sealed record TransferInspectionPayload
+{
+	[JsonPropertyName("active_world")] public string ActiveWorld { get; init; } = string.Empty;
+	[JsonPropertyName("game_version")] public string GameVersion { get; init; } = string.Empty;
+	[JsonPropertyName("manifest_sha256")] public string ManifestSha256 { get; init; } = string.Empty;
+}
+
 /// <summary>Ответ <c>instance-create</c>: дерево создано и сервер записан в реестр.</summary>
 public sealed record InstanceCreatedPayload
 {

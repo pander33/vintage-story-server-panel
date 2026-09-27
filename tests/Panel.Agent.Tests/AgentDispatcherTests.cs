@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Panel.Agent.Content;
 using Panel.Agent.Runtime;
 using Panel.Agent.Telemetry;
 using Panel.Agent.Transport;
@@ -25,9 +26,11 @@ public sealed class AgentDispatcherTests
 
 	private readonly FakeBackend backend = new();
 
+	private readonly OperationTracker tracker = new(TimeProvider.System);
+
 	private AgentDispatcher Dispatcher(
 		IReadOnlyList<IServerOperations>? server = null, IReadOnlyList<IRegistryOperations>? registry = null) =>
-		new(new FakeRegistry(), backend, new TelemetryFileReader(), new GameEventLog(), server ?? [], registry ?? []);
+		new(new FakeRegistry(), backend, new TelemetryFileReader(), new GameEventLog(), server ?? [], registry ?? [], tracker);
 
 	private static AgentRequest Request(string op, string instance = "main", params string[] args) =>
 		new() { Op = op, Instance = instance, Args = args };
@@ -40,6 +43,16 @@ public sealed class AgentDispatcherTests
 		Assert.False(reply.Ok);
 		Assert.Equal("unsupported", reply.Code);
 		Assert.Contains("supervised", reply.Error);
+	}
+
+	[Theory]
+	[InlineData(AgentProtocol.OpTransferInspect)]
+	[InlineData(AgentProtocol.OpInstanceImport)]
+	public async Task Операции_переноса_адресуются_реестру(string op)
+	{
+		var group = new FakeRegistryGroup(op);
+		Assert.Equal("instance", (await Dispatcher(registry: [group]).DispatchAsync(Request(op), CancellationToken.None)).Code);
+		Assert.True((await Dispatcher(registry: [group]).DispatchAsync(Request(op, "-"), CancellationToken.None)).Ok);
 	}
 
 	[Fact]
@@ -108,6 +121,72 @@ public sealed class AgentDispatcherTests
 
 		Assert.Equal("conflict", reply.Code);
 		Assert.Empty(backend.Written);
+	}
+
+	/// <summary>Долгая операция видна в ходе, пока идёт, и исчезает по завершении.</summary>
+	[Theory]
+	[InlineData(AgentProtocol.OpModInstall, "Установка мода")]
+	[InlineData(AgentProtocol.OpWorldImport, "Загрузка мира")]
+	[InlineData(AgentProtocol.OpWorldClone, "Копирование мира")]
+	[InlineData(AgentProtocol.OpGameUpdateApply, "Замена программы сервера")]
+	public async Task Долгая_операция_видна_в_ходе_пока_идёт(string op, string title)
+	{
+		var group = new ObservingGroup(op, tracker);
+
+		var reply = await Dispatcher(server: [group]).DispatchAsync(Request(op), CancellationToken.None);
+
+		Assert.True(reply.Ok);
+		Assert.True(group.Seen!.Active);
+		Assert.Equal(title, group.Seen.Title);
+		Assert.Equal(op, group.Seen.Kind);
+		Assert.False(tracker.Snapshot("main").Active);
+	}
+
+	[Fact]
+	public async Task Мгновенная_операция_ход_не_ведёт()
+	{
+		var group = new ObservingGroup(AgentProtocol.OpMods, tracker);
+
+		await Dispatcher(server: [group]).DispatchAsync(Request(AgentProtocol.OpMods), CancellationToken.None);
+
+		Assert.False(group.Seen!.Active);
+	}
+
+	[Fact]
+	public async Task Удаление_сервера_ведёт_ход_по_удаляемому_серверу()
+	{
+		var group = new ObservingRegistryGroup(AgentProtocol.OpInstanceDelete, tracker);
+
+		await Dispatcher(registry: [group]).DispatchAsync(Request(AgentProtocol.OpInstanceDelete, "-", "main"), CancellationToken.None);
+
+		Assert.Equal("Удаление сервера", group.Seen!.Title);
+		Assert.False(tracker.Snapshot("main").Active);
+	}
+
+	private sealed class ObservingGroup(string op, OperationTracker tracker) : IServerOperations
+	{
+		public Panel.Contracts.Content.OperationPayload? Seen { get; private set; }
+
+		public bool Serves(string candidate) => candidate == op;
+
+		public Task<AgentReply> ExecuteAsync(AgentRequest request, RegisteredServer server, CancellationToken ct)
+		{
+			Seen = tracker.Snapshot(server.Id.Value);
+			return Task.FromResult(AgentReply.Success(new JsonObject { ["ok"] = true }));
+		}
+	}
+
+	private sealed class ObservingRegistryGroup(string op, OperationTracker tracker) : IRegistryOperations
+	{
+		public Panel.Contracts.Content.OperationPayload? Seen { get; private set; }
+
+		public bool Serves(string candidate) => candidate == op;
+
+		public Task<AgentReply> ExecuteAsync(AgentRequest request, CancellationToken ct)
+		{
+			Seen = tracker.Snapshot(request.Args[0]);
+			return Task.FromResult(AgentReply.Success(new JsonObject { ["ok"] = true }));
+		}
 	}
 
 	private sealed class FakeRegistry : IRegistryStore

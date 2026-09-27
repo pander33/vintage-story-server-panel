@@ -207,6 +207,21 @@ public sealed class AgentWorldStore : IWorldStore
 			cancellationToken);
 }
 
+/// <summary>Ход долгой операции через протокол демона.</summary>
+public sealed class AgentOperationProgress : IOperationProgress
+{
+	private readonly AgentClient client;
+
+	public AgentOperationProgress(AgentClient client)
+	{
+		ArgumentNullException.ThrowIfNull(client);
+		this.client = client;
+	}
+
+	public Task<Result<OperationPayload>> CurrentAsync(InstanceId instance, CancellationToken cancellationToken) =>
+		client.CallAsync<OperationPayload>(AgentProtocol.OpOperation, instance, [], cancellationToken);
+}
+
 /// <summary>Резервные копии через протокол демона.</summary>
 public sealed class AgentBackupStore : IBackupStore
 {
@@ -217,6 +232,12 @@ public sealed class AgentBackupStore : IBackupStore
 		ArgumentNullException.ThrowIfNull(client);
 		this.client = client;
 	}
+
+	public Task<Result<WorldExportPayload>> ExportPackageAsync(
+		InstanceId instance,
+		StagedFile staged,
+		CancellationToken cancellationToken) =>
+		client.CallAsync<WorldExportPayload>(AgentProtocol.OpTransferExport, instance, [staged.Name], cancellationToken);
 
 	public Task<Result<BackupsPayload>> ListAsync(InstanceId instance, CancellationToken cancellationToken) =>
 		client.CallAsync<BackupsPayload>(AgentProtocol.OpBackups, instance, [], cancellationToken);

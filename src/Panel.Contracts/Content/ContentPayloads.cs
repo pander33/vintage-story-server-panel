@@ -278,6 +278,42 @@ public sealed record BackupWorldPayload
 	public long Size { get; init; }
 }
 
+/// <summary>
+/// Ход долгой операции над сервером: копия, восстановление, выгрузка пакета. Пока ничего не
+/// идёт, <c>active</c> ложно и остальное пусто.
+/// </summary>
+public sealed record OperationPayload
+{
+	[JsonPropertyName("active")]
+	public bool Active { get; init; }
+
+	/// <summary>Что делается, кодом: имя операции демона либо <c>backup</c>, <c>restore</c>, <c>export</c>.</summary>
+	[JsonPropertyName("kind")]
+	public string Kind { get; init; } = string.Empty;
+
+	/// <summary>То же готовым названием для показа.</summary>
+	[JsonPropertyName("title")]
+	public string Title { get; init; } = string.Empty;
+
+	/// <summary>Все стадии по порядку, готовые названия для показа.</summary>
+	[JsonPropertyName("stages")]
+	public IReadOnlyList<string> Stages { get; init; } = [];
+
+	/// <summary>Номер идущей стадии в <see cref="Stages"/>, с нуля.</summary>
+	[JsonPropertyName("stage")]
+	public int Stage { get; init; }
+
+	[JsonPropertyName("elapsed_seconds")]
+	public double ElapsedSeconds { get; init; }
+
+	/// <summary>Сколько байт обработано на этой стадии; пусто, если стадия байтов не считает.</summary>
+	[JsonPropertyName("done_bytes")]
+	public long? DoneBytes { get; init; }
+
+	[JsonPropertyName("total_bytes")]
+	public long? TotalBytes { get; init; }
+}
+
 /// <summary>Ответ создания, восстановления и удаления копии.</summary>
 public sealed record BackupChangePayload
 {

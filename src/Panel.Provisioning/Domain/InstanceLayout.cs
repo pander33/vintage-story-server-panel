@@ -266,6 +266,7 @@ public static class InitialConfig
 		world["PlayStyle"] = spec.Playstyle;
 		world["PlayStyleLangCode"] = "preset-" + spec.Playstyle;
 		value["WorldConfig"] = world;
-		return value;
+		value["ModPaths"] ??= new JsonArray("Mods", layout.ModsDirectory);
+		return ServerConfigPaths.FromLayout(layout).Rebase(value).Value;
 	}
 }

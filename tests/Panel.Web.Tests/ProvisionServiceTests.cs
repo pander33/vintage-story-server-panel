@@ -150,6 +150,24 @@ public sealed class ProvisionServiceTests : IDisposable
 	}
 
 	[Fact]
+	public async Task Импорт_проверяет_архив_и_удаляет_временный_файл_после_создания()
+	{
+		Directory.CreateDirectory(options.StagingDirectory);
+		var file = StagingWriter.Reserve(StagedFile.Purpose.Transfer, ".tar.gz");
+		await File.WriteAllBytesAsync(Path.Combine(options.StagingDirectory, file.Name), package);
+		var inspected = new TransferInspectionPayload { ActiveWorld = "data/Saves/main.vcdbs" };
+		var transfer = new TransferPlan(file, Convert.ToHexString(SHA256.HashData(package)).ToLowerInvariant(), package.Length,
+			inspected.ActiveWorld, inspected);
+
+		var launched = await service.LaunchAsync(Spec(), transfer);
+		Assert.True(launched.IsSuccess);
+		await service.StopAsync(CancellationToken.None);
+		var snapshot = await service.SnapshotAsync(CancellationToken.None);
+		Assert.Equal("success", (string?) snapshot["history"]!.AsArray()[0]!["status"]);
+		Assert.Empty(Staged());
+	}
+
+	[Fact]
 	public async Task Сервер_без_мода_телеметрии_всё_равно_считается_созданным()
 	{
 		telemetry.Reading = new TelemetryReading.Unavailable("Файл телеметрии не найден");
@@ -353,6 +371,12 @@ public sealed class ProvisionServiceTests : IDisposable
 					TelemetryMod = "vspaneltelemetry_0.4.0.zip",
 				}));
 		}
+
+		public Task<Result<TransferInspectionPayload>> InspectTransferAsync(StagedFile transfer, string sha256, long length, CancellationToken ct) =>
+			Task.FromResult(Result.Ok(new TransferInspectionPayload { ActiveWorld = "data/Saves/main.vcdbs" }));
+
+		public Task<Result<InstanceCreatedPayload>> ImportInstanceAsync(ServerSpec spec, StagedFile gamePackage, StagedFile transfer, string sha256, long length, CancellationToken ct) =>
+			CreateInstanceAsync(spec, gamePackage, ct);
 
 		public Task<Result<ServiceInstalledPayload>> InstallServiceAsync(InstanceId instance, CancellationToken ct)
 		{

@@ -165,12 +165,15 @@ public static class Program
 		var telemetry = new TelemetryFileReader();
 		var backups = new BackupBackend(TimeProvider.System);
 		var editor = new RegistryEditor(panelConfig);
+		var tracker = new OperationTracker(TimeProvider.System);
 		var content = new ContentOperations(
 			new ModBackend(staging, TimeProvider.System),
 			new WorldBackend(staging, TimeProvider.System),
 			backups,
 			service,
-			new HistoryBackend());
+			new HistoryBackend(),
+			staging,
+			tracker);
 
 		return new AgentDispatcher(
 			registry,
@@ -186,7 +189,8 @@ public static class Program
 			[
 				new RegistryOperations(registry, editor, service),
 				new ProvisionOperations(new ProvisionBackend(panelConfig, registry, editor, staging, platform)),
-			]);
+			],
+			tracker);
 	}
 
 	/// <summary>Настройки панели или <see langword="null"/> с причиной в stderr.</summary>

@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Panel.Agent.Content;
 using Panel.Agent.Runtime;
 using Panel.Agent.Telemetry;
 using Panel.Contracts;
@@ -53,6 +54,7 @@ public sealed class AgentDispatcher
 	private readonly GameEventLog events;
 	private readonly IReadOnlyList<IServerOperations> serverOperations;
 	private readonly IReadOnlyList<IRegistryOperations> registryOperations;
+	private readonly OperationTracker tracker;
 
 	public AgentDispatcher(
 		IRegistryStore registry,
@@ -60,8 +62,10 @@ public sealed class AgentDispatcher
 		TelemetryFileReader telemetry,
 		GameEventLog events,
 		IReadOnlyList<IServerOperations> serverOperations,
-		IReadOnlyList<IRegistryOperations> registryOperations)
+		IReadOnlyList<IRegistryOperations> registryOperations,
+		OperationTracker? tracker = null)
 	{
+		this.tracker = tracker ?? new OperationTracker(TimeProvider.System);
 		ArgumentNullException.ThrowIfNull(registry);
 		ArgumentNullException.ThrowIfNull(backend);
 		ArgumentNullException.ThrowIfNull(telemetry);
@@ -98,6 +102,9 @@ public sealed class AgentDispatcher
 		{
 			if (registryGroup is not null)
 			{
+				using var deleting = request.Op == AgentProtocol.OpInstanceDelete && request.Args.Count > 0
+					? tracker.Begin(request.Args[0], request.Op, ["Удаление сервера"], "Удаление сервера")
+					: null;
 				return await registryGroup.ExecuteAsync(request, ct).ConfigureAwait(false);
 			}
 
@@ -118,6 +125,9 @@ public sealed class AgentDispatcher
 
 		try
 		{
+			using var scope = Describe(request) is { } title
+				? tracker.Begin(server.Value.Id.Value, request.Op, [title], title)
+				: null;
 			return await ExecuteAsync(request, server.Value, ct).ConfigureAwait(false);
 		}
 		catch (OperationCanceledException) when (!ct.IsCancellationRequested)
@@ -129,6 +139,35 @@ public sealed class AgentDispatcher
 			return AgentReply.Failure("io", exception.Message);
 		}
 	}
+
+	/// <summary>
+	/// Название долгой операции для показа хода, либо <see langword="null"/>, если операция мгновенна
+	/// или сама ведёт ход по стадиям (копия, восстановление, выгрузка пакета).
+	/// </summary>
+	private static string? Describe(AgentRequest request) => request.Op switch
+	{
+		AgentProtocol.OpService => Argument(request, 0) switch
+		{
+			"stop" => "Остановка сервера",
+			"start" => "Запуск сервера",
+			"restart" => "Перезапуск сервера",
+			_ => null,
+		},
+		AgentProtocol.OpModInstall => "Установка мода",
+		AgentProtocol.OpModRollback => "Откат мода",
+		AgentProtocol.OpModProfileApply => "Применение профиля модов",
+		AgentProtocol.OpWorldImport => "Загрузка мира",
+		AgentProtocol.OpWorldExport => "Выгрузка мира",
+		AgentProtocol.OpWorldClone => "Копирование мира",
+		AgentProtocol.OpWorldActivate => "Смена активного мира",
+		AgentProtocol.OpWorldCreate => "Создание мира",
+		AgentProtocol.OpWorldPutAway => "Отправка мира в архив",
+		AgentProtocol.OpWorldRestore => "Возврат мира из архива",
+		AgentProtocol.OpGameUpdateApply => "Замена программы сервера",
+		AgentProtocol.OpGameUpdateRollback => "Откат программы сервера",
+		AgentProtocol.OpBackupRetention => Argument(request, 3) == "apply" ? "Очистка старых копий" : null,
+		_ => null,
+	};
 
 	private async Task<AgentReply> ExecuteAsync(AgentRequest request, RegisteredServer server, CancellationToken ct)
 	{

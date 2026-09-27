@@ -16,6 +16,58 @@ public static class BackupEndpoints
 {
 	public static void MapBackups(this IEndpointRouteBuilder routes)
 	{
+		routes.MapPost("/api/server/package", async (
+			HttpContext http,
+			CommandAuthorizer authorizer,
+			IBackupStore backups,
+			StagingWriter staging,
+			AuditLog audit,
+			CancellationToken ct) =>
+		{
+			var allowed = PanelResults.Authorize(http, authorizer, typeof(ExportServerPackage));
+			if (!allowed.IsSuccess)
+			{
+				return PanelResults.Refuse(allowed.Failure!);
+			}
+
+			var staged = StagingWriter.Reserve(StagedFile.Purpose.Transfer, ".tar.gz");
+			var exported = await backups.ExportPackageAsync(Instance(http), staged, ct).ConfigureAwait(false);
+			if (!exported.IsSuccess)
+			{
+				staging.Discard(staged);
+				return PanelResults.Refuse(exported.Failure!);
+			}
+
+			try
+			{
+				await audit.RecordAsync(http, "server_package_exported", Instance(http).Value, ct).ConfigureAwait(false);
+			}
+			catch
+			{
+				staging.Discard(staged);
+				throw;
+			}
+			http.Response.OnCompleted(() =>
+			{
+				staging.Discard(staged);
+				return Task.CompletedTask;
+			});
+			return Results.File(staging.PathOf(staged), "application/gzip", $"server-{Instance(http).Value}.tar.gz");
+		});
+
+		routes.MapGet("/api/operation", async (
+			HttpContext http,
+			CommandAuthorizer authorizer,
+			IOperationProgress progress,
+			CancellationToken ct) =>
+		{
+			var allowed = PanelResults.Authorize(http, authorizer, typeof(ReadOperation), requireCsrf: false);
+
+			return allowed.IsSuccess
+				? PanelResults.From(await progress.CurrentAsync(Instance(http), ct).ConfigureAwait(false))
+				: PanelResults.Refuse(allowed.Failure!);
+		});
+
 		routes.MapGet("/api/backups", async (
 			HttpContext http,
 			CommandAuthorizer authorizer,
