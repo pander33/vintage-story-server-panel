@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Panel.SharedKernel;
 
 namespace Panel.Contracts.Content;
 
@@ -50,7 +51,7 @@ public sealed record ModEntryPayload
 
 	/// <summary>Текст ошибки разбора архива; показывается пользователю как есть.</summary>
 	[JsonPropertyName("error")]
-	public string? Error { get; init; }
+	public Phrase? Error { get; init; }
 }
 
 /// <summary>Элемент <c>dependency_issues</c>.</summary>
@@ -293,11 +294,11 @@ public sealed record OperationPayload
 
 	/// <summary>То же готовым названием для показа.</summary>
 	[JsonPropertyName("title")]
-	public string Title { get; init; } = string.Empty;
+	public Phrase? Title { get; init; }
 
 	/// <summary>Все стадии по порядку, готовые названия для показа.</summary>
 	[JsonPropertyName("stages")]
-	public IReadOnlyList<string> Stages { get; init; } = [];
+	public IReadOnlyList<Phrase> Stages { get; init; } = [];
 
 	/// <summary>Номер идущей стадии в <see cref="Stages"/>, с нуля.</summary>
 	[JsonPropertyName("stage")]

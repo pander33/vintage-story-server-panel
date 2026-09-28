@@ -108,7 +108,7 @@ public sealed class InstallFilesTests : IDisposable
 	{
 		File.WriteAllText(Path.Combine(directory, "maintenance-lease.json"), "{\"purpose\": \"game-update\", \"instance\": \"main\"}");
 
-		Assert.Equal("обслуживание (game-update, сервер main)", MaintenanceProbe.Describe(directory));
+		Assert.Equal("maintenance (game-update, server main)", MaintenanceProbe.Describe(directory));
 	}
 
 	/// <summary>Операция второго сервера тоже учитывается.</summary>
@@ -117,9 +117,9 @@ public sealed class InstallFilesTests : IDisposable
 	{
 		var creative = Path.Combine(directory, "instances", "creative");
 		Directory.CreateDirectory(creative);
-		File.WriteAllText(Path.Combine(creative, "updates.json"), "{\"current\": {\"title\": \"Обновление игры\", \"phase\": \"backup\"}}");
+		File.WriteAllText(Path.Combine(creative, "updates.json"), "{\"current\": {\"title\": {\"$phrase\": \"Обновление модов\"}, \"phase\": \"backup\"}}");
 
-		Assert.Equal("Обновление игры (этап: backup)", MaintenanceProbe.Describe(directory));
+		Assert.Equal("Updating mods (phase: backup)", MaintenanceProbe.Describe(directory));
 	}
 
 	[Fact]
@@ -127,7 +127,7 @@ public sealed class InstallFilesTests : IDisposable
 	{
 		File.WriteAllText(Path.Combine(directory, "provision.json"), "{\"current\": {\"status\": \"running\"}}");
 
-		Assert.Equal("операция обновления (этап: running)", MaintenanceProbe.Describe(directory));
+		Assert.Equal("update operation (phase: running)", MaintenanceProbe.Describe(directory));
 	}
 
 	[Fact]

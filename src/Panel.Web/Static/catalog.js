@@ -8,7 +8,7 @@
 	const {$, esc, api, fail, modal, can} = VS;
 
 	const PAGE = 30;
-	const SIDES = {both: 'клиент и сервер', server: 'сервер', client: 'клиент'};
+	const SIDES = {both: I18N.t('content.clientServer'), server: I18N.t('content.serverOnly'), client: I18N.t('content.clientOnly')};
 	const catalog = {offset: 0, total: 0, loading: false, ticket: 0, tags: new Set(), known: null, gameVersion: '', allTags: false};
 	const TOP_TAGS = 24;
 
@@ -52,7 +52,7 @@
 				const name = child.tagName.toUpperCase();
 				if (name === 'IFRAME' || name === 'VIDEO') {
 					const href = safeUrl(child.getAttribute('src'));
-					if (href) { const p = document.createElement('p'); p.append(link(href, 'Видео (откроется на другом сайте)')); into.append(p); }
+					if (href) { const p = document.createElement('p'); p.append(link(href, I18N.t('catalogue.externalVideo'))); into.append(p); }
 					continue;
 				}
 				if (DROP.has(name)) continue;
@@ -82,12 +82,12 @@
 			img.className = 'mod-inline-image';
 			return img;
 		}
-		return link(href, element.getAttribute('alt') || 'картинка');
+		return link(href, element.getAttribute('alt') || I18N.t('catalogue.image'));
 	}
 
 	// ---------- каталог ----------
 
-	const fmtCount = value => Number(value || 0).toLocaleString('ru-RU');
+	const fmtCount = value => Number(value || 0).toLocaleString(I18N.locale());
 
 	function tagChip(name) {
 		const tag = (catalog.known || []).find(item => item.name === name);
@@ -96,8 +96,8 @@
 
 	function card(mod) {
 		const logo = mod.logo ? `<img src="${esc(mod.logo)}" alt="" loading="lazy">` : '<span class="mod-logo-empty">✥</span>';
-		const compatible = mod.compatible === true ? `<span class="badge ok">для ${esc(catalog.gameVersion)}</span>` : '';
-		const installed = mod.installed ? `<span class="badge installed" title="${esc(mod.installed.enabled ? 'Установлен и включён' : 'Установлен, но отключён')}">установлен${mod.installed.version ? ` ${esc(mod.installed.version)}` : ''}${mod.installed.enabled ? '' : ' · откл.'}</span>` : '';
+		const compatible = mod.compatible === true ? `<span class="badge ok">${esc(I18N.t('catalogue.forVersion', {version: catalog.gameVersion}))}</span>` : '';
+		const installed = mod.installed ? `<span class="badge installed" title="${esc(I18N.t(mod.installed.enabled ? 'catalogue.installedEnabled' : 'catalogue.installedDisabled'))}">${esc(I18N.t('catalogue.installed'))}${mod.installed.version ? ` ${esc(mod.installed.version)}` : ''}${mod.installed.enabled ? '' : ` · ${esc(I18N.t('catalogue.disabledShort'))}`}</span>` : '';
 		return `<article class="mod-card${mod.installed ? ' installed' : ''}" data-open="${esc(mod.identifier)}" data-ids="${esc((mod.modidstrs || []).join(','))}" tabindex="0" role="button">
 			<div class="mod-logo">${logo}</div>
 			<div class="mod-body"><h4>${esc(mod.name)}</h4><small>${esc(mod.author || '—')} · ${esc(SIDES[mod.side] || mod.side || '—')}</small>
@@ -126,7 +126,7 @@
 		if (catalog.loading && !reset) return;
 		const ticket = ++catalog.ticket;
 		catalog.loading = true;
-		if (reset) { catalog.offset = 0; $('#catalog-grid').innerHTML = '<div class="empty">Загрузка каталога…</div>'; }
+		if (reset) { catalog.offset = 0; $('#catalog-grid').innerHTML = `<div class="empty">${esc(I18N.t('catalogue.loading'))}</div>`; }
 		const state = $('#catalog-state');
 		try {
 			const data = await api(`/api/moddb/mods?${parameters(catalog.offset)}`);
@@ -135,8 +135,8 @@
 			catalog.gameVersion = data.game_version;
 			if (!catalog.known || reset) { catalog.known = data.available_tags || []; renderTags(); }
 			state.className = `notice ${data.stale ? 'warn' : 'hidden'}`;
-			state.textContent = data.stale ? 'ModDB не ответил — показан сохранённый список.' : '';
-			$('#catalog-compatible-label').textContent = `Только совместимые с ${data.game_version}`;
+			state.textContent = data.stale ? I18N.t('catalogue.stale') : '';
+			$('#catalog-compatible-label').textContent = I18N.t('catalogue.compatibleWith', {version: data.game_version});
 			$('#catalog-compatible').disabled = !data.compatible_known;
 			// Список установленных даёт демон; без него пометок нет и отбор не действует.
 			$('#catalog-hide-installed').disabled = !data.installed_known;
@@ -144,12 +144,12 @@
 			if (reset) grid.replaceChildren();
 			const html = data.mods.map(card).join('');
 			grid.insertAdjacentHTML('beforeend', html);
-			if (reset && !data.mods.length) grid.innerHTML = '<div class="empty">Ничего не найдено.</div>';
+			if (reset && !data.mods.length) grid.innerHTML = `<div class="empty">${esc(I18N.t('catalogue.noResults'))}</div>`;
 			paintTags(grid);
 			catalog.offset += data.mods.length;
 			const more = catalog.offset < data.total;
 			$('#catalog-more').classList.toggle('hidden', !more);
-			$('#catalog-count').textContent = `Найдено ${fmtCount(data.total)}`;
+			$('#catalog-count').textContent = I18N.t('catalogue.found', {count: fmtCount(data.total)});
 		} catch (error) {
 			if (ticket !== catalog.ticket) return;
 			$('#catalog-grid').innerHTML = `<div class="notice error">${esc(error.message)}</div>`;
@@ -162,8 +162,8 @@
 		const box = $('#catalog-tags');
 		const known = catalog.known || [];
 		const shown = catalog.allTags ? known : known.filter((tag, index) => index < TOP_TAGS || catalog.tags.has(tag.name));
-		const toggle = known.length > TOP_TAGS ? `<button class="link-button" type="button" data-tags-toggle>${catalog.allTags ? 'Свернуть' : `Все теги (${known.length})`}</button>` : '';
-		box.innerHTML = shown.map(tag => `<button class="tag-chip selectable ${catalog.tags.has(tag.name) ? 'on' : ''}" type="button" data-tag="${esc(tag.name)}" data-color="${esc(tag.color)}" title="Модов: ${esc(tag.count ?? '')}">${esc(tag.name)}</button>`).join('') + toggle;
+		const toggle = known.length > TOP_TAGS ? `<button class="link-button" type="button" data-tags-toggle>${esc(catalog.allTags ? I18N.t('catalogue.collapse') : I18N.t('catalogue.allTags', {count: known.length}))}</button>` : '';
+		box.innerHTML = shown.map(tag => `<button class="tag-chip selectable ${catalog.tags.has(tag.name) ? 'on' : ''}" type="button" data-tag="${esc(tag.name)}" data-color="${esc(tag.color)}" title="${esc(I18N.t('catalogue.modCount', {count: tag.count ?? ''}))}">${esc(tag.name)}</button>`).join('') + toggle;
 		paintTags(box);
 	}
 
@@ -197,24 +197,24 @@
 	}
 
 	async function openMod(identifier, ids) {
-		const {body} = modal({eyebrow: 'МОД', title: 'Загрузка…', wide: true});
-		body.innerHTML = '<div class="empty">Загрузка страницы мода…</div>';
+		const {body} = modal({eyebrow: I18N.t('catalogue.modEyebrow'), title: I18N.t('catalogue.loadingShort'), wide: true});
+		body.innerHTML = `<div class="empty">${esc(I18N.t('catalogue.loadingMod'))}</div>`;
 		try {
 			const [data, installed] = await Promise.all([api(`/api/moddb/mod/${encodeURIComponent(identifier)}`), installedVersion([identifier, ...ids])]);
 			if (!body.isConnected) return;
 			$('h2', body.closest('dialog')).textContent = data.name;
-			const links = [['Исходный код', data.sourcecodeurl], ['Багтрекер', data.issuetrackerurl], ['Вики', data.wikiurl], ['Сайт', data.homepageurl], ['Трейлер', data.trailervideourl]]
+			const links = [[I18N.t('catalogue.sourceCode'), data.sourcecodeurl], [I18N.t('catalogue.issueTracker'), data.issuetrackerurl], [I18N.t('catalogue.wiki'), data.wikiurl], [I18N.t('catalogue.website'), data.homepageurl], [I18N.t('catalogue.trailer'), data.trailervideourl]]
 				.map(([label, href]) => [label, safeUrl(href)]).filter(([, href]) => href);
 			const compatible = (data.releases || []).filter(release => release.compatible);
 			const admin = can('admin');
 			body.innerHTML = `<div class="mod-head">${data.logo ? `<img class="mod-head-logo" src="${esc(data.logo)}" alt="">` : ''}
 				<div><small>${esc(data.author || '—')} · ${esc(SIDES[data.side] || data.side || '—')} · ↓ ${esc(fmtCount(data.downloads))} · ♥ ${esc(fmtCount(data.follows))}</small>
 				<div class="mod-tags">${(data.tags || []).map(tagChip).join('')}</div>
-				${installed ? `<small class="accent">Установлена версия ${esc(installed.version || '—')}${installed.enabled ? '' : ' (отключён)'}</small>` : ''}</div></div>
+				${installed ? `<small class="accent">${esc(I18N.t('catalogue.installedVersion', {version: installed.version || '—'}))}${installed.enabled ? '' : ` ${esc(I18N.t('catalogue.disabledParenthetical'))}`}</small>` : ''}</div></div>
 				<div class="mod-description" data-description></div>
 				<div class="mod-links" data-links></div>
 				<div class="mod-shots" data-shots></div>
-				<h3 class="subheading">Релизы для ${esc(data.game_version)}</h3>
+				<h3 class="subheading">${esc(I18N.t('catalogue.releasesFor', {version: data.game_version}))}</h3>
 				<div data-releases></div>`;
 			sanitizeInto($('[data-description]', body), data.text);
 			const linkBox = $('[data-links]', body);
@@ -223,7 +223,7 @@
 			(data.screenshots || []).forEach(shot => {
 				const img = document.createElement('img');
 				img.src = shot.thumbnail;
-				img.alt = 'Скриншот';
+				img.alt = I18N.t('catalogue.screenshot');
 				img.loading = 'lazy';
 				img.addEventListener('click', () => showShot(shot.url));
 				shots.append(img);
@@ -232,17 +232,17 @@
 			$('[data-releases]', body).innerHTML = compatible.length ? compatible.slice(0, 20).map(release => {
 				const same = installed && release.version === installed.version;
 				const newer = installed && VS.dependencies.compare(release.version, installed.version) > 0;
-				const label = same ? 'Установлена' : installed ? (newer ? 'Обновить' : 'Поставить эту версию') : 'Установить на сервер';
-				return `<div class="release-row"><div class="card-header"><div><b>${esc(release.version || '—')}</b>${release.prerelease ? ' <span class="badge warn">предварительный</span>' : ''}${release.compatibility === 'same_minor' ? ` <span class="badge warn">для ${esc(release.compatible_tag)}</span>` : ''}<small class="muted mono"> ${esc(release.filename || '')}</small></div><button class="button small primary" type="button" data-release-id="${esc(release.releaseid)}" data-identifier="${esc(data.lookup_identifier || identifier)}" ${admin && !same ? '' : 'disabled'}>${esc(label)}</button></div><pre>${esc(release.changelog || 'Без changelog')}</pre></div>`;
-			}).join('') : '<div class="notice warn">Нет релиза для этой ветки игры.</div>';
+				const label = same ? I18N.t('catalogue.installedFemale') : installed ? (newer ? I18N.t('catalogue.update') : I18N.t('catalogue.installThisVersion')) : I18N.t('catalogue.installOnServer');
+				return `<div class="release-row"><div class="card-header"><div><b>${esc(release.version || '—')}</b>${release.prerelease ? ` <span class="badge warn">${esc(I18N.t('dependencies.prerelease'))}</span>` : ''}${release.compatibility === 'same_minor' ? ` <span class="badge warn">${esc(I18N.t('catalogue.forVersion', {version: release.compatible_tag}))}</span>` : ''}<small class="muted mono"> ${esc(release.filename || '')}</small></div><button class="button small primary" type="button" data-release-id="${esc(release.releaseid)}" data-identifier="${esc(data.lookup_identifier || identifier)}" ${admin && !same ? '' : 'disabled'}>${esc(label)}</button></div><pre>${esc(release.changelog || I18N.t('catalogue.noChangelog'))}</pre></div>`;
+			}).join('') : `<div class="notice warn">${esc(I18N.t('catalogue.noBranchRelease'))}</div>`;
 		} catch (error) { if (body.isConnected) { body.innerHTML = `<div class="notice error">${esc(error.message)}</div>`; } else fail(error); }
 	}
 
 	function showShot(url) {
-		const {body} = modal({eyebrow: 'СКРИНШОТ', title: 'Скриншот', wide: true});
+		const {body} = modal({eyebrow: I18N.t('catalogue.screenshotEyebrow'), title: I18N.t('catalogue.screenshot'), wide: true});
 		const img = document.createElement('img');
 		img.src = url;
-		img.alt = 'Скриншот';
+		img.alt = I18N.t('catalogue.screenshot');
 		img.className = 'mod-shot-large';
 		body.append(img);
 	}
@@ -263,7 +263,7 @@
 			if (!element.dataset.ids.toLowerCase().split(',').includes(wanted)) return;
 			element.classList.add('installed');
 			element.querySelector('.badge.installed')?.remove();
-			element.querySelector('.mod-tags')?.insertAdjacentHTML('afterbegin', `<span class="badge installed" title="Установлен и включён">установлен${version ? ` ${esc(version)}` : ''}</span>`);
+			element.querySelector('.mod-tags')?.insertAdjacentHTML('afterbegin', `<span class="badge installed" title="${esc(I18N.t('catalogue.installedEnabled'))}">${esc(I18N.t('catalogue.installed'))}${version ? ` ${esc(version)}` : ''}</span>`);
 		});
 	}
 

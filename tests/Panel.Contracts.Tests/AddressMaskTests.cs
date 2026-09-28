@@ -8,11 +8,11 @@ namespace Panel.Contracts.Tests;
 public sealed class AddressMaskTests
 {
 	[Theory]
-	[InlineData("Alice [::1]:1234 joins.", "Alice [скрыт]:1234 joins.")]
-	[InlineData("Alice [192.168.0.215]:4242 joins.", "Alice [скрыт]:4242 joins.")]
-	[InlineData("Alice [2001:db8::7]:4242 joins.", "Alice [скрыт]:4242 joins.")]
-	[InlineData("connect from 10.0.0.5 accepted", "connect from [скрыт] accepted")]
-	[InlineData("10.0.0.5:5000", "[скрыт]:5000")]
+	[InlineData("Alice [::1]:1234 joins.", "Alice [hidden]:1234 joins.")]
+	[InlineData("Alice [192.168.0.215]:4242 joins.", "Alice [hidden]:4242 joins.")]
+	[InlineData("Alice [2001:db8::7]:4242 joins.", "Alice [hidden]:4242 joins.")]
+	[InlineData("connect from 10.0.0.5 accepted", "connect from [hidden] accepted")]
+	[InlineData("10.0.0.5:5000", "[hidden]:5000")]
 	public void Адрес_скрывается_вместе_со_скобками(string line, string expected) =>
 		Assert.Equal(expected, AddressMask.Scrub(line, hide: true));
 

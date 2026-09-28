@@ -2,13 +2,13 @@ const $ = selector => document.querySelector(selector);
 const STEPS = ['claim', 'access', 'preflight', 'version', 'server', 'create', 'done'];
 let csrf = '', current = 'claim', summary = null, releases = [], chosen = '', stream = null;
 
-const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
-const fmtBytes = value => { const n = Number(value) || 0; if (!n) return '—'; const u = ['Б','КБ','МБ','ГБ','ТБ'], i = Math.min(Math.floor(Math.log(n)/Math.log(1024)), u.length-1); return `${(n/1024**i).toFixed(i?1:0)} ${u[i]}`; };
+const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[char]));
+const fmtBytes = value => { const n = Number(value) || 0; if (!n) return '—'; const u = [I18N.t('units.b'), I18N.t('units.kb'), I18N.t('units.mb'), I18N.t('units.gb'), I18N.t('units.tb')], i = Math.min(Math.floor(Math.log(n)/Math.log(1024)), u.length-1); return `${(n/1024**i).toFixed(i?1:0)} ${u[i]}`; };
 
 function toast(message, error = false) {
 	const element = $('#toast');
 	element.textContent = message;
-	element.className = `toast${error ? " error" : ""}`;
+	element.className = `toast${error ? ' error' : ''}`;
 	setTimeout(() => element.classList.add('hidden'), 5000);
 }
 
@@ -19,7 +19,7 @@ async function api(path, options = {}) {
 	const response = await fetch(path, options);
 	let data = {};
 	try { data = await response.json(); } catch {}
-	if (response.status === 410) { location.href = '/'; throw new Error('Мастер уже завершён'); }
+	if (response.status === 410) { location.href = '/'; throw new Error(I18N.t('setup.wizardFinished')); }
 	if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
 	return data;
 }
@@ -34,7 +34,7 @@ function show(step) {
 		const position = STEPS.indexOf(node.dataset.step);
 		node.className = position < index ? 'done' : (position === index ? 'active' : '');
 	});
-	$('#step-counter').textContent = `Шаг ${index + 1} из ${STEPS.length}`;
+	$('#step-counter').textContent = I18N.t('setup.stepCounter', {n: index + 1, total: STEPS.length});
 }
 
 // ----- шаг 1: захват -------------------------------------------------------------
@@ -43,7 +43,7 @@ $('#claim-form').addEventListener('submit', async event => {
 	event.preventDefault();
 	$('#claim-error').textContent = '';
 	if ($('#claim-password').value !== $('#claim-password2').value) {
-		$('#claim-error').textContent = 'Пароли не совпадают';
+		$('#claim-error').textContent = I18N.t('setup.passwordMismatch');
 		return;
 	}
 	try {
@@ -96,20 +96,20 @@ function renderPreflight(report) {
 	const runtime = report.runtime || {};
 	const rows = [];
 	rows.push(item(runtime.dotnet ? 'ok' : 'error', '.NET',
-		runtime.dotnet ? `${escapeHtml(runtime.dotnet)} · среды выполнения: ${(runtime.majors || []).join(", ") || "не определены"}`
-                   : 'не найден'));
+		runtime.dotnet ? `${escapeHtml(runtime.dotnet)} · ${I18N.t('setup.runtimesLabel', {list: (runtime.majors || []).join(', ') || I18N.t('setup.runtimeUndefined')})}`
+			: I18N.t('setup.dotnetNotFound')));
 	const writable = (report.instances || {}).writable !== false;
-	rows.push(item(writable ? 'ok' : 'error', 'Реестр серверов',
-		writable ? 'доступен для записи' : 'доступен только на чтение'));
+	rows.push(item(writable ? 'ok' : 'error', I18N.t('setup.registryTitle'),
+		writable ? I18N.t('setup.registryWritable') : I18N.t('setup.registryReadonly')));
 	const used = (report.used_ports || []);
-	rows.push(item('ok', 'Занятые порты', used.length ? used.join(', ') : 'нет'));
+	rows.push(item('ok', I18N.t('setup.usedPortsTitle'), used.length ? used.join(', ') : I18N.t('setup.none')));
 	if (report.free !== undefined) {
-		rows.push(item(report.free >= (report.required_free || 0) ? 'ok' : 'error', 'Свободное место',
-			`${fmtBytes(report.free)} из необходимых ${fmtBytes(report.required_free)}`));
+		rows.push(item(report.free >= (report.required_free || 0) ? 'ok' : 'error', I18N.t('setup.freeSpaceTitle'),
+			I18N.t('setup.freeSpaceDetail', {free: fmtBytes(report.free), required: fmtBytes(report.required_free)})));
 	}
-	for (const blocker of report.blockers || []) rows.push(item('error', 'Препятствие', escapeHtml(blocker)));
-	for (const warning of report.warnings || []) rows.push(item('warn', 'Предупреждение', escapeHtml(warning)));
-	if (accessNotice) rows.push(item('warn', 'Брандмауэр', escapeHtml(accessNotice)));
+	for (const blocker of report.blockers || []) rows.push(item('error', I18N.t('setup.blockerTitle'), escapeHtml(blocker)));
+	for (const warning of report.warnings || []) rows.push(item('warn', I18N.t('setup.warningTitle'), escapeHtml(warning)));
+	if (accessNotice) rows.push(item('warn', I18N.t('setup.firewallTitle'), escapeHtml(accessNotice)));
 	$('#preflight-report').innerHTML = rows.join('');
 	$('#preflight-next').disabled = !report.ok;
 	return report;
@@ -138,15 +138,15 @@ function renderReleases() {
 	const showUnstable = $('#version-unstable').checked;
 	const visible = releases.filter(release => showUnstable || release.channel === 'stable');
 	if (!visible.length) {
-		$('#version-list').innerHTML = `<p class="muted">Список пуст.</p>`;
+		$('#version-list').innerHTML = `<p class="muted">${I18N.t('setup.emptyList')}</p>`;
 		return;
 	}
 	$('#version-list').innerHTML = visible.slice(0, 24).map(release => `
-		<article class="catalog-item${release.version === chosen ? " chosen" : ""}" data-version="${escapeHtml(release.version)}">
+		<article class="catalog-item${release.version === chosen ? ' chosen' : ''}" data-version="${escapeHtml(release.version)}">
 			<h3>${escapeHtml(release.version)}</h3>
-			<p>${release.channel === "stable" ? "Стабильная" : "Нестабильная"}${release.latest ? " · последняя" : ""}</p>
-			<small>${escapeHtml(release.size_text || fmtBytes(release.size))}${release.md5 ? "" : " · без контрольной суммы"}</small>
-			<button type="button"${release.md5 ? "" : " disabled"}>${release.version === chosen ? "Выбрана" : "Выбрать"}</button>
+			<p>${release.channel === 'stable' ? I18N.t('setup.channelStable') : I18N.t('setup.channelUnstable')}${release.latest ? ` · ${I18N.t('setup.latest')}` : ''}</p>
+			<small>${escapeHtml(release.size_text || fmtBytes(release.size))}${release.md5 ? '' : ` · ${I18N.t('setup.noChecksum')}`}</small>
+			<button type="button"${release.md5 ? '' : ' disabled'}>${release.version === chosen ? I18N.t('setup.chosen') : I18N.t('setup.choose')}</button>
 		</article>`).join('');
 }
 
@@ -163,20 +163,20 @@ $('#version-refresh').addEventListener('click', () => loadCatalogue(true));
 async function loadCatalogue(refresh) {
 	$('#version-error').textContent = '';
 	try {
-		const data = await api(`/api/setup/catalogue?refresh=${refresh ? "true" : "false"}`);
+		const data = await api(`/api/setup/catalogue?refresh=${refresh ? 'true' : 'false'}`);
 		releases = data.versions || [];
 		if (!chosen) chosen = data.latest_stable || '';
 		$('#version-next').disabled = !chosen;
 		const stale = $('#version-stale');
 		stale.classList.toggle('hidden', !data.stale);
-		if (data.stale) stale.textContent = 'Официальный сервер недоступен, показан сохранённый список. Он может быть устаревшим.';
+		if (data.stale) stale.textContent = I18N.t('setup.staleCatalogue');
 		renderReleases();
 	} catch (error) { $('#version-error').textContent = error.message; }
 }
 
 $('#version-next').addEventListener('click', async () => {
 	const report = await runPreflight(chosen);
-	if (!report.ok) { show('preflight'); toast('Выбранная версия не проходит проверку', true); return; }
+	if (!report.ok) { show('preflight'); toast(I18N.t('setup.versionFailedCheck'), true); return; }
 	prepareServerForm();
 	show('server');
 });
@@ -184,11 +184,11 @@ $('#version-next').addEventListener('click', async () => {
 // ----- шаг 5: настройки сервера --------------------------------------------------
 
 const PLAYSTYLE_LABELS = {
-	surviveandbuild: 'Выживание и строительство',
-	exploration: 'Исследование',
-	wildernesssurvival: 'Суровое выживание',
+	surviveandbuild: I18N.t('setup.playstyleSurvive'),
+	exploration: I18N.t('setup.playstyleExploration'),
+	wildernesssurvival: I18N.t('setup.playstyleWilderness'),
 	homosapiens: 'Homo Sapiens',
-	creativebuilding: 'Творчество',
+	creativebuilding: I18N.t('setup.playstyleCreative'),
 };
 const LANGUAGE_LABELS = {ru: 'Русский', en: 'English', de: 'Deutsch', fr: 'Français', es: 'Español', zh: '中文'};
 
@@ -208,7 +208,7 @@ function prepareServerForm() {
 	$('#server-port').value = draft.port || hint.port;
 	$('#server-players').value = draft.max_players || 16;
 	$('#server-language').value = draft.language || 'ru';
-	$('#server-world').value = draft.world_name || 'Новый мир';
+	$('#server-world').value = draft.world_name || I18N.t('setup.defaultWorldName');
 	$('#server-seed').value = draft.seed || '';
 	$('#server-playstyle').value = draft.playstyle || 'surviveandbuild';
 	$('#server-description').value = draft.description || '';
@@ -260,19 +260,19 @@ $('#server-form').addEventListener('submit', async event => {
 // ----- шаг 6: создание -----------------------------------------------------------
 
 const STEP_LABELS = {
-	catalogue: 'Версия найдена в каталоге',
-	download: 'Сборка скачана и проверена',
-	create: 'Каталоги и настройки созданы',
-	service: 'systemd-юнит установлен',
-	start: 'Сервер запущен',
-	ready: 'Игра ответила телеметрией',
-	rollback: 'Откат',
+	catalogue: I18N.t('setup.stepCatalogue'),
+	download: I18N.t('setup.stepDownload'),
+	create: I18N.t('setup.stepCreateFolders'),
+	service: I18N.t('setup.stepService'),
+	start: I18N.t('setup.stepStart'),
+	ready: I18N.t('setup.stepReady'),
+	rollback: I18N.t('setup.stepRollback'),
 };
 
 function describeCreation(spec) {
-	$('#create-summary').innerHTML =
-		`Сервер <strong>${escapeHtml(spec.id)}</strong>, версия <strong>${escapeHtml(spec.version)}</strong>, ` +
-		`порт ${escapeHtml(String(spec.port))}, мир «${escapeHtml(spec.world_name)}».`;
+	$('#create-summary').innerHTML = I18N.t('setup.createSummary', {
+		id: escapeHtml(spec.id), version: escapeHtml(spec.version), port: escapeHtml(String(spec.port)), world: escapeHtml(spec.world_name),
+	});
 }
 
 function renderRun(record) {
@@ -282,16 +282,16 @@ function renderRun(record) {
 		const step = (record.steps || []).find(item => item.action === action);
 		const state = step ? (step.status === 'ok' ? 'done' : step.status) : 'pending';
 		return `<li class="${escapeHtml(state)}">${escapeHtml(STEP_LABELS[action] || action)}` +
-           (step && step.detail ? ` <small>${escapeHtml(step.detail)}</small>` : '') + `</li>`;
+			(step && step.detail ? ` <small>${escapeHtml(step.detail)}</small>` : '') + `</li>`;
 	}).join('');
-	$('#create-detail').textContent = record.detail || (record.status === 'running' ? 'Выполняется…' : '');
+	$('#create-detail').textContent = record.detail || (record.status === 'running' ? I18N.t('setup.runningEllipsis') : '');
 	if (record.status === 'success') {
 		$('#create-finish').classList.remove('hidden');
 		$('#create-start').classList.add('hidden');
 		$('#create-retry').classList.add('hidden');
 		$('#create-skip').classList.add('hidden');
 	} else if (record.status && record.status !== 'running') {
-		$('#create-error').textContent = record.detail || 'Создание не удалось';
+		$('#create-error').textContent = record.detail || I18N.t('setup.creationFailed');
 		$('#create-start').classList.remove('hidden');
 		$('#create-start').disabled = false;
 		$('#create-retry').classList.remove('hidden');
@@ -328,8 +328,7 @@ $('#create-finish').addEventListener('click', async () => {
 	try {
 		const result = await api('/api/setup/finish', {method: 'POST', body: {restart: true}});
 		if (stream) { stream.close(); stream = null; }
-		$('#done-detail').textContent =
-			`Сервер ${result.instance} создан. ${result.detail}. Панель откроется по адресу ${result.url}`;
+		$('#done-detail').textContent = I18N.t('setup.doneServerCreated', {id: result.instance, detail: result.detail, url: result.url});
 		$('#done-link').href = result.url;
 		show('done');
 	} catch (error) {
@@ -343,14 +342,14 @@ $('#create-finish').addEventListener('click', async () => {
 // Мастер закрывается без сервера: панель откроется с пустым списком серверов, первый
 // создаётся из «Обзора». Каталог серверов и доступ уже записаны своими шагами.
 document.querySelectorAll('.skip-server').forEach(button => button.addEventListener('click', async () => {
-	if (!confirm('Завершить установку без сервера? Сервер можно будет создать позже в панели: «Обзор» → «Новый сервер».')) return;
+	if (!confirm(I18N.t('setup.confirmSkipServer'))) return;
 	const error = $(`#${current}-error`);
 	if (error) error.textContent = '';
 	button.disabled = true;
 	try {
 		const result = await api('/api/setup/finish', {method: 'POST', body: {restart: true, without_server: true}});
 		if (stream) { stream.close(); stream = null; }
-		$('#done-detail').textContent = `Установка завершена без сервера. ${result.detail}. Панель откроется по адресу ${result.url}`;
+		$('#done-detail').textContent = I18N.t('setup.doneNoServer', {detail: result.detail, url: result.url});
 		$('#done-link').href = result.url;
 		$('#done-no-server').classList.remove('hidden');
 		show('done');
@@ -397,7 +396,7 @@ async function loadSummary() {
 async function boot() {
 	let state;
 	try { state = await api('/api/setup/state'); }
-	catch { toast('Панель недоступна', true); return; }
+	catch { toast(I18N.t('setup.panelUnavailable'), true); return; }
 	if (!state.required) { location.href = '/'; return; }
 	if (state.needs_token) {
 		$('#claim-missing').classList.toggle('hidden', state.token_present);
@@ -433,4 +432,11 @@ async function resume() {
 	show(step);
 }
 
+function initLangSwitch() {
+	const buttons = document.querySelectorAll('[data-lang]');
+	buttons.forEach(button => button.classList.toggle('active', button.dataset.lang === I18N.getLang()));
+	buttons.forEach(button => button.addEventListener('click', () => I18N.setLang(button.dataset.lang)));
+}
+
+initLangSwitch();
 boot();

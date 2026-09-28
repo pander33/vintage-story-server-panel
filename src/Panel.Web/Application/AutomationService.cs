@@ -45,7 +45,7 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 	private readonly ReadinessPolicy policy;
 	private readonly ReadinessLog readiness;
 	private readonly ServerControlHandler control;
-	private readonly IPlayerCommands players;
+	private readonly Announcements announcements;
 	private readonly IBackupStore backups;
 	private readonly EventBus events;
 	private readonly MaintenanceCoordinator coordinator;
@@ -62,7 +62,7 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 		ReadinessPolicy policy,
 		ReadinessLog readiness,
 		ServerControlHandler control,
-		IPlayerCommands players,
+		Announcements announcements,
 		IBackupStore backups,
 		EventBus events,
 		MaintenanceCoordinator coordinator,
@@ -76,7 +76,7 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 		this.policy = policy;
 		this.readiness = readiness;
 		this.control = control;
-		this.players = players;
+		this.announcements = announcements;
 		this.backups = backups;
 		this.events = events;
 		this.coordinator = coordinator;
@@ -205,7 +205,7 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 				workspace.Health = new JsonObject
 				{
 					["state"] = "unknown",
-					["detail"] = status.Failure!.Message,
+					["detail"] = PhraseJsonConverter.ToNode(status.Failure!.Text),
 					["checked_at"] = now.ToUnixTimeSeconds(),
 					["failures"] = 0,
 				};
@@ -237,7 +237,7 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 						instance,
 						"watchdog." + state,
 						state == "hung" ? EventSeverity.Critical : state == "stopped" ? EventSeverity.Warning : EventSeverity.Info,
-						"Watchdog: " + TelemetryNumbers.Text(workspace.Health["detail"]),
+						Phrase.Format($"Watchdog: {PhraseJsonConverter.FromNode(workspace.Health["detail"]) ?? Phrase.From(string.Empty)}"),
 						source: "watchdog",
 						ct: ct)
 					.ConfigureAwait(false);
@@ -267,21 +267,21 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 		var blocker = RecoveryBudget.Blocker(workspace.Restarts, workspace.Watchdog, now);
 		if (blocker is not null)
 		{
-			workspace.Health["recovery_blocked"] = blocker;
+			workspace.Health["recovery_blocked"] = PhraseJsonConverter.ToNode(blocker);
 			return;
 		}
 
 		using var lease = coordinator.TryAcquire(instance, LeasePurpose.WatchdogRecovery);
 		if (lease is null)
 		{
-			workspace.Health["recovery_blocked"] = "Выполняется другая общая операция";
+			workspace.Health["recovery_blocked"] = PhraseJsonConverter.ToNode(Phrase.From("Выполняется другая общая операция"));
 			return;
 		}
 
 		var restarted = await control.ServiceAsync(instance, ServiceAction.Restart, ct).ConfigureAwait(false);
 		if (!restarted.IsSuccess)
 		{
-			workspace.Health["recovery_blocked"] = "Ошибка перезапуска: " + restarted.Failure!.Message;
+			workspace.Health["recovery_blocked"] = PhraseJsonConverter.ToNode(Phrase.Format($"Ошибка перезапуска: {restarted.Failure!}"));
 			return;
 		}
 
@@ -292,7 +292,7 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 		workspace.Health = new JsonObject
 		{
 			["state"] = "recovering",
-			["detail"] = "Watchdog перезапустил зависший сервер",
+			["detail"] = PhraseJsonConverter.ToNode(Phrase.From("Watchdog перезапустил зависший сервер")),
 			["checked_at"] = now.ToUnixTimeSeconds(),
 			["failures"] = 0,
 		};
@@ -478,7 +478,7 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 
 				if (job.WarningMinutes.Count > 0 && !active)
 				{
-					run.Step(new RunStep("countdown", "skipped", "Сервер уже остановлен"));
+					run.Step(new RunStep("countdown", "skipped", Phrase.From("Сервер уже остановлен")));
 				}
 
 				var previous = warnings.Count > 0 ? warnings[0] : 0;
@@ -490,11 +490,10 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 						await Task.Delay(TimeSpan.FromMinutes(previous - minutes), ct).ConfigureAwait(false);
 					}
 
-					var announce = PlayerCommand.Create("announce", string.Empty, $"Плановое обслуживание через {minutes} мин.");
-					var sent = await players.SendAsync(instance, announce.Value, ct).ConfigureAwait(false);
+					var sent = await announcements.SendAsync(instance, Phrase.Format($"Плановое обслуживание через {minutes} мин."), ct).ConfigureAwait(false);
 					run.Step(sent.IsSuccess
 						? new RunStep("announce", "ok", Minutes: minutes)
-						: new RunStep("announce", "warning", sent.Failure!.Message));
+						: new RunStep("announce", "warning", sent.Failure!.Text));
 					previous = minutes;
 				}
 
@@ -612,8 +611,8 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 				instance,
 				"automation." + status,
 				run.Status is RunStatus.Success or RunStatus.Skipped ? EventSeverity.Info : EventSeverity.Error,
-				$"Обслуживание: {run.Name}",
-				run.Detail ?? string.Empty,
+				Phrase.Format($"Обслуживание: {run.Name}"),
+				run.Detail,
 				"automation",
 				ct: ct)
 			.ConfigureAwait(false);
@@ -630,12 +629,12 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 		["instance"] = verdict.Observed.Serialize(),
 		["active"] = verdict.ServiceActive,
 		["state"] = verdict.State.ToWire(),
-		["detail"] = verdict.Detail,
+		["detail"] = PhraseJsonConverter.ToNode(verdict.Detail),
 		["failures"] = verdict.ConsecutiveFailures,
 	};
 
-	private static string? RecoveryBlocked(JsonObject health) =>
-		TelemetryNumbers.Text(health["recovery_blocked"]) is { Length: > 0 } blocked ? blocked : null;
+	private static Phrase? RecoveryBlocked(JsonObject health) =>
+		PhraseJsonConverter.FromNode(health["recovery_blocked"]) is { } blocked && blocked.ToString().Length > 0 ? blocked : null;
 
 	private Task<Workspace> WorkspaceAsync(InstanceId instance) =>
 		workspaces.GetOrAdd(instance, id => new Lazy<Task<Workspace>>(() => OpenAsync(id))).Value;
@@ -694,7 +693,7 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 		public JsonObject Health { get; set; } = new()
 		{
 			["state"] = "unknown",
-			["detail"] = "Проверка ещё не выполнялась",
+			["detail"] = PhraseJsonConverter.ToNode(Phrase.From("Проверка ещё не выполнялась")),
 			["failures"] = 0,
 		};
 
@@ -828,7 +827,7 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 			return new ReadinessVerdict
 			{
 				State = HealthStateWire.FromWire(TelemetryNumbers.Text(health["state"])),
-				Detail = TelemetryNumbers.Text(health["detail"]),
+				Detail = PhraseJsonConverter.FromNode(health["detail"]) ?? Phrase.From(string.Empty),
 				ConsecutiveFailures = (int) TelemetryNumbers.Number(health["failures"]),
 				Observed = identity.IsSuccess ? identity.Value : ProcessIdentity.Unknown,
 				ServiceActive = TelemetryNumbers.Truthy(health["active"]),

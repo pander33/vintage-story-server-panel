@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -91,12 +92,104 @@ public sealed partial class PageEndpointsTests : IDisposable
 	{
 		string[] expected =
 		[
-			"apple-touch-icon.png", "backups.js", "catalog.js", "console-commands.js", "content.js", "core.js", "dependencies.js", "favicon-32.png", "favicon.ico", "favicon.svg",
-			"index.html", "logs.js", "maintenance.js", "overview.js", "panel.css", "players.js", "settings.js", "setup.html", "setup.js",
+			"apple-touch-icon.png", "backups.js", "catalog.js", "console-commands.js", "content.js", "core.js", "dependencies.js", "en.js", "favicon-32.png", "favicon.ico", "favicon.svg",
+			"i18n.js", "index.html", "logs.js", "maintenance.js", "overview.js", "panel.css", "players.js", "ru.js", "settings.js", "setup.html", "setup.js",
 			"style.css", "world-schema.js",
 		];
 
 		Assert.Equal(expected, PageEndpoints.Assets.GetDirectoryContents("").Select(file => file.Name).Order(StringComparer.Ordinal));
+	}
+
+	/// <summary>
+	/// Каталоги — скрипты с defer перед i18n.js: синхронный запрос каталога держал основной поток
+	/// браузера, и медленный ответ панели вешал вкладку.
+	/// </summary>
+	[Theory]
+	[InlineData(PageEndpoints.IndexPage, "core.js")]
+	[InlineData(PageEndpoints.SetupPage, "setup.js")]
+	public void Каталоги_загружаются_скриптами_до_локализации(string name, string first)
+	{
+		var page = Text(name);
+		string[] order = ["en.js", "ru.js", "i18n.js", first];
+		var positions = order.Select(file => page.IndexOf($"/static/{file}?v=0.2.0\" defer", StringComparison.Ordinal)).ToList();
+
+		Assert.All(positions, position => Assert.True(position >= 0));
+		Assert.Equal(positions.Order(), positions);
+		Assert.DoesNotContain("XMLHttpRequest", Text("i18n.js"), StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public void Ключи_интерфейса_есть_в_обоих_каталогах()
+	{
+		using var english = Catalog("en.js");
+		using var russian = Catalog("ru.js");
+		var englishKeys = Keys(english.RootElement).ToHashSet(StringComparer.Ordinal);
+		var russianKeys = Keys(russian.RootElement).ToHashSet(StringComparer.Ordinal);
+
+		Assert.Equal(englishKeys.Order(StringComparer.Ordinal), russianKeys.Order(StringComparer.Ordinal));
+		foreach (var file in PageEndpoints.Assets.GetDirectoryContents("").Where(file => file.Name.EndsWith(".js", StringComparison.Ordinal) || file.Name.EndsWith(".html", StringComparison.Ordinal)))
+		{
+			var source = Text(file.Name);
+			foreach (Match match in TranslationKey().Matches(source))
+			{
+				Assert.Contains(match.Groups["key"].Value, englishKeys);
+			}
+		}
+	}
+
+	/// <summary>
+	/// Каталог — литерал объекта JS в одинарных кавычках (<c>.editorconfig</c>); для разбора
+	/// строки переводятся в двойные кавычки JSON.
+	/// </summary>
+	private static JsonDocument Catalog(string name)
+	{
+		var source = Text(name);
+		var start = source.IndexOf("= {", source.IndexOf("??= {})", StringComparison.Ordinal) + 7, StringComparison.Ordinal) + 2;
+		var end = source.LastIndexOf("};", StringComparison.Ordinal) + 1;
+		var json = new System.Text.StringBuilder(end - start);
+		var quoted = false;
+		for (var index = start; index < end; index++)
+		{
+			var character = source[index];
+			if (!quoted)
+			{
+				quoted = character == '\'';
+				json.Append(quoted ? '"' : character);
+			}
+			else if (character == '\\' && source[index + 1] == '\'')
+			{
+				json.Append('\'');
+				index++;
+			}
+			else if (character == '\\')
+			{
+				json.Append(character).Append(source[++index]);
+			}
+			else if (character == '\'')
+			{
+				quoted = false;
+				json.Append('"');
+			}
+			else
+			{
+				json.Append(character == '"' ? "\\\"" : character.ToString());
+			}
+		}
+
+		return JsonDocument.Parse(json.ToString(), new JsonDocumentOptions { AllowTrailingCommas = true });
+	}
+
+	private static IEnumerable<string> Keys(JsonElement node, string prefix = "")
+	{
+		foreach (var item in node.EnumerateObject())
+		{
+			var key = prefix + item.Name;
+			if (item.Value.ValueKind == JsonValueKind.Object)
+			{
+				foreach (var child in Keys(item.Value, key + ".")) yield return child;
+			}
+			else yield return key;
+		}
 	}
 
 	[Theory]
@@ -151,6 +244,9 @@ public sealed partial class PageEndpointsTests : IDisposable
 
 	[GeneratedRegex(@"<script\b[^>]*>")]
 	private static partial Regex ScriptTag();
+
+	[GeneratedRegex(@"(?:I18N\.t\(|data-i18n(?:-placeholder|-title|-aria-label|-value)?=)['""'](?<key>[A-Za-z0-9.]+)['""']")]
+	private static partial Regex TranslationKey();
 
 	private sealed class RecordingResponse : HttpResponseFeature
 	{

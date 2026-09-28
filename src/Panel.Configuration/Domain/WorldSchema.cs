@@ -64,7 +64,7 @@ public sealed record WorldPlaystyle(
 public sealed record WorldSchema(
 	IReadOnlyList<WorldPlaystyle> Playstyles,
 	IReadOnlyList<WorldAttribute> Attributes,
-	IReadOnlyList<string> Warnings)
+	IReadOnlyList<Phrase> Warnings)
 {
 	public static readonly WorldSchema Empty = new([], [], []);
 
@@ -173,7 +173,7 @@ public sealed record WorldSchema(
 	{
 		var playstyles = new List<WorldPlaystyle>();
 		var attributes = new List<WorldAttribute>();
-		var warnings = new List<string>();
+		var warnings = new List<Phrase>();
 		var playstyleCodes = new HashSet<string>(StringComparer.Ordinal);
 		var attributeCodes = new HashSet<string>(StringComparer.Ordinal);
 
@@ -181,7 +181,7 @@ public sealed record WorldSchema(
 		{
 			if (!source.IsSuccess)
 			{
-				warnings.Add(source.Failure!.Message);
+				warnings.Add(source.Failure!.Text);
 				continue;
 			}
 
@@ -193,7 +193,7 @@ public sealed record WorldSchema(
 				}
 				else
 				{
-					warnings.Add($"Стиль «{style.Code}» уже объявлен другим источником ({style.Source}) — использован первый");
+					warnings.Add(Phrase.Format($"Стиль «{style.Code}» уже объявлен другим источником ({style.Source}) — использован первый"));
 				}
 			}
 
@@ -205,7 +205,7 @@ public sealed record WorldSchema(
 				}
 				else
 				{
-					warnings.Add($"Параметр «{attribute.Code}» уже объявлен другим источником ({attribute.Source}) — использован первый");
+					warnings.Add(Phrase.Format($"Параметр «{attribute.Code}» уже объявлен другим источником ({attribute.Source}) — использован первый"));
 				}
 			}
 		}

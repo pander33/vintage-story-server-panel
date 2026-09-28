@@ -1,20 +1,20 @@
 @echo off
 chcp 65001 >nul
-rem Первый шаг установки панели на Windows — двойной щелчок или из командной строки:
-rem   install.cmd                      установить или обновить
-rem   install.cmd --no-server          не создавать первый игровой сервер
-rem   install.cmd --servers-dir D:\vs-servers   каталог игровых серверов (иначе спросит при первой установке)
-rem   install.cmd --access internet    панель открыта и из интернета (по умолчанию lan — локальная сеть)
-rem   install.cmd --access localhost   панель только на этой машине
-rem   install.cmd --port 9000          порт панели; также --bind, --allowed-hosts, --secure-cookie, --firewall
-rem Всё остальное делает vs-panel install (Panel.Cli.exe) из этого же каталога.
+rem Initial Windows setup step: double-click or run from a command prompt:
+rem   install.cmd                      install or update
+rem   install.cmd --no-server          skip the first game server
+rem   install.cmd --servers-dir D:\vs-servers   game server directory (otherwise prompted on first install)
+rem   install.cmd --access internet    allow internet access (default: lan)
+rem   install.cmd --access localhost   local access only
+rem   install.cmd --port 9000          panel port; also --bind, --allowed-hosts, --secure-cookie, --firewall
+rem vs-panel install (Panel.Cli.exe) in this directory performs the remaining steps.
 setlocal
 
 net session >nul 2>&1
 if errorlevel 1 goto elevate
 
 if not exist "%~dp0Panel.Cli.exe" (
-    echo Рядом с install.cmd нет Panel.Cli.exe: это не каталог сборки панели.
+    echo Panel.Cli.exe is missing next to install.cmd: this is not a panel build directory.
     pause
     exit /b 1
 )
@@ -26,7 +26,7 @@ pause
 exit /b %code%
 
 :elevate
-rem Нужны права администратора: службы, Program Files, права на ProgramData.
+rem Administrator privileges are required for services, Program Files and ProgramData.
 if "%~1"=="" (
     powershell -NoProfile -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
 ) else (

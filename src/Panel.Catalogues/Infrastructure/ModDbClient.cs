@@ -83,7 +83,7 @@ public sealed partial class ModDbClient
 		var length = text.EnumerateRunes().Count();
 		if (length is < 2 or > 80)
 		{
-			return Refused("Введите от 2 до 80 символов");
+			return Refused(Phrase.From("Введите от 2 до 80 символов"));
 		}
 
 		var value = await GetAsync(
@@ -211,7 +211,7 @@ public sealed partial class ModDbClient
 		ArgumentNullException.ThrowIfNull(game);
 		if (!SafeId.IsMatch(identifier ?? string.Empty))
 		{
-			return Refused("Некорректный идентификатор мода");
+			return Refused(Phrase.From("Некорректный идентификатор мода"));
 		}
 
 		var lookup = identifier!;
@@ -247,7 +247,7 @@ public sealed partial class ModDbClient
 
 		if (value.Value["mod"] is not JsonObject mod)
 		{
-			return Refused("Мод не найден");
+			return Refused(Phrase.From("Мод не найден"));
 		}
 
 		var releases = new List<ModDbRelease>();
@@ -331,7 +331,7 @@ public sealed partial class ModDbClient
 		ArgumentNullException.ThrowIfNull(game);
 		if (!SafeId.IsMatch(identifier ?? string.Empty))
 		{
-			return Refused("Некорректный идентификатор мода");
+			return Refused(Phrase.From("Некорректный идентификатор мода"));
 		}
 
 		var value = await GetAsync("/mod/" + Uri.EscapeDataString(identifier!), string.Empty, ct).ConfigureAwait(false);
@@ -350,20 +350,20 @@ public sealed partial class ModDbClient
 
 			if (!CompatibilityPolicy.Evaluate(TagsOf(release), game).IsCompatible)
 			{
-				return Refused($"Релиз не отмечен совместимым с Vintage Story {game.Text}");
+				return Refused(Phrase.Format($"Релиз не отмечен совместимым с Vintage Story {game.Text}"));
 			}
 
 			var url = TrustedDownload(PythonText.Of(release["mainfile"]));
 			if (url is null)
 			{
-				return Refused("ModDB вернул недопустимый адрес загрузки");
+				return Refused(Phrase.From("ModDB вернул недопустимый адрес загрузки"));
 			}
 
 			var fileName = PythonText.Of(release["filename"]) is { Length: > 0 } name ? name : "mod.zip";
 			return new ModDownload(url, fileName);
 		}
 
-		return Refused("Релиз не найден");
+		return Refused(Phrase.From("Релиз не найден"));
 	}
 
 	/// <summary>
@@ -375,7 +375,7 @@ public sealed partial class ModDbClient
 		ArgumentNullException.ThrowIfNull(url);
 		if (TrustedDownload(url.OriginalString) is null)
 		{
-			return Refused("Недопустимый адрес загрузки");
+			return Refused(Phrase.From("Недопустимый адрес загрузки"));
 		}
 
 		using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -389,22 +389,22 @@ public sealed partial class ModDbClient
 				.ConfigureAwait(false);
 			if (!response.IsSuccessStatusCode)
 			{
-				return Refused($"Не удалось скачать мод: {HttpError(response)}");
+				return Refused(Phrase.Format($"Не удалось скачать мод: {HttpError(response)}"));
 			}
 
 			if (response.Content.Headers.ContentLength > maximum)
 			{
-				return Refused("Архив мода превышает лимит панели");
+				return Refused(Phrase.From("Архив мода превышает лимит панели"));
 			}
 
 			await using var stream = await response.Content.ReadAsStreamAsync(timeout.Token).ConfigureAwait(false);
 			var data = await ReadLimitedAsync(stream, maximum, timeout.Token).ConfigureAwait(false);
-			return data is null ? Refused("Архив мода превышает лимит панели") : data;
+			return data is null ? Refused(Phrase.From("Архив мода превышает лимит панели")) : data;
 		}
 		catch (Exception exception) when (exception is HttpRequestException or IOException
 											  || (exception is OperationCanceledException && !ct.IsCancellationRequested))
 		{
-			return Refused($"Не удалось скачать мод: {exception.Message}");
+			return Refused(Phrase.Format($"Не удалось скачать мод: {exception.Message}"));
 		}
 	}
 
@@ -534,7 +534,7 @@ public sealed partial class ModDbClient
 				.ConfigureAwait(false);
 			if (!response.IsSuccessStatusCode)
 			{
-				return Refused($"ModDB недоступен: {HttpError(response)}");
+				return Refused(Phrase.Format($"ModDB недоступен: {HttpError(response)}"));
 			}
 
 			await using var stream = await response.Content.ReadAsStreamAsync(timeout.Token).ConfigureAwait(false);
@@ -543,12 +543,12 @@ public sealed partial class ModDbClient
 		catch (Exception exception) when (exception is HttpRequestException or IOException
 											  || (exception is OperationCanceledException && !ct.IsCancellationRequested))
 		{
-			return Refused($"ModDB недоступен: {exception.Message}");
+			return Refused(Phrase.Format($"ModDB недоступен: {exception.Message}"));
 		}
 
 		if (data is null)
 		{
-			return Refused("Ответ ModDB слишком большой");
+			return Refused(Phrase.From("Ответ ModDB слишком большой"));
 		}
 
 		JsonNode? parsed;
@@ -558,13 +558,13 @@ public sealed partial class ModDbClient
 		}
 		catch (JsonException)
 		{
-			return Refused("ModDB вернул некорректный JSON");
+			return Refused(Phrase.From("ModDB вернул некорректный JSON"));
 		}
 
 		if (parsed is not JsonObject value
 			|| (value.ContainsKey("statuscode") && PythonTextOrNone(value["statuscode"]) != "200"))
 		{
-			return Refused("ModDB отклонил запрос");
+			return Refused(Phrase.From("ModDB отклонил запрос"));
 		}
 
 		return value;
@@ -598,5 +598,5 @@ public sealed partial class ModDbClient
 		return buffer.ToArray();
 	}
 
-	private static Failure Refused(string message) => Failure.Unavailable(message);
+	private static Failure Refused(Phrase message) => Failure.Unavailable(message);
 }

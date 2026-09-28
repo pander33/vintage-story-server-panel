@@ -69,7 +69,7 @@ public static class EventEndpoints
 			await ServerSentEvents.StreamAsync(http, TimeSpan.FromSeconds(3), ct, async previous =>
 			{
 				var recent = await events.RecentAsync(instance, everything, 50, ct).ConfigureAwait(false);
-				var encoded = new JsonArray([.. recent]).ToJsonString(PanelJson.Options);
+				var encoded = LocalizedJson.Serialize(new JsonArray([.. recent]), http);
 				return encoded == previous ? null : encoded;
 			}).ConfigureAwait(false);
 
@@ -97,7 +97,8 @@ public static class EventEndpoints
 				body.WebhookUrl,
 				body.DiscordUrl,
 				body.TelegramToken,
-				body.TelegramChatId));
+				body.TelegramChatId,
+				PhraseCatalog.Code(LocalizedJson.LanguageOf(http))));
 			if (!updated.IsSuccess)
 			{
 				return PanelResults.Refuse(updated.Failure!);
@@ -130,11 +131,11 @@ public static class EventEndpoints
 
 			// Отказ канала — 502: это ответ внешнего сервиса.
 			var sent = await sender
-				.SendAsync(NotificationMessage.Test(clock.GetUtcNow()), events.Settings.Current, ct)
+				.SendAsync(NotificationMessage.Test(clock.GetUtcNow()), events.Settings.Current, PhraseCatalog.Renderer(LocalizedJson.LanguageOf(http)), ct)
 				.ConfigureAwait(false);
 			if (!sent.IsSuccess)
 			{
-				return PanelResults.Refuse(StatusCodes.Status502BadGateway, sent.Failure!.Message);
+				return PanelResults.Refuse(StatusCodes.Status502BadGateway, sent.Failure!.Text);
 			}
 
 			await audit.RecordAsync(http, "notification_test", string.Empty, ct).ConfigureAwait(false);

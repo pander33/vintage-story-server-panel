@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using Panel.Configuration.Domain;
 using Panel.Configuration.Ports;
+using Panel.Contracts;
 using Panel.Contracts.Agent;
 using Panel.Contracts.Configuration;
 using Panel.Contracts.ServerCommands;
@@ -48,8 +49,8 @@ public sealed class AgentWorldSchemaStore : IWorldSchemaStore
 		this.client = client;
 	}
 
-	public Task<Result<WorldSchemaPayload>> ReadAsync(InstanceId instance, CancellationToken ct) =>
-		client.CallAsync<WorldSchemaPayload>(AgentProtocol.OpWorldConfigSchema, instance, [], ct);
+	public Task<Result<WorldSchemaPayload>> ReadAsync(InstanceId instance, PanelLanguage language, CancellationToken ct) =>
+		client.CallAsync<WorldSchemaPayload>(AgentProtocol.OpWorldConfigSchema, instance, [PhraseCatalog.Code(language)], ct);
 }
 
 /// <summary>
@@ -78,8 +79,8 @@ public sealed class AgentLiveWorldConfig : ILiveWorldConfig
 				payload.World?["configuration"] is JsonObject configuration
 					? (JsonObject) configuration.DeepClone()
 					: [],
-				payload.Detail ?? string.Empty),
-			failure => new LiveWorldConfig(false, [], failure.Message));
+				payload.Detail),
+			failure => new LiveWorldConfig(false, [], failure.Text));
 	}
 
 	public async Task<Result<Done>> ChangeAsync(InstanceId instance, WorldConfigCommand command, CancellationToken ct)

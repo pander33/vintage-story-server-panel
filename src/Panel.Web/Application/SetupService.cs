@@ -73,7 +73,7 @@ public sealed partial class SetupService : IHostedService
 		var snapshot = await registry.LoadAsync(cancellationToken).ConfigureAwait(false);
 		if (hasAdministrator && snapshot is RegistrySnapshot.Unavailable unavailable)
 		{
-			RegistryUnreadable(log, unavailable.Detail);
+			RegistryUnreadable(log, unavailable.Detail.ToString());
 		}
 		else if (InstanceId.Create(options.DefaultInstance) is { IsSuccess: true } panelInstance)
 		{

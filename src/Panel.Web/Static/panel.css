@@ -83,6 +83,11 @@ code, .mono { font-family: var(--mono); }
 .nav-badge.error { background: var(--error); color: var(--deep); }
 .nav-badge.error.dot { background: var(--error); }
 .sidebar-bottom { margin-top: auto; }
+.lang-switch { display: flex; gap: 4px; padding: 0 12px 14px; }
+.lang-switch button { flex: 1; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--muted); padding: 6px 0; font: 700 10px var(--mono); letter-spacing: .08em; }
+.lang-switch button.active { background: var(--accent-soft); color: var(--accent-text); border-color: var(--accent); }
+.lang-switch.login-lang { padding: 0 0 18px; justify-content: flex-end; }
+.lang-switch.login-lang button { flex: none; padding: 5px 12px; }
 .system-status { display: flex; align-items: flex-start; gap: 10px; padding: 14px 12px 22px; }
 .system-status strong, .sidebar-user strong { display: block; font-size: 11px; color: var(--text); }
 .system-status small, .sidebar-user small { display: block; color: var(--muted); font-size: 10px; margin-top: 5px; }

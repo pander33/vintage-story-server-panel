@@ -175,7 +175,7 @@ public sealed class ServersRootTests
 		var security = new DirectorySecurity();
 		security.SetOwner(Users);
 
-		Assert.Contains("Владелец", WindowsServersRoot.Weakness(@"D:\Games", security, volumeRoot: false), StringComparison.Ordinal);
+		Assert.Contains("Владелец", WindowsServersRoot.Weakness(@"D:\Games", security, volumeRoot: false)?.ToString(), StringComparison.Ordinal);
 	}
 
 	[Fact]

@@ -48,7 +48,7 @@ internal sealed class Installer
 		ArgumentNullException.ThrowIfNull(options);
 		if (!(await Shell.RunAsync("systemctl", ["--version"]).ConfigureAwait(false)).Succeeded)
 		{
-			throw new InstallFailed("Нужен systemd.");
+			throw new InstallFailed("systemd is required.");
 		}
 
 		var artifact = Artifact.Open(options.From);
@@ -62,7 +62,7 @@ internal sealed class Installer
 		if (await this.host.IsActiveAsync(InstallPaths.PanelUnitName).ConfigureAwait(false)
 			&& MaintenanceProbe.Describe(this.host.StateDirectory()) is { } busy)
 		{
-			throw new InstallFailed($"Установка не начата: панель выполняет {busy}.\nДождитесь завершения операции в панели и повторите установку.");
+			throw new InstallFailed($"Installation did not start: the panel is running {busy}.\nWait for the operation to finish in the panel and try again.");
 		}
 
 		var dotnetReady = true;
@@ -70,17 +70,17 @@ internal sealed class Installer
 		{
 			if (!options.SkipPackages)
 			{
-				this.host.Step("Установка системных пакетов");
+				this.host.Step("Installing system packages");
 				await InstallPackagesAsync().ConfigureAwait(false);
 			}
 
-			this.host.Step($"Установка среды выполнения .NET {options.DotnetChannel} для игры");
+			this.host.Step($"Installing .NET {options.DotnetChannel} runtime for the game");
 			dotnetReady = options.SkipDotnet
-				? Report("Пропущено по VS_PANEL_SKIP_DOTNET=1.", true)
+				? Report("Skipped by VS_PANEL_SKIP_DOTNET=1.", true)
 				: await InstallDotnetAsync(options.DotnetChannel).ConfigureAwait(false);
 		}
 
-		this.host.Step(options.Repair ? $"Восстановление версии {artifact.Value.Version}" : $"Установка версии {artifact.Value.Version}");
+		this.host.Step(options.Repair ? $"Repairing version {artifact.Value.Version}" : $"Installing version {artifact.Value.Version}");
 		var uid = await this.host.EnsurePanelUserAsync().ConfigureAwait(false);
 		LinuxHost.CreateDirectory(Paths.ProgramRoot, executable);
 		LinuxHost.CreateDirectory(Paths.Releases, executable);
@@ -94,7 +94,7 @@ internal sealed class Installer
 		await ActivateAsync(artifact.Value.Version).ConfigureAwait(false);
 		await PruneAsync(artifact.Value.Version).ConfigureAwait(false);
 
-		this.host.Step("Команда vs-panel, обёртка консоли, юниты");
+		this.host.Step("vs-panel command, console wrapper and systemd units");
 		Directory.CreateDirectory(Path.GetDirectoryName(Paths.CommandLink)!);
 		DeleteRegularFile(Paths.CommandLink);
 		await LinuxHost.ReplaceLinkAsync(Paths.CommandLink, Paths.CurrentBinary("vs-panel")).ConfigureAwait(false);
@@ -113,7 +113,7 @@ internal sealed class Installer
 			await this.host.ChownAsync($"root:{InstallPaths.PanelUser}", Paths.PanelEnv).ConfigureAwait(false);
 		}
 
-		this.host.Step("Доступ к панели и брандмауэр");
+		this.host.Step("Panel access and firewall");
 		var firewall = await PanelAccess.ApplyUfwAsync(previous, PanelListener.FromEnvironment(EnvironmentFile.Load(Paths.PanelEnv))).ConfigureAwait(false);
 		ReportFirewall(firewall);
 
@@ -124,26 +124,26 @@ internal sealed class Installer
 			InstallTelemetry(artifact.Value, options.TelemetryModDirectory);
 		}
 
-		this.host.Step("Демон панели");
+		this.host.Step("Panel daemon");
 		await this.host.ChownAsync($"{InstallPaths.PanelUser}:{InstallPaths.PanelUser}", this.host.StateDirectory(), recursive: true).ConfigureAwait(false);
 		await Require(this.host.SystemctlAsync("daemon-reload"), "systemctl daemon-reload").ConfigureAwait(false);
-		await Require(this.host.SystemctlAsync("enable", InstallPaths.AgentUnitName), "Демон не включён").ConfigureAwait(false);
+		await Require(this.host.SystemctlAsync("enable", InstallPaths.AgentUnitName), "Daemon could not be enabled").ConfigureAwait(false);
 
 		// Демон нужен раньше панели: через него создаётся первый сервер. Панель с Requires= на
 		// демон systemd перезапустит вместе с ним.
-		await Require(this.host.SystemctlAsync("restart", InstallPaths.AgentUnitName), "Демон не запустился").ConfigureAwait(false);
+		await Require(this.host.SystemctlAsync("restart", InstallPaths.AgentUnitName), "Daemon failed to start").ConfigureAwait(false);
 
-		this.host.Step("Инициализация состояния");
+		this.host.Step("Initializing panel state");
 		if (await this.host.ManageAsync(["init"]).ConfigureAwait(false) != 0)
 		{
-			throw new InstallFailed("Состояние панели не инициализировано");
+			throw new InstallFailed("Panel state was not initialized");
 		}
 
 		var setupLink = string.Empty;
 		var state = this.host.StateDirectory();
 		if (NonEmpty(Path.Combine(state, "accounts.json")) || NonEmpty(Path.Combine(state, "admin.password")))
 		{
-			Output.WriteLine("Существующая учётная запись администратора сохранена.");
+			Output.WriteLine("The existing administrator account was preserved.");
 		}
 		else
 		{
@@ -161,14 +161,14 @@ internal sealed class Installer
 			.ConfigureAwait(false);
 		var created = options.Repair || !options.CreateServer || !rootReady ? 0 : await CreateFirstServerAsync(options, dotnetReady).ConfigureAwait(false);
 
-		this.host.Step("Перезапуск панели");
-		await Require(this.host.SystemctlAsync("enable", InstallPaths.PanelUnitName), "Панель не включена").ConfigureAwait(false);
+		this.host.Step("Restarting the panel");
+		await Require(this.host.SystemctlAsync("enable", InstallPaths.PanelUnitName), "Panel service could not be enabled").ConfigureAwait(false);
 
 		// `enable --now` не перезапускает уже активный юнит, и после обновления работала бы старая
 		// версия. --no-block нужен, чтобы установщик не зависал, пока старая панель завершает
 		// долгую операцию.
 		var oldPid = await this.host.UnitPropertyAsync(InstallPaths.PanelUnitName, "MainPID").ConfigureAwait(false);
-		await Require(this.host.SystemctlAsync("restart", "--no-block", InstallPaths.PanelUnitName), "Перезапуск панели не принят").ConfigureAwait(false);
+		await Require(this.host.SystemctlAsync("restart", "--no-block", InstallPaths.PanelUnitName), "Panel restart request was not accepted").ConfigureAwait(false);
 		var started = await this.host.WaitForStartAsync(InstallPaths.PanelUnitName, oldPid, options.WaitSeconds).ConfigureAwait(false);
 
 		PrintSummary(created);
@@ -176,7 +176,7 @@ internal sealed class Installer
 		{
 			Output.WriteLine();
 			await this.host.ManageAsync(["claim-token"]).ConfigureAwait(false);
-			Output.WriteLine("\nЕсли ссылка потеряна, получите новую: sudo vs-panel access");
+			Output.WriteLine("\nIf you lose the link, get a new one with: sudo vs-panel access");
 		}
 
 		return started ? 0 : 1;
@@ -185,22 +185,22 @@ internal sealed class Installer
 	/// <summary>Вернуть предыдущую версию: замена ссылки, затем перезапуск демона и панели.</summary>
 	public async Task<int> RollbackAsync(int waitSeconds)
 	{
-		var current = CurrentVersion() ?? throw new InstallFailed("Активная версия не найдена: панель не установлена");
+		var current = CurrentVersion() ?? throw new InstallFailed("No active version found: the panel is not installed");
 		var history = ReleaseHistory.Parse(ReadOrEmpty(Paths.ReleaseLog));
 		var previous = history.Previous(current, InstalledVersions())
-			?? throw new InstallFailed($"Откатываться некуда: кроме {current} установленных версий нет");
+			?? throw new InstallFailed($"Cannot roll back: no installed version other than {current}");
 
 		if (await this.host.IsActiveAsync(InstallPaths.PanelUnitName).ConfigureAwait(false)
 			&& MaintenanceProbe.Describe(this.host.StateDirectory()) is { } busy)
 		{
-			throw new InstallFailed($"Откат не начат: панель выполняет {busy}.");
+			throw new InstallFailed($"Rollback did not start: the panel is running {busy}.");
 		}
 
-		this.host.Step($"Откат {current} → {previous}");
+		this.host.Step($"Rolling back {current} → {previous}");
 		await ActivateAsync(previous).ConfigureAwait(false);
 		var oldPid = await this.host.UnitPropertyAsync(InstallPaths.PanelUnitName, "MainPID").ConfigureAwait(false);
-		await Require(this.host.SystemctlAsync("restart", InstallPaths.AgentUnitName), "Демон не запустился").ConfigureAwait(false);
-		await Require(this.host.SystemctlAsync("restart", "--no-block", InstallPaths.PanelUnitName), "Перезапуск панели не принят").ConfigureAwait(false);
+		await Require(this.host.SystemctlAsync("restart", InstallPaths.AgentUnitName), "Daemon failed to start").ConfigureAwait(false);
+		await Require(this.host.SystemctlAsync("restart", "--no-block", InstallPaths.PanelUnitName), "Panel restart request was not accepted").ConfigureAwait(false);
 		return await this.host.WaitForStartAsync(InstallPaths.PanelUnitName, oldPid, waitSeconds).ConfigureAwait(false) ? 0 : 1;
 	}
 
@@ -262,7 +262,7 @@ internal sealed class Installer
 			Directory.Move(staging, target);
 		}
 
-		Output.WriteLine($"Версия {artifact.Version} скопирована в {target}");
+		Output.WriteLine($"Version {artifact.Version} copied to {target}");
 	}
 
 	private async Task ActivateAsync(string version)
@@ -270,7 +270,7 @@ internal sealed class Installer
 		await LinuxHost.ReplaceLinkAsync(Paths.Current, Paths.Release(version)).ConfigureAwait(false);
 		var history = ReleaseHistory.Parse(ReadOrEmpty(Paths.ReleaseLog)).Activate(version);
 		LinuxHost.WriteFile(Paths.ReleaseLog, history.Serialize(), readable);
-		Output.WriteLine($"Активная версия: {version}");
+		Output.WriteLine($"Active version: {version}");
 	}
 
 	/// <summary>Хранятся текущая и две предыдущие версии; остальные удаляются.</summary>
@@ -280,7 +280,7 @@ internal sealed class Installer
 		foreach (var obsolete in history.Obsolete(InstalledVersions(), current))
 		{
 			Directory.Delete(Paths.Release(obsolete), recursive: true);
-			Output.WriteLine($"Удалена старая версия {obsolete}");
+			Output.WriteLine($"Removed old version {obsolete}");
 		}
 
 		return Task.CompletedTask;
@@ -299,7 +299,7 @@ internal sealed class Installer
 			if (File.Exists(path))
 			{
 				File.Delete(path);
-				Output.WriteLine($"Удалён файл прежней версии: {path}");
+				Output.WriteLine($"Removed file from an older version: {path}");
 			}
 		}
 	}
@@ -321,15 +321,15 @@ internal sealed class Installer
 		switch (decision.Value)
 		{
 			case RegistryDecision.Keep:
-				Output.WriteLine("Существующий реестр серверов сохранён.");
+				Output.WriteLine("The existing server registry was preserved.");
 				break;
 			case RegistryDecision.MigrateFlat migrate:
 				LinuxHost.WriteFile(Paths.Registry, migrate.Json, readable);
-				Output.WriteLine($"Сервер main перенесён в {Paths.Registry}");
+				Output.WriteLine($"Server main was added to {Paths.Registry}");
 				break;
 			case RegistryDecision.AdoptLegacy adopt:
 				LinuxHost.WriteFile(Paths.Registry, adopt.Json, readable);
-				Output.WriteLine("Обнаружен существующий сервер в /srv/vintagestory: он записан в реестр как main.");
+				Output.WriteLine("An existing server was found in /srv/vintagestory and registered as main.");
 				break;
 			case RegistryDecision.CreateEmpty empty:
 				LinuxHost.WriteFile(Paths.Registry, empty.Json, readable);
@@ -345,7 +345,7 @@ internal sealed class Installer
 	{
 		if (artifact.NewestTelemetry is not { } archive)
 		{
-			this.host.Warn("мод телеметрии не входит в сборку — готовность серверов будет проверяться ограниченно. Соберите его и положите в telemetry/ сборки (VS_TELEMETRY_DIST при scripts/publish.sh).");
+			this.host.Warn("the telemetry mod is not included in this build, so server readiness checks will be limited. Build the mod and place it in the build's telemetry/ directory (VS_TELEMETRY_DIST for scripts/publish.sh).");
 			return;
 		}
 
@@ -367,7 +367,7 @@ internal sealed class Installer
 		}
 
 		LinuxHost.CopyFile(archive, Path.Combine(modDirectory, Path.GetFileName(archive)), readable);
-		Output.WriteLine($"Мод телеметрии {Path.GetFileName(archive)} установлен в {modDirectory}");
+		Output.WriteLine($"Telemetry mod {Path.GetFileName(archive)} installed in {modDirectory}");
 	}
 
 	/// <summary>
@@ -382,17 +382,17 @@ internal sealed class Installer
 			return 0;
 		}
 
-		this.host.Step("Создание игрового сервера с настройками по умолчанию");
+		this.host.Step("Creating a game server with default settings");
 		if (!dotnetReady)
 		{
-			this.host.Warn("нет среды .NET — сервер не создан, создайте его в мастере установки после установки .NET");
+			this.host.Warn(".NET runtime is missing, so no server was created. Install .NET, then create the server in the setup wizard");
 			return 0;
 		}
 
 		if (await this.host.IsActiveAsync(InstallPaths.PanelUnitName).ConfigureAwait(false)
 			&& MaintenanceProbe.Describe(this.host.StateDirectory()) is not null)
 		{
-			this.host.Warn("панель уже создаёт сервер через мастер установки — автоматическое создание пропущено");
+			this.host.Warn("the panel is already creating a server through the setup wizard; automatic creation was skipped");
 			return 0;
 		}
 
@@ -411,7 +411,7 @@ internal sealed class Installer
 
 		if (await this.host.ManageAsync(arguments).ConfigureAwait(false) != 0)
 		{
-			this.host.Warn("сервер не создан автоматически — создайте его в мастере установки по ссылке ниже");
+			this.host.Warn("the server was not created automatically; create it in the setup wizard using the link below");
 			return 0;
 		}
 
@@ -431,7 +431,7 @@ internal sealed class Installer
 		var text = port.ToString(CultureInfo.InvariantCulture);
 		await Shell.RunAsync("ufw", ["allow", text + "/tcp"]).ConfigureAwait(false);
 		await Shell.RunAsync("ufw", ["allow", text + "/udp"]).ConfigureAwait(false);
-		Output.WriteLine($"В ufw открыт игровой порт {text} (tcp и udp).");
+		Output.WriteLine($"Game port {text} is open in ufw (TCP and UDP).");
 	}
 
 	private void ReportFirewall(FirewallOutcome? outcome)
@@ -459,7 +459,7 @@ internal sealed class Installer
 	{
 		if (!Shell.Exists("apt-get"))
 		{
-			Output.WriteLine("Автоматическая установка пакетов поддерживается только на Debian/Ubuntu.");
+			Output.WriteLine("Automatic package installation is supported only on Debian/Ubuntu.");
 			return;
 		}
 
@@ -478,7 +478,7 @@ internal sealed class Installer
 			.ConfigureAwait(false);
 		if (!installed.Succeeded)
 		{
-			this.host.Warn($"пакеты не установлены: {installed.Reason}");
+			this.host.Warn($"packages were not installed: {installed.Reason}");
 		}
 	}
 
@@ -495,7 +495,7 @@ internal sealed class Installer
 				&& (await Shell.RunAsync(binary, ["--list-runtimes"]).ConfigureAwait(false)).Output
 					.Split('\n').Any(line => line.StartsWith($"Microsoft.NETCore.App {major}.", StringComparison.Ordinal)))
 			{
-				Output.WriteLine($"Среда .NET {channel} уже установлена: {binary}");
+				Output.WriteLine($".NET {channel} runtime is already installed: {binary}");
 				return true;
 			}
 		}
@@ -515,13 +515,13 @@ internal sealed class Installer
 				.ConfigureAwait(false);
 			if (!installed.Succeeded)
 			{
-				this.host.Warn($"установка .NET {channel} не удалась: {installed.Reason}");
+				this.host.Warn($".NET {channel} installation failed: {installed.Reason}");
 				return false;
 			}
 		}
 		catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or IOException)
 		{
-			this.host.Warn($"не удалось скачать dotnet-install.sh ({exception.Message}); установите .NET {channel} вручную");
+			this.host.Warn($"could not download dotnet-install.sh ({exception.Message}); install .NET {channel} manually");
 			return false;
 		}
 		finally
@@ -535,20 +535,20 @@ internal sealed class Installer
 			File.CreateSymbolicLink("/usr/bin/dotnet", "/usr/share/dotnet/dotnet");
 		}
 
-		Output.WriteLine($"Установлена среда .NET {channel} в /usr/share/dotnet");
+		Output.WriteLine($".NET {channel} runtime installed in /usr/share/dotnet");
 		return true;
 	}
 
 	private void PrintSummary(int serverPort)
 	{
-		Output.WriteLine("\nПанель установлена.");
+		Output.WriteLine("\nPanel installed.");
 		PanelAccess.Print(Output, EnvironmentFile.Load(Paths.PanelEnv), PanelAccess.MachineAddresses(), tunnel: true);
 		if (serverPort > 0)
 		{
-			Output.WriteLine($"Игровой сервер main создан и запущен, порт {serverPort.ToString(CultureInfo.InvariantCulture)}.");
+			Output.WriteLine($"Game server main was created and started on port {serverPort.ToString(CultureInfo.InvariantCulture)}.");
 		}
 
-		Output.WriteLine("\nУправление: sudo vs-panel help");
+		Output.WriteLine("\nCommands: sudo vs-panel help");
 	}
 
 	private static async Task Require(Task<ShellResult> command, string failure)

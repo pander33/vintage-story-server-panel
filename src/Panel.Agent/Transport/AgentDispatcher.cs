@@ -93,7 +93,7 @@ public sealed class AgentDispatcher
 		var instance = InstanceId.Create(request.Instance);
 		if (!instance.IsSuccess)
 		{
-			return AgentReply.Failure("instance", instance.Failure!.Message);
+			return AgentReply.Failure("instance", instance.Failure!.Text);
 		}
 
 		// Серверу «-» адресуются только операции реестра, и операции реестра — только ему.
@@ -103,7 +103,7 @@ public sealed class AgentDispatcher
 			if (registryGroup is not null)
 			{
 				using var deleting = request.Op == AgentProtocol.OpInstanceDelete && request.Args.Count > 0
-					? tracker.Begin(request.Args[0], request.Op, ["Удаление сервера"], "Удаление сервера")
+					? tracker.Begin(request.Args[0], request.Op, [Phrase.From("Удаление сервера")], Phrase.From("Удаление сервера"))
 					: null;
 				return await registryGroup.ExecuteAsync(request, ct).ConfigureAwait(false);
 			}
@@ -120,7 +120,7 @@ public sealed class AgentDispatcher
 		var server = await ResolveAsync(instance.Value, ct).ConfigureAwait(false);
 		if (!server.IsSuccess)
 		{
-			return AgentReply.Failure(Code(server.Failure!), server.Failure!.Message);
+			return AgentReply.Failure(Code(server.Failure!), server.Failure!.Text);
 		}
 
 		try
@@ -144,28 +144,28 @@ public sealed class AgentDispatcher
 	/// Название долгой операции для показа хода, либо <see langword="null"/>, если операция мгновенна
 	/// или сама ведёт ход по стадиям (копия, восстановление, выгрузка пакета).
 	/// </summary>
-	private static string? Describe(AgentRequest request) => request.Op switch
+	private static Phrase? Describe(AgentRequest request) => request.Op switch
 	{
 		AgentProtocol.OpService => Argument(request, 0) switch
 		{
-			"stop" => "Остановка сервера",
-			"start" => "Запуск сервера",
-			"restart" => "Перезапуск сервера",
+			"stop" => Phrase.From("Остановка сервера"),
+			"start" => Phrase.From("Запуск сервера"),
+			"restart" => Phrase.From("Перезапуск сервера"),
 			_ => null,
 		},
-		AgentProtocol.OpModInstall => "Установка мода",
-		AgentProtocol.OpModRollback => "Откат мода",
-		AgentProtocol.OpModProfileApply => "Применение профиля модов",
-		AgentProtocol.OpWorldImport => "Загрузка мира",
-		AgentProtocol.OpWorldExport => "Выгрузка мира",
-		AgentProtocol.OpWorldClone => "Копирование мира",
-		AgentProtocol.OpWorldActivate => "Смена активного мира",
-		AgentProtocol.OpWorldCreate => "Создание мира",
-		AgentProtocol.OpWorldPutAway => "Отправка мира в архив",
-		AgentProtocol.OpWorldRestore => "Возврат мира из архива",
-		AgentProtocol.OpGameUpdateApply => "Замена программы сервера",
-		AgentProtocol.OpGameUpdateRollback => "Откат программы сервера",
-		AgentProtocol.OpBackupRetention => Argument(request, 3) == "apply" ? "Очистка старых копий" : null,
+		AgentProtocol.OpModInstall => Phrase.From("Установка мода"),
+		AgentProtocol.OpModRollback => Phrase.From("Откат мода"),
+		AgentProtocol.OpModProfileApply => Phrase.From("Применение профиля модов"),
+		AgentProtocol.OpWorldImport => Phrase.From("Загрузка мира"),
+		AgentProtocol.OpWorldExport => Phrase.From("Выгрузка мира"),
+		AgentProtocol.OpWorldClone => Phrase.From("Копирование мира"),
+		AgentProtocol.OpWorldActivate => Phrase.From("Смена активного мира"),
+		AgentProtocol.OpWorldCreate => Phrase.From("Создание мира"),
+		AgentProtocol.OpWorldPutAway => Phrase.From("Отправка мира в архив"),
+		AgentProtocol.OpWorldRestore => Phrase.From("Возврат мира из архива"),
+		AgentProtocol.OpGameUpdateApply => Phrase.From("Замена программы сервера"),
+		AgentProtocol.OpGameUpdateRollback => Phrase.From("Откат программы сервера"),
+		AgentProtocol.OpBackupRetention => Argument(request, 3) == "apply" ? Phrase.From("Очистка старых копий") : null,
 		_ => null,
 	};
 
@@ -270,7 +270,7 @@ public sealed class AgentDispatcher
 			Argument(request, 0), Argument(request, 1), Argument(request, 2), Argument(request, 3));
 		if (!command.IsSuccess)
 		{
-			return AgentReply.Failure("invalid", command.Failure!.Message);
+			return AgentReply.Failure("invalid", command.Failure!.Text);
 		}
 
 		if (!await backend.IsActiveAsync(server, ct).ConfigureAwait(false))
@@ -299,13 +299,13 @@ public sealed class AgentDispatcher
 		var spec = ServerCommandCatalogue.Find(Argument(request, 0));
 		if (!spec.IsSuccess)
 		{
-			return AgentReply.Failure("invalid", spec.Failure!.Message);
+			return AgentReply.Failure("invalid", spec.Failure!.Text);
 		}
 
 		var line = spec.Value.Render(Argument(request, 1) ?? string.Empty);
 		if (!line.IsSuccess)
 		{
-			return AgentReply.Failure("invalid", line.Failure!.Message);
+			return AgentReply.Failure("invalid", line.Failure!.Text);
 		}
 
 		if (!await backend.IsActiveAsync(server, ct).ConfigureAwait(false))
@@ -331,7 +331,7 @@ public sealed class AgentDispatcher
 		var line = RawConsoleLine.Create(Argument(request, 0));
 		if (!line.IsSuccess)
 		{
-			return AgentReply.Failure("invalid", line.Failure!.Message);
+			return AgentReply.Failure("invalid", line.Failure!.Text);
 		}
 
 		if (!await backend.IsActiveAsync(server, ct).ConfigureAwait(false))
@@ -352,7 +352,7 @@ public sealed class AgentDispatcher
 		var command = PlayerCommand.Create(Argument(request, 0), Argument(request, 1), Argument(request, 2));
 		if (!command.IsSuccess)
 		{
-			return AgentReply.Failure("invalid", command.Failure!.Message);
+			return AgentReply.Failure("invalid", command.Failure!.Text);
 		}
 
 		var role = string.Empty;
@@ -361,7 +361,7 @@ public sealed class AgentDispatcher
 			var configured = await DefaultRoleAsync(server, ct).ConfigureAwait(false);
 			if (!configured.IsSuccess)
 			{
-				return AgentReply.Failure("unavailable", configured.Failure!.Message);
+				return AgentReply.Failure("unavailable", configured.Failure!.Text);
 			}
 
 			role = configured.Value;

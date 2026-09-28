@@ -1,6 +1,8 @@
 using System.Text.Json;
 using Panel.Contracts.Configuration;
 using Panel.Contracts.Http;
+using Panel.SharedKernel;
+using Panel.Web.Application;
 
 namespace Panel.Contracts.Tests;
 
@@ -16,7 +18,7 @@ public sealed class ConfigurationShapeTests
 		{
 			Schema = new ConfigSchemaResponse
 			{
-				Categories = [new ConfigCategoryResponse { Id = "general", Label = "Основные" }],
+				Categories = [new ConfigCategoryResponse { Id = "general", Label = Phrase.From("Основные") }],
 				Fields = [new ConfigFieldResponse { Key = "Port", Options = [new ConfigOptionResponse()] }],
 			},
 			Backups = [new ConfigBackupPayload { Name = "a" }],
@@ -66,7 +68,7 @@ public sealed class ConfigurationShapeTests
 	{
 		var json = Serialize(new ConfigPreviewResponse
 		{
-			Changes = [new ConfigChangeResponse { Key = "Port", Label = "Порт" }],
+			Changes = [new ConfigChangeResponse { Key = "Port", Label = Phrase.From("Порт") }],
 		});
 
 		Assert.Contains("\"before\":null", json, StringComparison.Ordinal);
@@ -92,5 +94,5 @@ public sealed class ConfigurationShapeTests
 		}
 	}
 
-	private static string Serialize<T>(T value) => JsonSerializer.Serialize(value, PanelJson.Options);
+	private static string Serialize<T>(T value) => JsonSerializer.Serialize(value, LocalizedJson.For(PanelLanguage.Russian));
 }

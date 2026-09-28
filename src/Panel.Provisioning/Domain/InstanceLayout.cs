@@ -248,7 +248,8 @@ public static class InitialConfig
 		var value = (JsonObject) generated.DeepClone();
 		value["ServerName"] = spec.ServerName;
 		value["ServerDescription"] = spec.Description;
-		value["WelcomeMessage"] = "Добро пожаловать, {0}!";
+		// Приветствие читают игроки: на языке сервера, как и объявления панели.
+		value["WelcomeMessage"] = spec.Language.StartsWith("ru", StringComparison.OrdinalIgnoreCase) ? "Добро пожаловать, {0}!" : "Welcome, {0}!";
 		value["Port"] = spec.Port;
 		value["MaxClients"] = spec.MaxPlayers;
 		value["Password"] = string.Empty;

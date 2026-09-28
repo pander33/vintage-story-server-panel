@@ -25,14 +25,14 @@ public sealed record ServerCommandSpec
 	[JsonIgnore]
 	public ValueDomain? Value { get; init; }
 
-	public required string Group { get; init; }
+	public required Phrase Group { get; init; }
 
-	public required string Label { get; init; }
+	public required Phrase Label { get; init; }
 
-	public required string Hint { get; init; }
+	public required Phrase Hint { get; init; }
 
 	/// <summary>Текст подтверждения; если его нет, подтверждение не требуется.</summary>
-	public string? ConfirmPrompt { get; init; }
+	public Phrase? ConfirmPrompt { get; init; }
 
 	/// <summary>
 	/// Развернуть шаблон. Значение проверяется областью значений: метод вызывается и в
@@ -74,87 +74,87 @@ public static class ServerCommandCatalogue
 		new()
 		{
 			Action = "stats", Template = "/stats", ReadsBack = true,
-			Group = "Диагностика", Label = "Статистика сервера",
-			Hint = "/stats — тики, память, загрузка",
+			Group = Phrase.From("Диагностика"), Label = Phrase.From("Статистика сервера"),
+			Hint = Phrase.From("/stats — тики, память, загрузка"),
 		},
 		new()
 		{
 			Action = "list-clients", Template = "/list clients", ReadsBack = true,
-			Group = "Диагностика", Label = "Список подключённых", Hint = "/list clients",
+			Group = Phrase.From("Диагностика"), Label = Phrase.From("Список подключённых"), Hint = Phrase.From("/list clients"),
 		},
 		new()
 		{
 			Action = "list-banned", Template = "/list banned", ReadsBack = true,
-			Group = "Диагностика", Label = "Список заблокированных", Hint = "/list banned",
+			Group = Phrase.From("Диагностика"), Label = Phrase.From("Список заблокированных"), Hint = Phrase.From("/list banned"),
 		},
 		new()
 		{
 			Action = "time-show", Template = "/time", ReadsBack = true,
-			Group = "Диагностика", Label = "Текущее игровое время", Hint = "/time",
+			Group = Phrase.From("Диагностика"), Label = Phrase.From("Текущее игровое время"), Hint = Phrase.From("/time"),
 		},
 		new()
 		{
 			Action = "autosave-now", Template = "/autosavenow", ReadsBack = true,
-			Group = "Обслуживание", Label = "Сохранить мир сейчас",
+			Group = Phrase.From("Обслуживание"), Label = Phrase.From("Сохранить мир сейчас"),
 
             // /autosavenow одним словом: «/autosave now» сервер не распознает.
-            Hint = "/autosavenow",
+            Hint = Phrase.From("/autosavenow"),
 		},
 		new()
 		{
 			Action = "genbackup", Template = "/genbackup", ReadsBack = true,
-			Group = "Обслуживание", Label = "Игровая резервная копия",
-			Hint = "/genbackup — копию делает сама игра, без остановки сервера",
-			ConfirmPrompt = "Запустить игровое резервное копирование? Это нагрузит сервер на время операции.",
+			Group = Phrase.From("Обслуживание"), Label = Phrase.From("Игровая резервная копия"),
+			Hint = Phrase.From("/genbackup — копию делает сама игра, без остановки сервера"),
+			ConfirmPrompt = Phrase.From("Запустить игровое резервное копирование? Это нагрузит сервер на время операции."),
 		},
 		new()
 		{
 			Action = "time-stop", Template = "/time stop",
-			Group = "Время", Label = "Остановить время", Hint = "/time stop",
-			ConfirmPrompt = "Остановить течение игрового времени на сервере?",
+			Group = Phrase.From("Время"), Label = Phrase.From("Остановить время"), Hint = Phrase.From("/time stop"),
+			ConfirmPrompt = Phrase.From("Остановить течение игрового времени на сервере?"),
 		},
 		new()
 		{
 			Action = "time-resume", Template = "/time resume",
-			Group = "Время", Label = "Возобновить время", Hint = "/time resume",
+			Group = Phrase.From("Время"), Label = Phrase.From("Возобновить время"), Hint = Phrase.From("/time resume"),
 		},
 		new()
 		{
 			Action = "time-set", Template = "/time set {value}",
-			Group = "Время", Label = "Установить время",
+			Group = Phrase.From("Время"), Label = Phrase.From("Установить время"),
 
             // Привилегированная сторона всегда принимала и час, и пресет; теперь это описано в
             // одном месте и для интерфейса.
-            Hint = "/time set — момент суток или час от 0 до 23.99",
-			Value = new ValueDomain.TimeOfDay(TimePresets, "Момент суток"),
+            Hint = Phrase.From("/time set — момент суток или час от 0 до 23.99"),
+			Value = new ValueDomain.TimeOfDay(TimePresets, Phrase.From("Момент суток")),
 		},
 		new()
 		{
 			Action = "time-speed", Template = "/time speed {value}",
-			Group = "Время", Label = "Скорость времени", Hint = "/time speed 0–9999",
-			Value = new ValueDomain.Number(0, 9999, 1, 0, "Скорость") { Default = "60" },
+			Group = Phrase.From("Время"), Label = Phrase.From("Скорость времени"), Hint = Phrase.From("/time speed 0–9999"),
+			Value = new ValueDomain.Number(0, 9999, 1, 0, Phrase.From("Скорость")) { Default = "60" },
 		},
 		new()
 		{
 			Action = "weather-stoprain", Template = "/weather stoprain",
-			Group = "Погода", Label = "Остановить дождь", Hint = "/weather stoprain",
+			Group = Phrase.From("Погода"), Label = Phrase.From("Остановить дождь"), Hint = Phrase.From("/weather stoprain"),
 		},
 		new()
 		{
 			Action = "weather-auto", Template = "/weather setprecipa",
-			Group = "Погода", Label = "Вернуть автоматическую погоду", Hint = "/weather setprecipa",
+			Group = Phrase.From("Погода"), Label = Phrase.From("Вернуть автоматическую погоду"), Hint = Phrase.From("/weather setprecipa"),
 		},
 		new()
 		{
 			Action = "weather-precip", Template = "/weather setprecip {value}",
-			Group = "Погода", Label = "Задать осадки", Hint = "/weather setprecip от -1 до 1",
-			Value = new ValueDomain.Number(-1, 1, 0.1m, 3, "Интенсивность") { Default = "0" },
+			Group = Phrase.From("Погода"), Label = Phrase.From("Задать осадки"), Hint = Phrase.From("/weather setprecip от -1 до 1"),
+			Value = new ValueDomain.Number(-1, 1, 0.1m, 3, Phrase.From("Интенсивность")) { Default = "0" },
 		},
 		new()
 		{
 			Action = "weather-wind", Template = "/weather setw {value}",
-			Group = "Погода", Label = "Задать ветер", Hint = "/weather setw",
-			Value = new ValueDomain.Choice(WindPresets, "Сила ветра"),
+			Group = Phrase.From("Погода"), Label = Phrase.From("Задать ветер"), Hint = Phrase.From("/weather setw"),
+			Value = new ValueDomain.Choice(WindPresets, Phrase.From("Сила ветра")),
 		},
 	];
 

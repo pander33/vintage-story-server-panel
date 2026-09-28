@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Panel.Contracts.Configuration;
+using Panel.SharedKernel;
 
 namespace Panel.Contracts.Http;
 
@@ -27,7 +28,7 @@ public sealed record ConfigDescriptionResponse
 {
 	[JsonPropertyName("config")] public JsonObject Config { get; init; } = [];
 	[JsonPropertyName("revision")] public string Revision { get; init; } = string.Empty;
-	[JsonPropertyName("validation_warning")] public string? ValidationWarning { get; init; }
+	[JsonPropertyName("validation_warning")] public Phrase? ValidationWarning { get; init; }
 	[JsonPropertyName("schema")] public ConfigSchemaResponse Schema { get; init; } = new();
 	[JsonPropertyName("apply_state")] public ApplyStateResponse ApplyState { get; init; } = new();
 	[JsonPropertyName("backups")] public IReadOnlyList<ConfigBackupPayload> Backups { get; init; } = [];
@@ -42,17 +43,17 @@ public sealed record ConfigSchemaResponse
 public sealed record ConfigCategoryResponse
 {
 	[JsonPropertyName("id")] public string Id { get; init; } = string.Empty;
-	[JsonPropertyName("label")] public string Label { get; init; } = string.Empty;
+	[JsonPropertyName("label")] public Phrase Label { get; init; } = Phrase.From(string.Empty);
 }
 
 /// <summary>Поле схемы.</summary>
 public sealed record ConfigFieldResponse
 {
 	[JsonPropertyName("key")] public string Key { get; init; } = string.Empty;
-	[JsonPropertyName("label")] public string Label { get; init; } = string.Empty;
+	[JsonPropertyName("label")] public Phrase Label { get; init; } = Phrase.From(string.Empty);
 	[JsonPropertyName("category")] public string Category { get; init; } = string.Empty;
 	[JsonPropertyName("type")] public string Type { get; init; } = string.Empty;
-	[JsonPropertyName("description")] public string Description { get; init; } = string.Empty;
+	[JsonPropertyName("description")] public Phrase Description { get; init; } = Phrase.From(string.Empty);
 	[JsonPropertyName("min")] public double? Min { get; init; }
 	[JsonPropertyName("max")] public double? Max { get; init; }
 	[JsonPropertyName("options")] public IReadOnlyList<ConfigOptionResponse> Options { get; init; } = [];
@@ -64,7 +65,7 @@ public sealed record ConfigFieldResponse
 public sealed record ConfigOptionResponse
 {
 	[JsonPropertyName("value")] public long Value { get; init; }
-	[JsonPropertyName("label")] public string Label { get; init; } = string.Empty;
+	[JsonPropertyName("label")] public Phrase Label { get; init; } = Phrase.From(string.Empty);
 }
 
 /// <summary>Состояние применения: <c>ConfigApplyTracker.inspect()</c>.</summary>
@@ -82,7 +83,7 @@ public sealed record ApplyStateResponse
 public sealed record ConfigChangeResponse
 {
 	[JsonPropertyName("key")] public string Key { get; init; } = string.Empty;
-	[JsonPropertyName("label")] public string Label { get; init; } = string.Empty;
+	[JsonPropertyName("label")] public Phrase Label { get; init; } = Phrase.From(string.Empty);
 	[JsonPropertyName("before")] public JsonNode? Before { get; init; }
 	[JsonPropertyName("after")] public JsonNode? After { get; init; }
 	[JsonPropertyName("restart_required")] public bool RestartRequired { get; init; }
@@ -131,7 +132,7 @@ public sealed record LiveWorldConfigResponse
 {
 	[JsonPropertyName("available")] public bool Available { get; init; }
 	[JsonPropertyName("configuration")] public JsonObject Configuration { get; init; } = [];
-	[JsonPropertyName("detail")] public string Detail { get; init; } = string.Empty;
+	[JsonPropertyName("detail")] public Phrase? Detail { get; init; }
 }
 
 public sealed record LiveWorldConfigChangeResponse

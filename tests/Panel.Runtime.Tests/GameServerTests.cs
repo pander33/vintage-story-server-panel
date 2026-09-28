@@ -24,7 +24,7 @@ public sealed class GameServerTests
 	public void Недоступная_консоль_называет_причину()
 	{
 		var server = Server(console: new ConsoleCapability(
-			ConsoleTransport.SupervisedStdin, false, "Консоль потеряна до перезапуска сервера"));
+			ConsoleTransport.SupervisedStdin, false, Phrase.From("Консоль потеряна до перезапуска сервера")));
 
 		var result = server.PlanCommand(new ServerCommandRequest("stats"));
 
@@ -75,7 +75,7 @@ public sealed class GameServerTests
 	public void Произвольная_строка_подчиняется_тем_же_условиям_что_каталог()
 	{
 		var line = RawConsoleLine.Create("/stats").Value;
-		var lost = Server(console: new ConsoleCapability(ConsoleTransport.SupervisedStdin, false, "Консоль потеряна"));
+		var lost = Server(console: new ConsoleCapability(ConsoleTransport.SupervisedStdin, false, Phrase.From("Консоль потеряна")));
 
 		Assert.Equal(FailureCode.Conflict, Server(active: false).PlanRawCommand(line).Failure!.Code);
 		Assert.Equal("Консоль потеряна", lost.PlanRawCommand(line).Failure!.Message);

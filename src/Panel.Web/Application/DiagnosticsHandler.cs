@@ -71,12 +71,12 @@ public sealed class DiagnosticsHandler
 		IReadOnlyList<LogEvent> lines = journal.IsSuccess
 			? [.. journal.Value.Select(entry => LogEvent.FromLine(entry.Line))]
 			: [];
-		var causes = Causes(service.Value.Active, watchdog, lines, journal.IsSuccess ? string.Empty : journal.Failure!.Message);
+		var causes = Causes(service.Value.Active, watchdog, lines, journal.IsSuccess ? null : journal.Failure!.Text);
 
 		var applied = await configuration.ReinspectAsync(instance, ct).ConfigureAwait(false);
 		var applyState = applied.IsSuccess
 			? JsonSerializer.SerializeToNode(applied.Value, PanelJson.Options)
-			: UnknownApplyState(applied.Failure!.Message);
+			: UnknownApplyState(applied.Failure!.Text);
 
 		var sample = await metrics.ReadAsync(instance, ct).ConfigureAwait(false);
 		if (!sample.IsSuccess)
@@ -109,36 +109,35 @@ public sealed class DiagnosticsHandler
 		bool active,
 		JsonObject watchdog,
 		IReadOnlyList<LogEvent> journal,
-		string journalError)
+		Phrase? journalError)
 	{
 		ArgumentNullException.ThrowIfNull(watchdog);
 		ArgumentNullException.ThrowIfNull(journal);
-		ArgumentNullException.ThrowIfNull(journalError);
 
 		var ready = Text(watchdog["state"]) == "ready";
-		var diagnosis = LogDiagnosis.Diagnose(active, ready, new WatchdogNote(Text(watchdog["detail"])), journal);
+		var diagnosis = LogDiagnosis.Diagnose(active, ready, new WatchdogNote(PhraseJsonConverter.FromNode(watchdog["detail"])), journal);
 
 		var causes = new JsonObject
 		{
 			["startup"] = FindingNode(diagnosis.Startup),
 			["connections"] = new JsonArray([.. diagnosis.Connections.Select(finding => (JsonNode?) FindingNode(finding))]),
 		};
-		if (journalError.Length > 0)
+		if (journalError is not null)
 		{
-			causes["journal_error"] = journalError;
+			causes["journal_error"] = PhraseJsonConverter.ToNode(journalError);
 		}
 
 		return causes;
 	}
 
 	/// <summary>Состояние применения, если конфигурацию не удалось прочитать.</summary>
-	private static JsonObject UnknownApplyState(string detail) => new()
+	private static JsonObject UnknownApplyState(Phrase detail) => new()
 	{
 		["state"] = "unknown",
 		["source"] = "helper",
 		["changed_keys"] = new JsonArray(),
 		["restart_required"] = false,
-		["detail"] = detail,
+		["detail"] = PhraseJsonConverter.ToNode(detail),
 	};
 
 	/// <summary>У найденной причины есть строка журнала и её время; у «готов» и «остановлен» их нет.</summary>
@@ -148,8 +147,8 @@ public sealed class DiagnosticsHandler
 		{
 			["level"] = finding.Level,
 			["code"] = finding.Code,
-			["title"] = finding.Title,
-			["detail"] = finding.Detail,
+			["title"] = PhraseJsonConverter.ToNode(finding.Title),
+			["detail"] = PhraseJsonConverter.ToNode(finding.Detail),
 		};
 		if (finding.Evidence is not null)
 		{

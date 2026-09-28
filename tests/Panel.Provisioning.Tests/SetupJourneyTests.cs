@@ -108,7 +108,7 @@ public sealed class SetupJourneyTests
 
 		Assert.True(journey.Claim(withCreative, 100).Value);
 		Assert.True(journey.IsCompleted);
-		Assert.Equal("Сервер creative создан установщиком", (string?) journey.ToJson()["detail"]);
+		Assert.Equal("Сервер creative создан установщиком", journey.ToJson()["detail"].Said());
 	}
 
 	[Fact]
@@ -229,7 +229,7 @@ public sealed class SetupJourneyTests
 
 		var journey = SetupJourney.FromJson(null);
 		Assert.True(journey.Adopt(creative, hasAdministrator: true, withCreative, 1));
-		Assert.Equal("Панель была настроена до появления мастера установки", (string?) journey.ToJson()["detail"]);
+		Assert.Equal("Панель была настроена до появления мастера установки", journey.ToJson()["detail"].Said());
 	}
 
 	[Fact]

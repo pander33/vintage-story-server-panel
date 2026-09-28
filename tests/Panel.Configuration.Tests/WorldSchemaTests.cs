@@ -1,4 +1,5 @@
 using Panel.Configuration.Domain;
+using Panel.SharedKernel;
 
 namespace Panel.Configuration.Tests;
 
@@ -130,7 +131,7 @@ public sealed class WorldSchemaTests
 
 		Assert.Equal(2, merged.Attributes.Count);
 		Assert.Equal(WorldAttributeType.Bool, merged.Attributes.Single(a => a.Code == "gameMode").Type);
-		Assert.Contains(merged.Warnings, warning => warning.Contains("gameMode", StringComparison.Ordinal));
+		Assert.Contains(merged.Warnings, warning => warning.ToString().Contains("gameMode", StringComparison.Ordinal));
 	}
 
 	[Fact]

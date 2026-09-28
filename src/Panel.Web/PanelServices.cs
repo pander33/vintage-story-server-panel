@@ -118,6 +118,7 @@ public static class PanelServices
 		services.AddSingleton(new PackageDownloader(external));
 
 		// Один экземпляр на панель: он и отвечает маршрутам, и выполняет фоновый такт.
+		services.AddSingleton<Announcements>();
 		services.AddSingleton<AutomationService>();
 		services.AddSingleton<IReadinessWaiter>(provider => provider.GetRequiredService<AutomationService>());
 		services.AddSingleton<UpdateService>();

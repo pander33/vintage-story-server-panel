@@ -271,7 +271,7 @@ public static class BackupEndpoints
 			// Предпросмотр подтверждения не требует: он ничего не удаляет.
 			if (body.Apply)
 			{
-				var confirmed = Confirmation.Exactly("ОЧИСТИТЬ СТАРЫЕ КОПИИ").Check(body.Confirmation);
+				var confirmed = Confirmation.Exactly("ОЧИСТИТЬ СТАРЫЕ КОПИИ", "CLEAR OLD BACKUPS").Check(body.Confirmation);
 				if (!confirmed.IsSuccess)
 				{
 					return PanelResults.Refuse(confirmed.Failure!);

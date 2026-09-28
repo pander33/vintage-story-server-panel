@@ -1,162 +1,171 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Vintage Story · Установка панели</title>
+  <title data-i18n="setup.pageTitle">Vintage Story · Panel setup</title>
   <link rel="icon" href="/favicon.ico?v=0.2.0" type="image/x-icon">
   <link rel="icon" href="/static/favicon-32.png?v=0.2.0" sizes="32x32" type="image/png">
   <link rel="icon" href="/static/favicon.svg?v=0.2.0" sizes="any" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/static/apple-touch-icon.png?v=0.2.0" sizes="180x180">
   <link rel="stylesheet" href="/static/style.css?v=0.2.0">
+  <script src="/static/en.js?v=0.2.0" defer></script>
+  <script src="/static/ru.js?v=0.2.0" defer></script>
+  <script src="/static/i18n.js?v=0.2.0" defer></script>
 </head>
 <body>
   <main>
     <header>
-      <div class="brand"><span class="brand-mark"><img src="/static/favicon.svg?v=0.2.0" alt=""></span><div><h1>Установка</h1><p>Vintage Story Server Panel</p></div></div>
-      <div class="header-actions"><span id="step-counter" class="muted"></span></div>
+      <div class="brand"><span class="brand-mark"><img src="/static/favicon.svg?v=0.2.0" alt=""></span><div><h1 data-i18n="setup.title">Installation</h1><p>Vintage Story Server Panel</p></div></div>
+      <div class="header-actions">
+        <div class="lang-switch" role="group" data-i18n-aria-label="common.languageSwitcher" aria-label="Interface language">
+          <button type="button" data-lang="en" id="lang-en">EN</button>
+          <button type="button" data-lang="ru" id="lang-ru">RU</button>
+        </div>
+        <span id="step-counter" class="muted"></span>
+      </div>
     </header>
 
     <ol id="wizard-steps" class="wizard-steps">
-      <li data-step="claim">Захват</li>
-      <li data-step="access">Доступ</li>
-      <li data-step="preflight">Проверка</li>
-      <li data-step="version">Версия</li>
-      <li data-step="server">Сервер</li>
-      <li data-step="create">Создание</li>
-      <li data-step="done">Готово</li>
+      <li data-step="claim" data-i18n="setup.stepClaim">Claim</li>
+      <li data-step="access" data-i18n="setup.access">Access</li>
+      <li data-step="preflight" data-i18n="setup.stepPreflight">Check</li>
+      <li data-step="version" data-i18n="setup.stepVersion">Version</li>
+      <li data-step="server" data-i18n="common.server">Server</li>
+      <li data-step="create" data-i18n="setup.stepCreate">Creation</li>
+      <li data-step="done" data-i18n="setup.stepDone">Done</li>
     </ol>
 
     <section id="step-claim" class="wizard-step card hidden">
-      <h2>Первый вход</h2>
-      <p class="muted">Установщик напечатал одноразовый токен. Он подтверждает, что панель настраивает тот, у кого есть доступ к серверу, а не первый, кто открыл порт.</p>
-      <p id="claim-missing" class="notice error hidden">Токен захвата не найден. Выполните на сервере <code>sudo vs-panel-claim</code> и откройте напечатанную ссылку.</p>
+      <h2 data-i18n="setup.firstLogin">First login</h2>
+      <p class="muted" data-i18n="setup.claimIntro">The installer printed a one-time token. It proves that the panel is being set up by someone with access to the server, not just whoever opened the port first.</p>
+      <p id="claim-missing" class="notice error hidden"><span data-i18n="setup.claimMissing">Claim token not found. On the server, run</span> <code>sudo vs-panel-claim</code> <span data-i18n="setup.claimMissingTail">and open the printed link.</span></p>
       <form id="claim-form" class="command-form">
-        <label>Токен захвата<input id="claim-token" autocomplete="off" required></label>
-        <label>Имя администратора<input id="claim-username" value="admin" maxlength="32" autocomplete="username" required></label>
-        <label>Пароль<small>Не меньше 12 символов. Восстановить его нельзя — только заменить из консоли.</small><input id="claim-password" type="password" minlength="12" autocomplete="new-password" required></label>
-        <label>Повторите пароль<input id="claim-password2" type="password" minlength="12" autocomplete="new-password" required></label>
-        <div class="wizard-actions"><button type="submit" class="primary">Создать администратора</button></div>
+        <label><span data-i18n="setup.claimToken">Claim token</span><input id="claim-token" autocomplete="off" required></label>
+        <label><span data-i18n="setup.adminUsername">Administrator username</span><input id="claim-username" value="admin" maxlength="32" autocomplete="username" required></label>
+        <label><span data-i18n="login.password">Password</span><small data-i18n="setup.passwordHint">At least 12 characters. It cannot be recovered — only replaced from the console.</small><input id="claim-password" type="password" minlength="12" autocomplete="new-password" required></label>
+        <label><span data-i18n="setup.repeatPassword">Repeat password</span><input id="claim-password2" type="password" minlength="12" autocomplete="new-password" required></label>
+        <div class="wizard-actions"><button type="submit" class="primary" data-i18n="setup.createAdmin">Create administrator</button></div>
         <p id="claim-error" class="error"></p>
       </form>
     </section>
 
     <section id="step-login" class="wizard-step card hidden">
-      <h2>Продолжение установки</h2>
-      <p class="muted">Администратор уже создан, а токен захвата потрачен. Войдите, чтобы вернуться к незаконченной установке.</p>
+      <h2 data-i18n="setup.continueSetup">Continue installation</h2>
+      <p class="muted" data-i18n="setup.continueSetupSub">The administrator is already created and the claim token is spent. Log in to return to the unfinished installation.</p>
       <form id="login-form" class="command-form">
-        <label>Пользователь<input id="login-username" value="admin" maxlength="32" autocomplete="username" required></label>
-        <label>Пароль<input id="login-password" type="password" minlength="12" autocomplete="current-password" required></label>
-        <label>Одноразовый код<small>Если включён</small><input id="login-otp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"></label>
-        <div class="wizard-actions"><button type="submit" class="primary">Войти</button></div>
+        <label><span data-i18n="login.username">Username</span><input id="login-username" value="admin" maxlength="32" autocomplete="username" required></label>
+        <label><span data-i18n="login.password">Password</span><input id="login-password" type="password" minlength="12" autocomplete="current-password" required></label>
+        <label><span data-i18n="login.otp">One-time code</span><small data-i18n="setup.ifEnabled">If enabled</small><input id="login-otp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"></label>
+        <div class="wizard-actions"><button type="submit" class="primary" data-i18n="login.submit">Log in</button></div>
         <p id="login-error" class="error"></p>
       </form>
     </section>
 
     <section id="step-access" class="wizard-step card hidden">
-      <h2>Доступ к панели</h2>
-      <p class="muted">Где панель будет слушать. По умолчанию — все сетевые интерфейсы: панель видна из локальной сети, порт в брандмауэре открыт только для неё и следует за сменой адреса и порта. Безопаснее оставить только эту машину и ходить через SSH-туннель. Открыть панель интернету — при установке: <code>vs-panel repair --access internet</code>.</p>
+      <h2 data-i18n="setup.panelAccess">Panel access</h2>
+      <p class="muted"><span data-i18n="setup.accessIntro">Where the panel will listen. By default — all network interfaces: the panel is visible from the local network, the firewall rule is opened only for it and follows address/port changes. It is safer to keep only this machine and connect through an SSH tunnel. To open the panel to the internet — at install time:</span> <code>vs-panel repair --access internet</code>.</p>
       <form id="access-form" class="command-form">
-        <label>Адрес<select id="access-bind">
-          <option value="0.0.0.0">0.0.0.0 — все интерфейсы, видна в локальной сети (по умолчанию)</option>
-          <option value="127.0.0.1">127.0.0.1 — только эта машина</option>
+        <label><span data-i18n="setup.address">Address</span><select id="access-bind">
+          <option value="0.0.0.0" data-i18n="setup.bindAllInterfaces">0.0.0.0 — all interfaces, visible on the local network (default)</option>
+          <option value="127.0.0.1" data-i18n="setup.bindLocalOnly">127.0.0.1 — this machine only</option>
         </select></label>
-        <label>Порт<input id="access-port" type="number" min="1" max="65535" value="8080" required></label>
-        <label>Разрешённые имена хостов<small>Через запятую. Звёздочка разрешает любой хост. Запрос с чужим заголовком Host панель отклонит.</small><input id="access-hosts" value="*" maxlength="255" required></label>
-        <label class="check-row"><input id="access-secure" type="checkbox"> Куки только по HTTPS</label>
-        <p id="access-warning" class="notice warn hidden">Панель станет доступна из сети. Поставьте её за HTTPS-прокси и включите куки только по HTTPS, иначе пароль уйдёт по открытому каналу.</p>
-        <div class="wizard-actions"><button type="submit" class="primary">Сохранить и продолжить</button></div>
-        <p class="muted">Новый адрес заработает после перезапуска панели в конце установки.</p>
+        <label><span data-i18n="setup.port">Port</span><input id="access-port" type="number" min="1" max="65535" value="8080" required></label>
+        <label><span data-i18n="setup.allowedHosts">Allowed host names</span><small data-i18n="setup.allowedHostsHint">Comma-separated. An asterisk allows any host. A request with an unrecognised Host header is rejected.</small><input id="access-hosts" value="*" maxlength="255" required></label>
+        <label class="check-row"><input id="access-secure" type="checkbox"> <span data-i18n="setup.secureCookie">Cookies over HTTPS only</span></label>
+        <p id="access-warning" class="notice warn hidden" data-i18n="setup.accessWarning">The panel will become reachable from the network. Put it behind an HTTPS proxy and enable HTTPS-only cookies, otherwise the password travels over an open channel.</p>
+        <div class="wizard-actions"><button type="submit" class="primary" data-i18n="setup.saveAndContinue">Save and continue</button></div>
+        <p class="muted" data-i18n="setup.newAddressNote">The new address takes effect after the panel restarts at the end of setup.</p>
         <p id="access-error" class="error"></p>
       </form>
     </section>
 
     <section id="step-preflight" class="wizard-step card hidden">
-      <h2>Проверка машины</h2>
-      <p class="muted">Всё, что можно проверить до того, как будет создан хоть один файл.</p>
+      <h2 data-i18n="setup.machineCheck">Machine check</h2>
+      <p class="muted" data-i18n="setup.machineCheckSub">Everything that can be checked before a single file is created.</p>
       <div id="preflight-report"></div>
       <div class="wizard-actions">
-        <button id="preflight-again">Проверить снова</button>
-        <button id="preflight-next" class="primary">Дальше</button>
-        <button type="button" class="skip-server">Пропустить создание сервера</button>
+        <button id="preflight-again" data-i18n="setup.checkAgain">Check again</button>
+        <button id="preflight-next" class="primary" data-i18n="setup.next">Next</button>
+        <button type="button" class="skip-server" data-i18n="setup.skipServer">Skip server creation</button>
       </div>
     </section>
 
     <section id="step-version" class="wizard-step card hidden">
-      <h2>Версия игры</h2>
-      <p class="muted">Список берётся с официального сервера обновлений. Для сервера скачивается серверная сборка под Linux, и её контрольная сумма проверяется.</p>
+      <h2 data-i18n="common.gameVersion">Game version</h2>
+      <p class="muted" data-i18n="setup.versionIntro">The list comes from the official update server. For the server, a Linux build is downloaded and its checksum verified.</p>
       <div class="section-title">
-        <label class="inline"><input id="version-unstable" type="checkbox"> Показать нестабильные</label>
-        <div><button id="version-refresh">Обновить список</button></div>
+        <label class="inline"><input id="version-unstable" type="checkbox"> <span data-i18n="setup.showUnstable">Show unstable</span></label>
+        <div><button id="version-refresh" data-i18n="setup.refreshList">Refresh list</button></div>
       </div>
       <p id="version-stale" class="notice warn hidden"></p>
       <div id="version-list" class="catalog-grid"></div>
       <div class="wizard-actions">
-        <button data-goto="preflight">Назад</button>
-        <button id="version-next" class="primary" disabled>Дальше</button>
-        <button type="button" class="skip-server">Пропустить создание сервера</button>
+        <button data-goto="preflight" data-i18n="setup.back">Back</button>
+        <button id="version-next" class="primary" disabled data-i18n="setup.next">Next</button>
+        <button type="button" class="skip-server" data-i18n="setup.skipServer">Skip server creation</button>
       </div>
       <p id="version-error" class="error"></p>
     </section>
 
     <section id="step-server" class="wizard-step card hidden">
-      <h2>Настройки сервера</h2>
-      <p class="muted">Всё это можно изменить потом, кроме идентификатора: он задаёт имя каталога и systemd-юнита.</p>
+      <h2 data-i18n="common.server">Server</h2>
+      <p class="muted" data-i18n="setup.serverIntro">All of this can be changed later, except the identifier: it sets the folder name and the systemd unit.</p>
       <form id="server-form" class="command-form">
         <div class="wizard-grid">
-          <label>Идентификатор<small>Латиница в нижнем регистре, цифры, «-» и «_»</small><input id="server-id" maxlength="32" required></label>
-          <label>Название в панели<input id="server-title" maxlength="64"></label>
-          <label>Имя сервера в списке<input id="server-name" maxlength="64"></label>
-          <label>Игровой порт<input id="server-port" type="number" min="1024" max="65535" required></label>
-          <label>Максимум игроков<input id="server-players" type="number" min="1" max="512" value="16" required></label>
-          <label>Язык<select id="server-language"></select></label>
-          <label>Название мира<input id="server-world" maxlength="64" value="Новый мир"></label>
-          <label>Зерно мира<small>Пусто — случайное</small><input id="server-seed" maxlength="64"></label>
-          <label>Стиль игры<select id="server-playstyle"></select></label>
-          <label>Описание<input id="server-description" maxlength="256"></label>
-          <label>Каталог серверов<small>Программа, миры, моды и копии. Полный путь без пробелов; родитель должен существовать</small><input id="server-root" maxlength="240" spellcheck="false" autocomplete="off"></label>
+          <label><span data-i18n="setup.identifier">Identifier</span><small data-i18n="setup.identifierHint">lowercase Latin letters, digits, &quot;-&quot; and &quot;_&quot;</small><input id="server-id" maxlength="32" required></label>
+          <label><span data-i18n="overview.newServerPanel">Name in the panel</span><input id="server-title" maxlength="64"></label>
+          <label><span data-i18n="backups.serverNameInList">Server name in the list</span><input id="server-name" maxlength="64"></label>
+          <label><span data-i18n="common.gamePort">Game port</span><input id="server-port" type="number" min="1024" max="65535" required></label>
+          <label><span data-i18n="setup.maxPlayers">Max players</span><input id="server-players" type="number" min="1" max="512" value="16" required></label>
+          <label><span data-i18n="setup.language">Language</span><select id="server-language"></select></label>
+          <label><span data-i18n="content.worldName">World name</span><input id="server-world" maxlength="64" data-i18n-value="setup.defaultWorldName" value="New world"></label>
+          <label><span data-i18n="setup.worldSeed">World seed</span><small data-i18n="setup.seedEmptyShort">Empty — random</small><input id="server-seed" maxlength="64"></label>
+          <label><span data-i18n="content.playstyle">Playstyle</span><select id="server-playstyle"></select></label>
+          <label><span data-i18n="setup.description">Description</span><input id="server-description" maxlength="256"></label>
+          <label><span data-i18n="setup.serversDirectory">Servers directory</span><small data-i18n="setup.serversDirectoryHint">Program, worlds, mods and backups. Full path without spaces; the parent must exist</small><input id="server-root" maxlength="240" spellcheck="false" autocomplete="off"></label>
         </div>
-        <label class="check-row"><input id="server-whitelist" type="checkbox"> Только по белому списку</label>
-        <label class="check-row"><input id="server-pvp" type="checkbox" checked> Разрешить PvP</label>
+        <label class="check-row"><input id="server-whitelist" type="checkbox"> <span data-i18n="setup.whitelistOnly">Whitelist only</span></label>
+        <label class="check-row"><input id="server-pvp" type="checkbox" checked> <span data-i18n="setup.allowPvp">Allow PvP</span></label>
         <div class="wizard-actions">
-          <button type="button" data-goto="version">Назад</button>
-          <button type="submit" class="primary">Проверить и продолжить</button>
-          <button type="button" class="skip-server">Пропустить создание сервера</button>
+          <button type="button" data-goto="version" data-i18n="setup.back">Back</button>
+          <button type="submit" class="primary" data-i18n="setup.checkAndContinue">Check and continue</button>
+          <button type="button" class="skip-server" data-i18n="setup.skipServer">Skip server creation</button>
         </div>
         <p id="server-error" class="error"></p>
       </form>
     </section>
 
     <section id="step-create" class="wizard-step card hidden">
-      <h2>Создание сервера</h2>
-      <p class="muted">Панель скачивает сборку, распаковывает её, регистрирует сервер, ставит systemd-юнит и ждёт первую телеметрию из запущенной игры.</p>
+      <h2 data-i18n="setup.creatingServerTitle">Creating server</h2>
+      <p class="muted" data-i18n="setup.createIntro">The panel downloads the build, unpacks it, registers the server, installs the systemd unit and waits for the first telemetry from the running game.</p>
       <div id="create-summary" class="notice"></div>
       <ol id="create-progress" class="wizard-progress"></ol>
       <p id="create-detail" class="muted"></p>
       <div class="wizard-actions">
-        <button id="create-start" class="primary">Создать сервер</button>
-        <button id="create-finish" class="primary hidden">Завершить установку</button>
-        <button id="create-retry" class="hidden">Изменить настройки</button>
-        <button type="button" id="create-skip" class="skip-server hidden">Пропустить создание сервера</button>
+        <button id="create-start" class="primary" data-i18n="setup.createServer">Create server</button>
+        <button id="create-finish" class="primary hidden" data-i18n="setup.finishSetup">Finish setup</button>
+        <button id="create-retry" class="hidden" data-i18n="setup.changeSettings">Change settings</button>
+        <button type="button" id="create-skip" class="skip-server hidden" data-i18n="setup.skipServer">Skip server creation</button>
       </div>
       <p id="create-error" class="error"></p>
     </section>
 
     <section id="step-done" class="wizard-step card hidden">
-      <h2>Готово</h2>
+      <h2 data-i18n="setup.stepDone">Done</h2>
       <p id="done-detail" class="notice ok"></p>
-      <h3>Что дальше</h3>
+      <h3 data-i18n="setup.whatsNext">What's next</h3>
       <ul class="muted">
-        <li id="done-no-server" class="hidden">Создайте сервер в панели: «Обзор» → «Новый сервер».</li>
-        <li>Откройте вкладку «Контент» и установите моды — панель ищет их в официальной базе.</li>
-        <li>На вкладке «Обслуживание» включите расписание резервных копий и watchdog.</li>
-        <li>Игроки подключаются по адресу сервера и порту, указанному при создании.</li>
+        <li id="done-no-server" class="hidden" data-i18n="setup.createServerInPanel">Create a server in the panel: &quot;Overview&quot; → &quot;New server&quot;.</li>
+        <li data-i18n="setup.openContentTab">Open the &quot;Content&quot; tab and install mods — the panel looks them up in the official database.</li>
+        <li data-i18n="setup.enableSchedule">On the &quot;Maintenance&quot; tab, enable the backup schedule and the watchdog.</li>
+        <li data-i18n="setup.playersConnect">Players connect using the server address and the port set at creation.</li>
       </ul>
-      <div class="wizard-actions"><a id="done-link" class="upload" href="/">Перейти в панель</a></div>
+      <div class="wizard-actions"><a id="done-link" class="upload" href="/" data-i18n="setup.goToPanel">Go to the panel</a></div>
     </section>
 
     <div id="toast" class="toast hidden"></div>
   </main>
-  <script src="/static/setup.js?v=0.2.0"></script>
+  <script src="/static/setup.js?v=0.2.0" defer></script>
 </body>
 </html>

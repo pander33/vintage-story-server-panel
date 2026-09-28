@@ -33,13 +33,13 @@ public sealed class FileRegistryStore : IRegistryStore
 		}
 		catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
 		{
-			return new RegistrySnapshot.Unavailable($"Не читается {panelConfigPath}: {exception.Message}");
+			return new RegistrySnapshot.Unavailable(Phrase.Format($"Не читается {panelConfigPath}: {exception.Message}"));
 		}
 
 		var configuration = PanelConfiguration.Parse(panelJson);
 		if (!configuration.IsSuccess)
 		{
-			return new RegistrySnapshot.Unavailable(configuration.Failure!.Message);
+			return new RegistrySnapshot.Unavailable(configuration.Failure!.Text);
 		}
 
 		return configuration.Value.Version < 2
@@ -52,7 +52,7 @@ public sealed class FileRegistryStore : IRegistryStore
 		var entry = configuration.FlatInstance;
 		if (entry is null)
 		{
-			return new RegistrySnapshot.Unavailable("Плоские настройки панели пусты");
+			return new RegistrySnapshot.Unavailable(Phrase.From("Плоские настройки панели пусты"));
 		}
 
 		var id = InstanceId.Parse("main");
@@ -83,7 +83,7 @@ public sealed class FileRegistryStore : IRegistryStore
 		}
 		catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
 		{
-			return new RegistrySnapshot.Unavailable($"Не читается {path}: {exception.Message}");
+			return new RegistrySnapshot.Unavailable(Phrase.Format($"Не читается {path}: {exception.Message}"));
 		}
 
 		JsonNode? node;
@@ -93,12 +93,12 @@ public sealed class FileRegistryStore : IRegistryStore
 		}
 		catch (JsonException exception)
 		{
-			return new RegistrySnapshot.Unavailable($"Реестр повреждён: {exception.Message}");
+			return new RegistrySnapshot.Unavailable(Phrase.Format($"Реестр повреждён: {exception.Message}"));
 		}
 
 		if (node is not JsonObject root || root["instances"] is not JsonObject instances)
 		{
-			return new RegistrySnapshot.Unavailable("Реестр не содержит раздела instances");
+			return new RegistrySnapshot.Unavailable(Phrase.From("Реестр не содержит раздела instances"));
 		}
 
 		var servers = new List<RegisteredServer>();

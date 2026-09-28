@@ -41,40 +41,40 @@ internal static class Doctor
 		var version = FirstLine(Path.Combine(paths.Current, Artifact.VersionFile));
 		if (version is null)
 		{
-			findings.Add(new(Severity.Problem, $"Панель не установлена: нет {paths.Current}/{Artifact.VersionFile}. Установите: sudo sh install.sh"));
+			findings.Add(new(Severity.Problem, $"Panel is not installed: missing {paths.Current}/{Artifact.VersionFile}. Install it: sudo sh install.sh"));
 		}
 		else
 		{
 			var missing = Artifact.Binaries.Where(binary => !File.Exists(Path.Combine(paths.Current, binary.Installed))).Select(binary => binary.Installed).ToList();
 			findings.Add(missing.Count == 0
-				? new(Severity.Ok, $"Активная версия {version}")
-				: new(Severity.Problem, $"В версии {version} нет {string.Join(", ", missing)}: переустановите её (sudo vs-panel update --from <каталог сборки>)"));
+				? new(Severity.Ok, $"Active version {version}")
+				: new(Severity.Problem, $"Version {version} is missing {string.Join(", ", missing)}: reinstall it (sudo vs-panel update --from <build directory>)"));
 		}
 
 		findings.Add(CheckPanelConfig(paths.PanelConfig));
 		findings.Add(CheckRegistry(paths.Registry));
-		findings.Add(CheckLinuxText(paths.PanelEnv, "Файл окружения"));
-		findings.Add(CheckLinuxText(paths.PanelUnit, "Юнит панели"));
-		findings.Add(CheckLinuxText(paths.AgentUnit, "Юнит демона"));
+		findings.Add(CheckLinuxText(paths.PanelEnv, "Environment file"));
+		findings.Add(CheckLinuxText(paths.PanelUnit, "Panel unit"));
+		findings.Add(CheckLinuxText(paths.AgentUnit, "Agent unit"));
 		findings.Add(CheckWrapper(paths.ConsoleWrapper));
 		findings.AddRange(CheckState(stateDirectory));
 
 		findings.Add(Directory.Exists(paths.TelemetryDirectory) && Directory.GetFiles(paths.TelemetryDirectory, "vspaneltelemetry_*.zip").Length > 0
-			? new(Severity.Ok, $"Мод телеметрии для новых серверов: {paths.TelemetryDirectory}")
-			: new(Severity.Warning, $"Нет мода телеметрии в {paths.TelemetryDirectory}: готовность новых серверов проверяется ограниченно"));
+			? new(Severity.Ok, $"Telemetry mod for new servers: {paths.TelemetryDirectory}")
+			: new(Severity.Warning, $"No telemetry mod in {paths.TelemetryDirectory}: readiness checks for new servers are limited"));
 
 		foreach (var path in new[] { paths.LegacySudoers, paths.LegacyHelper, paths.LegacyClaim })
 		{
 			if (File.Exists(path))
 			{
-				findings.Add(new(Severity.Problem, $"Остался файл прежней версии {path}: новой панели sudo не нужен. Повторите установку или удалите файл"));
+				findings.Add(new(Severity.Problem, $"Legacy file remains at {path}: the new panel does not need sudo. Reinstall or remove the file"));
 			}
 		}
 
 		var leftovers = paths.LegacyProgram.Where(path => File.Exists(path) || Directory.Exists(path)).ToList();
 		if (leftovers.Count > 0)
 		{
-			findings.Add(new(Severity.Warning, $"Остались файлы прежней версии панели: {string.Join(", ", leftovers)}. Новая панель их не использует; удалить можно вручную"));
+			findings.Add(new(Severity.Warning, $"Legacy panel files remain: {string.Join(", ", leftovers)}. The new panel does not use them; remove them manually"));
 		}
 
 		return findings;
@@ -90,27 +90,27 @@ internal static class Doctor
 			var active = await host.UnitPropertyAsync(unit, "ActiveState").ConfigureAwait(false);
 			var enabled = (await host.SystemctlAsync("is-enabled", unit).ConfigureAwait(false)).Output.Trim();
 			findings.Add(active == "active" && enabled == "enabled"
-				? new(Severity.Ok, $"{unit}: работает, включён")
-				: new(Severity.Problem, $"{unit}: {(active.Length > 0 ? active : "неизвестно")}, {(enabled.Length > 0 ? enabled : "не включён")}. Журнал: journalctl -u {unit} -n 100 --no-pager"));
+				? new(Severity.Ok, $"{unit}: running, enabled")
+				: new(Severity.Problem, $"{unit}: {(active.Length > 0 ? active : "unknown")}, {(enabled.Length > 0 ? enabled : "not enabled")}. Log: journalctl -u {unit} -n 100 --no-pager"));
 		}
 
 		findings.Add(File.Exists(host.Paths.AgentSocket)
-			? new(Severity.Ok, $"Сокет демона {host.Paths.AgentSocket}")
-			: new(Severity.Problem, $"Нет сокета демона {host.Paths.AgentSocket}: панель не может выполнять команды"));
+			? new(Severity.Ok, $"Agent socket {host.Paths.AgentSocket}")
+			: new(Severity.Problem, $"Missing agent socket {host.Paths.AgentSocket}: the panel cannot execute commands"));
 
 		var owner = await Shell.RunAsync("stat", ["-c", "%U %a", host.StateDirectory()]).ConfigureAwait(false);
 		findings.Add(owner.Succeeded && owner.Output.Trim() == $"{InstallPaths.PanelUser} 700"
-			? new(Severity.Ok, $"Каталог состояния принадлежит {InstallPaths.PanelUser}, режим 700")
-			: new(Severity.Problem, $"Каталог состояния {host.StateDirectory()}: {owner.Output.Trim()} вместо «{InstallPaths.PanelUser} 700». Исправит sudo vs-panel repair"));
+			? new(Severity.Ok, $"State directory belongs to {InstallPaths.PanelUser}, mode 700")
+			: new(Severity.Problem, $"State directory {host.StateDirectory()}: {owner.Output.Trim()} instead of {InstallPaths.PanelUser} 700. Fix with sudo vs-panel repair"));
 
 		findings.Add(File.Exists("/usr/bin/setpriv")
-			? new(Severity.Ok, "setpriv есть: игра запускается не от root")
-			: new(Severity.Problem, "Нет /usr/bin/setpriv (пакет util-linux): новые серверы не создаются"));
+			? new(Severity.Ok, "setpriv is present: the game does not run as root")
+			: new(Severity.Problem, "Missing /usr/bin/setpriv (util-linux): new servers cannot be created"));
 
 		var dotnet = await Shell.RunAsync("dotnet", ["--list-runtimes"]).ConfigureAwait(false);
 		findings.Add(dotnet.Succeeded && dotnet.Output.Contains("Microsoft.NETCore.App 10.", StringComparison.Ordinal)
-			? new(Severity.Ok, "Среда .NET 10 для игры установлена")
-			: new(Severity.Warning, "Не найдена среда .NET 10 для игры: серверы Vintage Story 1.22 не запустятся"));
+			? new(Severity.Ok, ".NET 10 runtime for the game is installed")
+			: new(Severity.Warning, ".NET 10 runtime for the game was not found: Vintage Story 1.22 servers will not start"));
 		return findings;
 	}
 
@@ -132,24 +132,24 @@ internal static class Doctor
 	{
 		if (Json(path) is not { } config)
 		{
-			return new(Severity.Problem, $"Не читается {path}: повторите установку");
+			return new(Severity.Problem, $"Cannot read {path}: reinstall the panel");
 		}
 
 		var version = config["version"] is JsonValue value && value.TryGetValue<int>(out var number) ? number : 1;
 		return version >= 2
-			? new(Severity.Ok, $"Настройки панели {path}: версия {version}")
-			: new(Severity.Problem, $"{path} версии 1: реестр только на чтение, серверы не создаются. Повторите установку");
+			? new(Severity.Ok, $"Panel settings {path}: version {version}")
+			: new(Severity.Problem, $"{path} is version 1: the registry is read-only and servers cannot be created. Reinstall the panel");
 	}
 
 	internal static Finding CheckRegistry(string path)
 	{
 		if (Json(path) is not { } registry)
 		{
-			return new(Severity.Problem, $"Не читается реестр серверов {path}");
+			return new(Severity.Problem, $"Cannot read server registry {path}");
 		}
 
 		var count = (registry["instances"] as JsonObject)?.Count ?? 0;
-		return new(Severity.Ok, count == 0 ? $"Реестр {path}: серверов пока нет" : $"Реестр {path}: серверов — {count}");
+		return new(Severity.Ok, count == 0 ? $"Registry {path}: no servers yet" : $"Registry {path}: {count} servers");
 	}
 
 	/// <summary>Файлы, которые разбирает Linux: CR в них ломает systemd или sh.</summary>
@@ -157,11 +157,11 @@ internal static class Doctor
 	{
 		if (!File.Exists(path))
 		{
-			return new(Severity.Problem, $"{title}: нет {path}. Исправит sudo vs-panel repair");
+			return new(Severity.Problem, $"{title}: missing {path}. Fix with sudo vs-panel repair");
 		}
 
 		return File.ReadAllText(path).Contains('\r', StringComparison.Ordinal)
-			? new(Severity.Problem, $"{title} {path} содержит CRLF: systemd и sh прочитают CR как часть значения. Исправит sudo vs-panel repair")
+			? new(Severity.Problem, $"{title} {path} contains CRLF: systemd and sh will treat CR as part of the value. Fix with sudo vs-panel repair")
 			: new(Severity.Ok, $"{title}: {path}");
 	}
 
@@ -169,40 +169,40 @@ internal static class Doctor
 	{
 		if (!File.Exists(path))
 		{
-			return new(Severity.Problem, $"Нет обёртки консоли {path}: серверы с транспортом fifo не запустятся. Исправит sudo vs-panel repair");
+			return new(Severity.Problem, $"Missing console wrapper {path}: servers using fifo transport will not start. Fix with sudo vs-panel repair");
 		}
 
 		var text = File.ReadAllText(path);
 		if (text.Contains('\r', StringComparison.Ordinal))
 		{
-			return new(Severity.Problem, $"Обёртка консоли {path} содержит CRLF. Исправит sudo vs-panel repair");
+			return new(Severity.Problem, $"Console wrapper {path} contains CRLF. Fix with sudo vs-panel repair");
 		}
 
 		return text.StartsWith("#!/bin/sh", StringComparison.Ordinal)
-			? new(Severity.Ok, $"Обёртка консоли {path}")
-			: new(Severity.Warning, $"Обёртка консоли {path} — от прежней версии (Python). Заменит sudo vs-panel repair");
+			? new(Severity.Ok, $"Console wrapper {path}")
+			: new(Severity.Warning, $"Console wrapper {path} is from the previous Python version. Replace with sudo vs-panel repair");
 	}
 
 	internal static IEnumerable<Finding> CheckState(string state, string command = "sudo vs-panel")
 	{
 		if (!Directory.Exists(state))
 		{
-			yield return new(Severity.Problem, $"Нет каталога состояния {state}. Исправит {command} repair");
+			yield return new(Severity.Problem, $"Missing state directory {state}. Fix with {command} repair");
 			yield break;
 		}
 
 		var secret = new FileInfo(Path.Combine(state, "secret.key"));
 		yield return secret.Exists && secret.Length >= 32
-			? new(Severity.Ok, "Ключ сессий на месте")
-			: new(Severity.Problem, $"Нет ключа сессий {secret.FullName} (или он короче 32 байт): панель не запустится. Исправит {command} repair");
+			? new(Severity.Ok, "Session key is present")
+			: new(Severity.Problem, $"Missing session key {secret.FullName} (or shorter than 32 bytes): the panel will not start. Fix with {command} repair");
 
 		yield return Json(Path.Combine(state, "setup.json"))?["completed"] is JsonValue flag && flag.TryGetValue<bool>(out var done) && done
-			? new(Severity.Ok, "Мастер установки завершён")
-			: new(Severity.Warning, $"Мастер установки не завершён: ссылка на него — {command} access");
+			? new(Severity.Ok, "Setup wizard is complete")
+			: new(Severity.Warning, $"Setup wizard is incomplete: get its link with {command} access");
 
 		if (MaintenanceProbe.Describe(state) is { } busy)
 		{
-			yield return new(Severity.Warning, $"Панель выполняет {busy}: обновлять и откатывать её сейчас нельзя");
+			yield return new(Severity.Warning, $"The panel is running {busy}: it cannot be updated or rolled back now");
 		}
 	}
 

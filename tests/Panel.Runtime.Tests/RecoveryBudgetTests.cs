@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Panel.Runtime.Domain;
+using Panel.SharedKernel;
 
 namespace Panel.Runtime.Tests;
 
@@ -23,7 +24,7 @@ public sealed class RecoveryBudgetTests
 	{
 		var recent = RecoveryBudget.Recent([now.AddMinutes(-5)], now);
 
-		Assert.Equal("Действует пауза между автоперезапусками", RecoveryBudget.Blocker(recent, settings, now));
+		Assert.Equal("Действует пауза между автоперезапусками", RecoveryBudget.Blocker(recent, settings, now)?.ToString());
 		Assert.Null(RecoveryBudget.Blocker(recent, settings, now.AddMinutes(11)));
 	}
 
@@ -32,7 +33,7 @@ public sealed class RecoveryBudgetTests
 	{
 		var recent = RecoveryBudget.Recent([now.AddMinutes(-50), now.AddMinutes(-30), now.AddMinutes(-1)], now);
 
-		Assert.Equal("Достигнут часовой лимит автоперезапусков", RecoveryBudget.Blocker(recent, settings, now));
+		Assert.Equal("Достигнут часовой лимит автоперезапусков", RecoveryBudget.Blocker(recent, settings, now)?.ToString());
 	}
 
 	[Fact]
@@ -43,7 +44,7 @@ public sealed class RecoveryBudgetTests
 			now);
 
 		Assert.Equal([now.AddMinutes(-20)], recent);
-		Assert.Null(RecoveryBudget.Blocker(recent, settings, now));
+		Assert.Null(RecoveryBudget.Blocker(recent, settings, now)?.ToString());
 	}
 
 	[Fact]

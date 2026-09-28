@@ -1,4 +1,5 @@
 using Panel.Contracts.ServerCommands;
+using Panel.SharedKernel;
 
 namespace Panel.Contracts.Tests;
 
@@ -96,9 +97,9 @@ public sealed class ServerCommandCatalogueTests
 	{
 		foreach (var spec in ServerCommandCatalogue.All)
 		{
-			Assert.False(string.IsNullOrWhiteSpace(spec.Label), spec.Action);
-			Assert.False(string.IsNullOrWhiteSpace(spec.Group), spec.Action);
-			Assert.False(string.IsNullOrWhiteSpace(spec.Hint), spec.Action);
+			Assert.False(string.IsNullOrWhiteSpace(spec.Label.ToString()), spec.Action);
+			Assert.False(string.IsNullOrWhiteSpace(spec.Group.ToString()), spec.Action);
+			Assert.False(string.IsNullOrWhiteSpace(spec.Hint.ToString()), spec.Action);
 		}
 	}
 

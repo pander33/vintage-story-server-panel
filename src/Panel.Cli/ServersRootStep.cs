@@ -32,7 +32,7 @@ internal static class ServersRootStep
 		Func<string, Task<FolderPick>>? Browse = null);
 
 	/// <summary>Заголовок окна выбора каталога.</summary>
-	public const string BrowseTitle = "Каталог игровых серверов Vintage Story";
+	public const string BrowseTitle = "Vintage Story game server directory";
 
 	/// <returns>
 	/// Можно ли создавать первый сервер. Если явно названный каталог не принят, сервер не
@@ -52,13 +52,13 @@ internal static class ServersRootStep
 		var current = Current(panelConfig);
 		if (options.ServersDirectory.Length > 0)
 		{
-			terminal.Step("Каталог игровых серверов");
+			terminal.Step("Game server directory");
 			if (await manage(["servers-root", options.ServersDirectory]).ConfigureAwait(false))
 			{
 				return true;
 			}
 
-			terminal.Warn("каталог серверов не изменён, и первый сервер не создан. Выберите каталог в панели («Настройки» → «Панель») и создайте сервер там.");
+			terminal.Warn("the server directory was not changed, and the first server was not created. Select a directory under Settings → Panel, then create a server there.");
 			return false;
 		}
 
@@ -67,41 +67,41 @@ internal static class ServersRootStep
 			return true;
 		}
 
-		terminal.Step("Каталог игровых серверов");
-		terminal.Output.WriteLine("Здесь будут программа, миры, моды и резервные копии каждого сервера. Потом его можно сменить в панели: «Настройки» → «Панель».");
+		terminal.Step("Game server directory");
+		terminal.Output.WriteLine("Each server's program, worlds, mods and backups will be stored here. Change this later under Settings → Panel.");
 		if (terminal.Browse is { } browse)
 		{
-			terminal.Output.WriteLine($"Выберите каталог в открывшемся окне; новую папку можно создать там же. «Отмена» оставит {current}.");
+			terminal.Output.WriteLine($"Choose a directory in the dialog; you can create a new folder there. Cancel keeps {current}.");
 			var start = current;
 			while (true)
 			{
 				var pick = await browse(start).ConfigureAwait(false);
 				if (!pick.Shown)
 				{
-					terminal.Output.WriteLine("Окно выбора не открылось — введите путь.");
+					terminal.Output.WriteLine("The folder picker did not open; enter a path.");
 					break;
 				}
 
 				if (string.IsNullOrEmpty(pick.Path) || string.Equals(pick.Path, current, StringComparison.OrdinalIgnoreCase))
 				{
-					terminal.Output.WriteLine($"Каталог серверов: {current}");
+					terminal.Output.WriteLine($"Server directory: {current}");
 					return true;
 				}
 
-				terminal.Output.WriteLine($"Выбран {pick.Path}");
+				terminal.Output.WriteLine($"Selected {pick.Path}");
 				if (await manage(["servers-root", pick.Path]).ConfigureAwait(false))
 				{
 					return true;
 				}
 
-				terminal.Output.WriteLine($"Этот каталог не подошёл (причина выше) — выберите другой или нажмите «Отмена», чтобы оставить {current}.");
+				terminal.Output.WriteLine($"This directory is unsuitable (see the reason above). Choose another or select Cancel to keep {current}.");
 				start = pick.Path;
 			}
 		}
 
 		while (true)
 		{
-			terminal.Output.Write($"Каталог [{current}]: ");
+			terminal.Output.Write($"Directory [{current}]: ");
 			terminal.Output.Flush();
 			var answer = terminal.Input.ReadLine()?.Trim().Trim('"');
 			if (string.IsNullOrEmpty(answer) || string.Equals(answer, current, StringComparison.OrdinalIgnoreCase))
@@ -114,7 +114,7 @@ internal static class ServersRootStep
 				return true;
 			}
 
-			terminal.Output.WriteLine($"Введите другой каталог или нажмите Enter, чтобы оставить {current}.");
+			terminal.Output.WriteLine($"Enter another directory or press Enter to keep {current}.");
 		}
 	}
 

@@ -41,7 +41,7 @@
 			const compatible = (data.releases || []).filter(release => release.compatible);
 			if (!compatible.length) {
 				row.state = 'incompatible';
-				row.note = (data.releases || []).length ? `нет релиза для игры ${data.game_version}` : 'на ModDB нет релизов';
+				row.note = I18N.t((data.releases || []).length ? 'dependencies.noReleaseForGame' : 'dependencies.noModdbReleases', {version: data.game_version});
 				return row;
 			}
 			// Стабильный, подходящий по версии, — лучший выбор; предварительный берётся, только если
@@ -52,9 +52,9 @@
 			row.release = newest(pool);
 			row.state = 'found';
 			if (!satisfies(row.release, issue.required)) {
-				row.note = `найдена ${row.release.version}, нужна ≥ ${issue.required}: требуемая версия для этой игры не опубликована`;
+				row.note = I18N.t('dependencies.versionUnavailable', {found: row.release.version, required: issue.required});
 			} else if (row.release.prerelease) {
-				row.note = 'подходит только предварительный релиз — отметьте, если согласны';
+				row.note = I18N.t('dependencies.prereleaseOnly');
 			}
 		} catch (error) {
 			row.state = 'missing';
@@ -65,7 +65,9 @@
 
 	function describe(issue) {
 		const required = issue.required ? ` ≥ ${issue.required}` : '';
-		return issue.status === 'outdated' ? `установлена ${issue.installed || '—'}, нужна${required}` : `не установлен${required}`;
+		return issue.status === 'outdated'
+			? I18N.t('dependencies.outdated', {installed: issue.installed || '—', required})
+			: I18N.t('dependencies.notInstalled', {required});
 	}
 
 	/**
@@ -81,11 +83,11 @@
 
 		let finished;
 		const closed = new Promise(resolve => { finished = resolve; });
-		const {body, actions, close} = modal({eyebrow: 'ЗАВИСИМОСТИ', title: 'Что нужно установить', text: 'Панель ничего не ставит сама: отметьте нужное. Каждый релиз проверяется на совместимость с игрой сервера ещё раз перед скачиванием. Изменения подействуют после перезапуска сервера.', onClose: finished});
-		body.innerHTML = '<div class="empty">Поиск на ModDB…</div>';
+		const {body, actions, close} = modal({eyebrow: I18N.t('dependencies.eyebrow'), title: I18N.t('dependencies.title'), text: I18N.t('dependencies.intro'), onClose: finished});
+		body.innerHTML = `<div class="empty">${esc(I18N.t('dependencies.searching'))}</div>`;
 		const disabled = new Map(present.filter(mod => !mod.enabled && mod.modid).map(mod => [mod.modid.toLowerCase(), mod]));
 		const rows = await Promise.all(fresh.map(issue => disabled.has(issue.modid.toLowerCase())
-			? {issue, state: 'disabled', title: disabled.get(issue.modid.toLowerCase()).display_name || issue.modid, note: `установлен, но отключён (${disabled.get(issue.modid.toLowerCase()).name}) — включите его в списке модов`}
+			? {issue, state: 'disabled', title: disabled.get(issue.modid.toLowerCase()).display_name || issue.modid, note: I18N.t('dependencies.disabled', {name: disabled.get(issue.modid.toLowerCase()).name})}
 			: lookup(issue)));
 		if (!body.isConnected) return;
 
@@ -93,7 +95,7 @@
 		body.innerHTML = `<div class="data-list dependency-list">${rows.map((row, index) => {
 			const installable = row.state === 'found';
 			const label = installable ? `${row.title || row.issue.modid} ${row.release.version}` : (row.title || row.issue.modid);
-			const pre = installable && row.release.prerelease ? ' <span class="badge warn">предварительный</span>' : '';
+			const pre = installable && row.release.prerelease ? ` <span class="badge warn">${esc(I18N.t('dependencies.prerelease'))}</span>` : '';
 			return `<label class="dependency-row"><input type="checkbox" data-index="${index}" ${installable && admin && !row.note ? 'checked' : ''} ${installable && admin ? '' : 'disabled'}>
 				<span class="grow"><b>${esc(label)}</b>${pre}<small>${esc(describe(row.issue))}</small>${row.note ? `<small class="accent">${esc(row.note)}</small>` : ''}</span></label>`;
 		}).join('')}</div>`;
@@ -101,25 +103,25 @@
 		const cancel = document.createElement('button');
 		cancel.type = 'button';
 		cancel.className = 'button';
-		cancel.textContent = 'Закрыть';
+		cancel.textContent = I18N.t('common.close');
 		cancel.addEventListener('click', close);
 		const install = document.createElement('button');
 		install.type = 'button';
 		install.className = 'button primary';
-		install.textContent = 'Установить отмеченные';
+		install.textContent = I18N.t('dependencies.installSelected');
 		install.disabled = !admin || !rows.some(row => row.state === 'found');
 		actions.append(cancel, install);
 
 		const installed = [];
 		install.addEventListener('click', async () => {
 			const chosen = [...body.querySelectorAll('input:checked')].map(input => rows[Number(input.dataset.index)]);
-			if (!chosen.length) { toast('Ничего не отмечено'); return; }
+			if (!chosen.length) { toast(I18N.t('dependencies.noneSelected')); return; }
 			try {
 				await busy(install, async () => {
 					for (const row of chosen) {
 						const data = await api('/api/mods/install-release', {method: 'POST', body: {identifier: row.identifier, release_id: Number(row.release.releaseid)}});
 						installed.push(data.modid || row.issue.modid);
-						toast(`Установлен ${data.modid} ${data.version}`, 'ok');
+						toast(I18N.t('dependencies.installed', {mod: data.modid, version: data.version}), 'ok');
 					}
 				});
 			} catch (error) { fail(error); }

@@ -33,7 +33,7 @@ public abstract record RegistrySnapshot
 	}
 
 	/// <summary>Реестр прочитать не удалось. Это не то же самое, что пустой реестр.</summary>
-	public sealed record Unavailable(string Detail) : RegistrySnapshot;
+	public sealed record Unavailable(Phrase Detail) : RegistrySnapshot;
 }
 
 /// <summary>

@@ -14,98 +14,98 @@ namespace Panel.Cli;
 public static class Program
 {
 	public const string Usage = """
-		Использование: sudo vs-panel <команда>
+		Usage: sudo vs-panel <command>
 
-		Установка:
-		  install --from <каталог>   установить панель из каталога сборки (обычно через sh install.sh)
-		          [--no-server] [--skip-dotnet] [--skip-packages] [--servers-dir <каталог>]
-		  update --from <каталог>    установить новую версию; предыдущие две хранятся для отката
-		  rollback                   вернуть предыдущую версию
-		  repair                     переписать юниты, обёртку, права и ссылки активной версии
-		  doctor                     проверить установку, ничего не меняя
+		Installation:
+		  install --from <directory>   install the panel from a build directory (usually via sh install.sh)
+		          [--no-server] [--skip-dotnet] [--skip-packages] [--servers-dir <directory>]
+		  update --from <directory>    install a new version; retain the previous two for rollback
+		  rollback                     restore the previous version
+		  repair                       rewrite units, console wrapper, permissions and active-version links
+		  doctor                       check the installation without changing it
 		  uninstall [--purge] [--yes]
-		                             удалить службы панели; --purge удаляет также программу,
-		                             состояние, настройки и пользователя vs-panel
-		  version                    версия этой команды и активная версия панели
+		                               remove panel services; --purge also removes the program,
+		                               state, settings and the vs-panel user
+		  version                      this command's version and the active panel version
 
-		Доступ к панели — при install, update и repair; не заданное не меняется:
+		Panel access options for install, update and repair; omitted options keep their values:
 		  --access localhost|lan|internet
-		                             localhost — только эта машина (SSH-туннель); lan — все
-		                             интерфейсы и любое имя, порт открыт сети (умолчание);
-		                             internet — все интерфейсы, порт открыт всем
-		  --bind <адрес>  --port <порт>  --allowed-hosts <имена через запятую, * — любые>
-		  --secure-cookie true|false  куки только по HTTPS (нужен HTTPS-прокси перед панелью)
-		  --firewall lan|internet|off кому открыть порт панели в ufw; off — правила ведёте вы
-		  То же переменными: VS_PANEL_ACCESS, VS_PANEL_BIND, VS_PANEL_PORT,
+		                               localhost: this machine only (SSH tunnel); lan: all interfaces
+		                               and hostnames, port open to the local network (default);
+		                               internet: all interfaces, port open to everyone
+		  --bind <address>  --port <port>  --allowed-hosts <comma-separated names, * for any>
+		  --secure-cookie true|false    HTTPS-only cookies (requires an HTTPS proxy)
+		  --firewall lan|internet|off   who may reach the panel port through ufw; off: manage rules yourself
+		  Environment equivalents: VS_PANEL_ACCESS, VS_PANEL_BIND, VS_PANEL_PORT,
 		  VS_PANEL_ALLOWED_HOSTS, VS_PANEL_SECURE_COOKIE, VS_PANEL_FIREWALL.
-		  Пример: sudo vs-panel repair --access internet
+		  Example: sudo vs-panel repair --access internet
 
-		Панель:
-		  status                     состояние демона и панели
-		  start | stop | restart     запуск, остановка, перезапуск панели с ожиданием результата
-		  logs [-f] [N]              журнал панели (по умолчанию 100 строк), -f — следить
-		  agent-logs [-f] [N]        журнал демона
-		  access                     адрес панели; до завершения мастера — ссылка мастера установки
-		  password                   новый пароль учётной записи admin
+		Panel:
+		  status                       daemon and panel status
+		  start | stop | restart       start, stop or restart the panel and wait for the result
+		  logs [-f] [N]                panel log (default: 100 lines); -f follows new entries
+		  agent-logs [-f] [N]          daemon log
+		  access                       panel address; setup link until the wizard is complete
+		  password                     set a new password for the admin account
 
-		Игровые серверы:
-		  servers                    список серверов и их состояние
+		Game servers:
+		  servers                      list servers and their status
 		  server <id> status | start | stop | restart | logs [-f] [N]
 
-		Переменные установки — как у install.sh: VS_PANEL_CREATE_SERVER=0,
+		Installation variables (also used by install.sh): VS_PANEL_CREATE_SERVER=0,
 		VS_PANEL_GAME_VERSION, VS_PANEL_GAME_PORT, VS_PANEL_INSTALL_WAIT_SECONDS,
-		VS_PANEL_DOTNET_CHANNEL, VS_PANEL_SKIP_DOTNET=1, VS_TELEMETRY_MOD_DIR; новая —
-		VS_PANEL_SERVERS_DIR (то же, что --servers-dir). Без неё первая установка в терминале
-		спрашивает каталог серверов; сменить его можно и в панели: «Настройки» → «Панель».
+		VS_PANEL_DOTNET_CHANNEL, VS_PANEL_SKIP_DOTNET=1, VS_TELEMETRY_MOD_DIR;
+		VS_PANEL_SERVERS_DIR is equivalent to --servers-dir. Without it, the first terminal
+		installation prompts for a server directory. Change it later under Settings → Panel.
 
-		Игровые серверы при удалении панели не затрагиваются.
+		Uninstalling the panel does not affect game servers.
 		""";
 
 	public const string WindowsUsage = """
-		Использование: vs-panel <команда>   (в командной строке администратора)
+		Usage: vs-panel <command>   (in an Administrator command prompt)
 
-		Установка:
-		  install --from <каталог>   установить панель из каталога сборки (обычно через install.cmd)
-		          [--no-server] [--skip-dotnet] [--no-browser] [--servers-dir <каталог>]
-		                             --servers-dir — где создавать игровые серверы; без него
-		                             первая установка спросит, а сменить можно в панели
-		  update --from <каталог>    установить новую версию; предыдущие две хранятся для отката
-		  rollback                   вернуть предыдущую версию
-		  repair                     перерегистрировать службы, права и ссылку активной версии
-		  doctor                     проверить установку, ничего не меняя
+		Installation:
+		  install --from <directory>   install the panel from a build directory (usually via install.cmd)
+		          [--no-server] [--skip-dotnet] [--no-browser] [--servers-dir <directory>]
+		                               --servers-dir selects where game servers are created; the first
+		                               installation prompts for it if omitted; change it later in the panel
+		  update --from <directory>    install a new version; retain the previous two for rollback
+		  rollback                     restore the previous version
+		  repair                       re-register services, permissions and the active-version link
+		  doctor                       check the installation without changing it
 		  uninstall [--purge] [--yes]
-		                             удалить службы панели; --purge удаляет также программу,
-		                             состояние и настройки
-		  version                    версия этой команды и активная версия панели
+		                               remove panel services; --purge also removes the program,
+		                               state and settings
+		  version                      this command's version and the active panel version
 
-		Доступ к панели — при install, update и repair; не заданное не меняется:
+		Panel access options for install, update and repair; omitted options keep their values:
 		  --access localhost|lan|internet
-		                             localhost — только эта машина (SSH-туннель); lan — все
-		                             интерфейсы и любое имя, порт открыт сети (умолчание);
-		                             internet — все интерфейсы, порт открыт всем
-		  --bind <адрес>  --port <порт>  --allowed-hosts <имена через запятую, * — любые>
-		  --secure-cookie true|false  куки только по HTTPS (нужен HTTPS-прокси перед панелью)
-		  --firewall lan|internet|off кому открыть порт панели в брандмауэре Windows; off — правила ведёте вы
-		  То же переменными: VS_PANEL_ACCESS, VS_PANEL_BIND, VS_PANEL_PORT,
+		                               localhost: this machine only (SSH tunnel); lan: all interfaces
+		                               and hostnames, port open to the local network (default);
+		                               internet: all interfaces, port open to everyone
+		  --bind <address>  --port <port>  --allowed-hosts <comma-separated names, * for any>
+		  --secure-cookie true|false    HTTPS-only cookies (requires an HTTPS proxy)
+		  --firewall lan|internet|off   who may reach the panel port through Windows Firewall; off: manage rules yourself
+		  Environment equivalents: VS_PANEL_ACCESS, VS_PANEL_BIND, VS_PANEL_PORT,
 		  VS_PANEL_ALLOWED_HOSTS, VS_PANEL_SECURE_COOKIE, VS_PANEL_FIREWALL.
-		  Пример: vs-panel repair --access internet
+		  Example: vs-panel repair --access internet
 
-		Панель:
-		  status                     состояние служб демона и панели
-		  start | stop | restart     запуск, остановка, перезапуск панели с ожиданием результата
-		  logs                       где искать журнал служб
-		  access [--no-browser]      открыть панель; до завершения мастера — ссылка мастера установки
-		  password                   новый пароль учётной записи admin
-		  servers                    список серверов из реестра
+		Panel:
+		  status                       daemon and panel service status
+		  start | stop | restart       start, stop or restart the panel and wait for the result
+		  logs                         where to find the service log
+		  access [--no-browser]        open the panel; setup link until the wizard is complete
+		  password                     set a new password for the admin account
+		  servers                      list servers from the registry
 
-		Службы vs-panel-agent и vs-panel работают от LocalSystem: пароль не нужен, учётная
-		запись пользователя не меняется. Программа — в Program Files\vs-panel, данные —
-		в ProgramData\vs-panel.
+		The vs-panel-agent and vs-panel services run as LocalSystem: no password is needed and
+		the user account is unchanged. The program is in Program Files\vs-panel and data is in
+		ProgramData\vs-panel.
 
-		Переменные установки: VS_PANEL_CREATE_SERVER=0, VS_PANEL_GAME_VERSION, VS_PANEL_GAME_PORT,
+		Installation variables: VS_PANEL_CREATE_SERVER=0, VS_PANEL_GAME_VERSION, VS_PANEL_GAME_PORT,
 		VS_PANEL_INSTALL_WAIT_SECONDS, VS_PANEL_DOTNET_CHANNEL, VS_PANEL_SKIP_DOTNET=1.
 
-		Игровые серверы при удалении панели не затрагиваются.
+		Uninstalling the panel does not affect game servers.
 		""";
 
 	public static async Task<int> Main(string[] args)
@@ -138,7 +138,7 @@ public static class Program
 				return 0;
 			}
 
-			await Console.Error.WriteLineAsync("vs-panel работает на Linux и Windows.").ConfigureAwait(false);
+			await Console.Error.WriteLineAsync("vs-panel supports Linux and Windows.").ConfigureAwait(false);
 			return 2;
 		}
 
@@ -171,7 +171,7 @@ public static class Program
 		var needsRoot = command is not ("status" or "logs" or "agent-logs" or "version" or "--version");
 		if (needsRoot && !LinuxHost.IsRoot)
 		{
-			throw new InstallFailed($"Запустите от root: sudo vs-panel {command}");
+			throw new InstallFailed($"Run as root: sudo vs-panel {command}");
 		}
 
 		var environment = Environment.GetEnvironmentVariables()
@@ -186,7 +186,7 @@ public static class Program
 				var options = Require(InstallOptions.Parse(rest, environment, paths));
 				if (options.From.Length == 0)
 				{
-					throw new InstallFailed($"Укажите каталог сборки: sudo vs-panel {command} --from <каталог>");
+					throw new InstallFailed($"Specify the build directory: sudo vs-panel {command} --from <directory>");
 				}
 
 				return await installer.InstallAsync(options).ConfigureAwait(false);
@@ -201,7 +201,7 @@ public static class Program
 			case "uninstall":
 				return await new Uninstaller(host).RunAsync(rest).ConfigureAwait(false);
 			case "version" or "--version":
-				Console.WriteLine($"Активная версия панели: {installer.CurrentVersion() ?? "не установлена"}");
+				Console.WriteLine($"Active panel version: {installer.CurrentVersion() ?? "not installed"}");
 				return 0;
 			case "status":
 				return await commands.StatusAsync().ConfigureAwait(false);
@@ -237,7 +237,7 @@ public static class Program
 		var needsAdministrator = command is not ("status" or "logs" or "agent-logs" or "version" or "--version" or "servers");
 		if (needsAdministrator && !WindowsAccount.IsAdministrator())
 		{
-			throw new InstallFailed($"Нужны права администратора: откройте командную строку «От имени администратора» и повторите vs-panel {command}");
+			throw new InstallFailed($"Administrator privileges required: open an Administrator command prompt and retry vs-panel {command}");
 		}
 
 		var environment = Environment.GetEnvironmentVariables()
@@ -252,7 +252,7 @@ public static class Program
 				var options = Require(InstallOptions.ParseWindows(rest, environment));
 				if (options.From.Length == 0)
 				{
-					throw new InstallFailed($"Укажите каталог сборки: vs-panel {command} --from <каталог>");
+					throw new InstallFailed($"Specify the build directory: vs-panel {command} --from <directory>");
 				}
 
 				return await installer.InstallAsync(options).ConfigureAwait(false);
@@ -267,7 +267,7 @@ public static class Program
 			case "uninstall":
 				return await new WindowsUninstaller(host).RunAsync(rest).ConfigureAwait(false);
 			case "version" or "--version":
-				Console.WriteLine($"Активная версия панели: {installer.CurrentVersion() ?? "не установлена"}");
+				Console.WriteLine($"Active panel version: {installer.CurrentVersion() ?? "not installed"}");
 				return 0;
 			case "status":
 				return commands.Status();
@@ -282,7 +282,7 @@ public static class Program
 			case "servers":
 				return await commands.ServersAsync().ConfigureAwait(false);
 			case "server":
-				throw new InstallFailed("На Windows серверами управляет демон: запуск, остановка и журнал сервера — в панели (vs-panel access).");
+				throw new InstallFailed("On Windows, the daemon manages game servers. Start, stop and log controls are in the panel (vs-panel access).");
 			default:
 				await Console.Error.WriteLineAsync(WindowsUsage).ConfigureAwait(false);
 				return 2;

@@ -22,7 +22,7 @@ internal sealed partial class PanelCommands
 	{
 		if (new Installer(this.host).CurrentVersion() is { } version)
 		{
-			Output.WriteLine($"Версия панели: {version}");
+			Output.WriteLine($"Panel version: {version}");
 		}
 
 		return await Shell.RunAttachedAsync("systemctl", ["status", InstallPaths.AgentUnitName, InstallPaths.PanelUnitName, "--no-pager", "-l"]).ConfigureAwait(false);
@@ -36,7 +36,7 @@ internal sealed partial class PanelCommands
 		{
 			case "stop":
 				var stopped = await this.host.SystemctlAsync("stop", InstallPaths.PanelUnitName).ConfigureAwait(false);
-				Output.WriteLine(stopped.Succeeded ? "Панель остановлена." : $"Панель не остановлена: {stopped.Reason}");
+				Output.WriteLine(stopped.Succeeded ? "Panel stopped." : $"Panel did not stop: {stopped.Reason}");
 				return stopped.Succeeded ? 0 : 1;
 			case "start":
 				await this.host.SystemctlAsync("start", InstallPaths.AgentUnitName).ConfigureAwait(false);
@@ -65,7 +65,7 @@ internal sealed partial class PanelCommands
 			}
 			else
 			{
-				throw new InstallFailed($"Неизвестный параметр: {argument}");
+				throw new InstallFailed($"Unknown option: {argument}");
 			}
 		}
 
@@ -86,8 +86,8 @@ internal sealed partial class PanelCommands
 
 		if (this.host.SetupCompleted())
 		{
-			Output.WriteLine("Мастер установки завершён — вход обычным логином и паролем.");
-			Output.WriteLine("Забыли пароль: sudo vs-panel password");
+			Output.WriteLine("Setup is complete — sign in with your username and password.");
+			Output.WriteLine("Forgot your password: sudo vs-panel password");
 			return 0;
 		}
 
@@ -96,8 +96,8 @@ internal sealed partial class PanelCommands
 
 	public async Task<int> PasswordAsync()
 	{
-		Output.WriteLine("Новый пароль будет задан учётной записи admin (если её нет, она будет создана");
-		Output.WriteLine("с ролью администратора). Все её прежние сессии будут завершены.\n");
+		Output.WriteLine("The new password will be set for the admin account (it will be created if missing");
+		Output.WriteLine("with the administrator role). All its previous sessions will be revoked.\n");
 		return await this.host.ManageAsync(["set-password"], attached: true).ConfigureAwait(false);
 	}
 
@@ -106,7 +106,7 @@ internal sealed partial class PanelCommands
 		var servers = await LoadServersAsync().ConfigureAwait(false);
 		if (servers.Count == 0)
 		{
-			Output.WriteLine("Серверов в реестре нет. Создайте первый в мастере установки: sudo vs-panel access");
+			Output.WriteLine("No servers in the registry. Create the first one in the setup wizard: sudo vs-panel access");
 			return 0;
 		}
 
@@ -124,17 +124,17 @@ internal sealed partial class PanelCommands
 	{
 		if (arguments.Count < 2)
 		{
-			throw new InstallFailed("Использование: sudo vs-panel server <id> status | start | stop | restart | logs [-f] [N]");
+			throw new InstallFailed("Usage: sudo vs-panel server <id> status | start | stop | restart | logs [-f] [N]");
 		}
 
 		var servers = await LoadServersAsync().ConfigureAwait(false);
 		var server = servers.FirstOrDefault(item => item.Id.Value == arguments[0])
-			?? throw new InstallFailed($"Сервер {arguments[0]} не найден в реестре. Список: sudo vs-panel servers");
+			?? throw new InstallFailed($"Server {arguments[0]} was not found in the registry. List: sudo vs-panel servers");
 
 		// Имя юнита взято из реестра, но в systemctl передаётся только допустимое.
 		if (!UnitPattern.IsMatch(server.Unit))
 		{
-			throw new InstallFailed($"У сервера {server.Id.Value} недопустимое имя юнита: {server.Unit}");
+			throw new InstallFailed($"Server {server.Id.Value} has an invalid unit name: {server.Unit}");
 		}
 
 		switch (arguments[1])
@@ -149,7 +149,7 @@ internal sealed partial class PanelCommands
 				Output.WriteLine(done.Succeeded ? $"{server.Id.Value}: {Describe(state)}" : $"{server.Id.Value}: {done.Reason}");
 				return done.Succeeded ? 0 : 1;
 			default:
-				throw new InstallFailed($"Неизвестное действие: {arguments[1]}");
+				throw new InstallFailed($"Unknown action: {arguments[1]}");
 		}
 	}
 
@@ -159,7 +159,7 @@ internal sealed partial class PanelCommands
 		return snapshot switch
 		{
 			RegistrySnapshot.Available available => available.Servers,
-			RegistrySnapshot.Unavailable unavailable => throw new InstallFailed($"Реестр серверов не прочитан: {unavailable.Detail}"),
+			RegistrySnapshot.Unavailable unavailable => throw new InstallFailed($"Could not read the server registry: {unavailable.Detail}"),
 			_ => [],
 		};
 	}
@@ -167,13 +167,13 @@ internal sealed partial class PanelCommands
 	/// <summary>Состояние юнита по-русски.</summary>
 	public static string Describe(string state) => state switch
 	{
-		"active" => "работает",
-		"activating" => "запускается",
-		"deactivating" => "останавливается",
-		"inactive" => "остановлена",
-		"failed" => "ошибка",
-		"reloading" => "перечитывает настройки",
-		"" => "неизвестно",
+		"active" => "running",
+		"activating" => "starting",
+		"deactivating" => "stopping",
+		"inactive" => "stopped",
+		"failed" => "failed",
+		"reloading" => "reloading settings",
+		"" => "unknown",
 		_ => state,
 	};
 

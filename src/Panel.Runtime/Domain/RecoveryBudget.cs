@@ -26,18 +26,18 @@ public static class RecoveryBudget
 	}
 
 	/// <summary><c>null</c>, если можно; иначе причина запрета для поля <c>recovery_blocked</c>.</summary>
-	public static string? Blocker(IReadOnlyList<DateTimeOffset> recent, WatchdogSettings settings, DateTimeOffset now)
+	public static Phrase? Blocker(IReadOnlyList<DateTimeOffset> recent, WatchdogSettings settings, DateTimeOffset now)
 	{
 		ArgumentNullException.ThrowIfNull(recent);
 		ArgumentNullException.ThrowIfNull(settings);
 
 		if (recent.Count >= settings.MaxRestartsPerHour)
 		{
-			return "Достигнут часовой лимит автоперезапусков";
+			return Phrase.From("Достигнут часовой лимит автоперезапусков");
 		}
 
 		return recent.Count > 0 && now - recent[^1] < settings.Cooldown
-			? "Действует пауза между автоперезапусками"
+			? Phrase.From("Действует пауза между автоперезапусками")
 			: null;
 	}
 }

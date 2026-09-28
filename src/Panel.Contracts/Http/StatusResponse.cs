@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Panel.SharedKernel;
 
 namespace Panel.Contracts.Http;
 
@@ -35,7 +36,7 @@ public sealed record StatusResponse
 public sealed record MaintenanceStatus
 {
 	[JsonPropertyName("purpose")] public required string Purpose { get; init; }
-	[JsonPropertyName("title")] public required string Title { get; init; }
+	[JsonPropertyName("title")] public required Phrase Title { get; init; }
 	[JsonPropertyName("started_at")] public required long StartedAt { get; init; }
 }
 
@@ -52,7 +53,7 @@ public sealed record HealthResponse
 	[JsonPropertyName("instance")] public required string Instance { get; init; }
 	[JsonPropertyName("active")] public required bool Active { get; init; }
 	[JsonPropertyName("state")] public required string State { get; init; }
-	[JsonPropertyName("detail")] public required string Detail { get; init; }
+	[JsonPropertyName("detail")] public required Phrase Detail { get; init; }
 	[JsonPropertyName("failures")] public required int Failures { get; init; }
 
 	/// <summary>
@@ -61,5 +62,5 @@ public sealed record HealthResponse
 	/// </summary>
 	[JsonPropertyName("recovery_blocked")]
 	[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-	public string? RecoveryBlocked { get; init; }
+	public Phrase? RecoveryBlocked { get; init; }
 }

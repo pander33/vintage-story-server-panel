@@ -93,7 +93,7 @@ public static partial class UpdateEndpoints
 				return PanelResults.Refuse(Failure.Invalid("Выберите от одного до 40 обновлений модов и срок готовности от 60 до 3600 секунд"));
 			}
 
-			var confirmed = Confirmation.Exactly("ОБНОВИТЬ МОДЫ").Check(body.Confirmation);
+			var confirmed = Confirmation.Exactly("ОБНОВИТЬ МОДЫ", "UPDATE MODS").Check(body.Confirmation);
 			if (!confirmed.IsSuccess)
 			{
 				return PanelResults.Refuse(confirmed.Failure!);
@@ -104,7 +104,7 @@ public static partial class UpdateEndpoints
 				.ConfigureAwait(false);
 			if (!launched.IsSuccess)
 			{
-				return PanelResults.Refuse(StatusCodes.Status409Conflict, launched.Failure!.Message);
+				return PanelResults.Refuse(StatusCodes.Status409Conflict, launched.Failure!.Text);
 			}
 
 			await audit.RecordAsync(http, "mod_batch_update_queued", launched.Value, ct).ConfigureAwait(false);
@@ -132,7 +132,7 @@ public static partial class UpdateEndpoints
 			}
 
 			var fields = form.Form;
-			var confirmed = Confirmation.Exactly("ОБНОВИТЬ СЕРВЕР").Check(fields?["confirmation"].ToString());
+			var confirmed = Confirmation.Exactly("ОБНОВИТЬ СЕРВЕР", "UPDATE SERVER").Check(fields?["confirmation"].ToString());
 			if (!confirmed.IsSuccess)
 			{
 				return PanelResults.Refuse(confirmed.Failure!);
@@ -180,7 +180,7 @@ public static partial class UpdateEndpoints
 				await using (var stream = file.OpenReadStream())
 				{
 					var written = await staging
-						.WriteAsync(stream, staged, gamePackageMegabytes, ct, "Архив сервера больше 4 ГБ")
+						.WriteAsync(stream, staged, gamePackageMegabytes, ct, Phrase.From("Архив сервера больше 4 ГБ"))
 						.ConfigureAwait(false);
 					if (!written.IsSuccess)
 					{
@@ -191,7 +191,7 @@ public static partial class UpdateEndpoints
 				var launched = await updates.LaunchGameAsync(Instance(http), staged, target).ConfigureAwait(false);
 				if (!launched.IsSuccess)
 				{
-					return PanelResults.Refuse(StatusCodes.Status409Conflict, launched.Failure!.Message);
+					return PanelResults.Refuse(StatusCodes.Status409Conflict, launched.Failure!.Text);
 				}
 
 				queued = true;
@@ -222,7 +222,7 @@ public static partial class UpdateEndpoints
 				return PanelResults.Refuse(allowed.Failure!);
 			}
 
-			var confirmed = Confirmation.Exactly("ОТКАТИТЬ " + body.Name).Check(body.Confirmation);
+			var confirmed = Confirmation.Exactly("ОТКАТИТЬ " + body.Name, "ROLL BACK " + body.Name).Check(body.Confirmation);
 			if (!confirmed.IsSuccess)
 			{
 				return PanelResults.Refuse(confirmed.Failure!);
@@ -231,7 +231,7 @@ public static partial class UpdateEndpoints
 			var launched = await updates.LaunchRollbackAsync(Instance(http), body.Name).ConfigureAwait(false);
 			if (!launched.IsSuccess)
 			{
-				return PanelResults.Refuse(StatusCodes.Status409Conflict, launched.Failure!.Message);
+				return PanelResults.Refuse(StatusCodes.Status409Conflict, launched.Failure!.Text);
 			}
 
 			await audit.RecordAsync(http, "game_update_rollback_queued", body.Name, ct).ConfigureAwait(false);
@@ -240,10 +240,7 @@ public static partial class UpdateEndpoints
 	}
 
 	private static IResult Queued(string runId) =>
-		Results.Json(
-			new JsonObject { ["status"] = "queued", ["run_id"] = runId },
-			Panel.Contracts.PanelJson.Options,
-			statusCode: StatusCodes.Status202Accepted);
+		PanelResults.Json(new JsonObject { ["status"] = "queued", ["run_id"] = runId }, StatusCodes.Status202Accepted);
 
 	/// <summary>Логическое поле формы по правилам FastAPI: 1, true, on, yes в любом регистре.</summary>
 	private static bool FormFlag(string? value) =>

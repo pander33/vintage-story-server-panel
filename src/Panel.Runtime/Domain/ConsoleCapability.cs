@@ -1,3 +1,5 @@
+using Panel.SharedKernel;
+
 namespace Panel.Runtime.Domain;
 
 /// <summary>Чем панель пишет в консоль сервера.</summary>
@@ -32,10 +34,10 @@ public enum ConsoleTransport
 public sealed record ConsoleCapability(
 	ConsoleTransport Transport,
 	bool IsAvailable,
-	string? UnavailableReason)
+	Phrase? UnavailableReason)
 {
 	public static ConsoleCapability Off { get; } =
-		new(ConsoleTransport.Disabled, false, "Консоль не настроена для этого сервера");
+		new(ConsoleTransport.Disabled, false, Phrase.From("Консоль не настроена для этого сервера"));
 
 	public static ConsoleTransport ParseTransport(string? configured) => configured switch
 	{

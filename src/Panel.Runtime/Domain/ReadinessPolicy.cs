@@ -1,3 +1,5 @@
+using Panel.SharedKernel;
+
 namespace Panel.Runtime.Domain;
 
 /// <summary>
@@ -24,13 +26,13 @@ public sealed class ReadinessPolicy
 		// 1. Наблюдение выключено: панель не оценивает готовность.
 		if (!settings.Enabled)
 		{
-			return Verdict(HealthState.Disabled, "Watchdog отключён", service, now);
+			return Verdict(HealthState.Disabled, Phrase.From("Watchdog отключён"), service, now);
 		}
 
 		// 2. Служба не работает.
 		if (!service.IsActive)
 		{
-			return Verdict(HealthState.Stopped, "Процесс сервера остановлен", service, now);
+			return Verdict(HealthState.Stopped, Phrase.From("Процесс сервера остановлен"), service, now);
 		}
 
 		// 3. Готовность подтверждает только свежая телеметрия текущего процесса. Foreign сюда не
@@ -38,22 +40,22 @@ public sealed class ReadinessPolicy
 		if (telemetry is TelemetryReading.Fresh fresh
 			&& fresh.Snapshot.OwnershipFor(service, settings.OwnershipTolerance) is not TelemetryOwnership.Foreign)
 		{
-			return Verdict(HealthState.Ready, "Сервер отвечает, игровая телеметрия актуальна", service, now);
+			return Verdict(HealthState.Ready, Phrase.From("Сервер отвечает, игровая телеметрия актуальна"), service, now);
 		}
 
 		// 4. Сервер ещё запускается, и отсутствие телеметрии пока ничего не значит.
 		if (service.Uptime < settings.StartupTimeout)
 		{
 			var seconds = (int) service.Uptime.TotalSeconds;
-			return Verdict(HealthState.Starting, $"Сервер загружается ({seconds} сек.)", service, now);
+			return Verdict(HealthState.Starting, Phrase.Format($"Сервер загружается ({seconds} сек.)"), service, now);
 		}
 
 		// 5. Телеметрии нет. Degraded не даёт права на восстановление: отсутствие данных не
 		//    доказывает зависания.
 		if (telemetry is TelemetryReading.Unavailable unavailable)
 		{
-			var detail = string.IsNullOrWhiteSpace(unavailable.Detail)
-				? "Телеметрия недоступна; автоперезапуск запрещён"
+			var detail = unavailable.Detail is null || string.IsNullOrWhiteSpace(unavailable.Detail.ToString())
+				? Phrase.From("Телеметрия недоступна; автоперезапуск запрещён")
 				: unavailable.Detail;
 			return Verdict(HealthState.Degraded, detail, service, now);
 		}
@@ -65,16 +67,16 @@ public sealed class ReadinessPolicy
 			var failures = sameProcess ? previous!.ConsecutiveFailures + 1 : 1;
 			var state = failures >= settings.FailureThreshold ? HealthState.Hung : HealthState.Unresponsive;
 			var age = (int) stale.Age.TotalSeconds;
-			return Verdict(state, $"Телеметрия не обновлялась {age} сек.", service, now, failures);
+			return Verdict(state, Phrase.Format($"Телеметрия не обновлялась {age} сек."), service, now, failures);
 		}
 
 		// 7. Остальное: данных недостаточно для оценки.
-		return Verdict(HealthState.Degraded, "Недостаточно данных для проверки", service, now);
+		return Verdict(HealthState.Degraded, Phrase.From("Недостаточно данных для проверки"), service, now);
 	}
 
 	private static ReadinessVerdict Verdict(
 		HealthState state,
-		string detail,
+		Phrase detail,
 		ServiceSnapshot service,
 		DateTimeOffset now,
 		int failures = 0) => new()

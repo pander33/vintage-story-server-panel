@@ -1,4 +1,5 @@
 using Panel.Runtime.Domain;
+using Panel.SharedKernel;
 
 namespace Panel.Runtime.Tests;
 
@@ -30,7 +31,7 @@ public sealed class ReadinessPolicyTests
 	{
 		var verdict = policy.Evaluate(
 			ServiceSnapshot.Stopped with { Unit = "vintagestory.service" },
-			new TelemetryReading.Unavailable("файла нет"),
+			new TelemetryReading.Unavailable(Phrase.From("файла нет")),
 			WatchdogSettings.Default,
 			previous: null,
 			now);
@@ -81,7 +82,7 @@ public sealed class ReadinessPolicyTests
 	{
 		var verdict = policy.Evaluate(
 			Running(TimeSpan.FromHours(3)),
-			new TelemetryReading.Unavailable("файл не найден"),
+			new TelemetryReading.Unavailable(Phrase.From("файл не найден")),
 			WatchdogSettings.Default,
 			previous: null,
 			now);
@@ -89,7 +90,7 @@ public sealed class ReadinessPolicyTests
 		Assert.Equal(HealthState.Degraded, verdict.State);
 		Assert.False(verdict.AuthorizesAutomaticRecovery);
 		Assert.True(verdict.IsLimited);
-		Assert.Equal("файл не найден", verdict.Detail);
+		Assert.Equal("файл не найден", verdict.Detail.ToString());
 	}
 
 	[Fact]
@@ -97,7 +98,7 @@ public sealed class ReadinessPolicyTests
 	{
 		var verdict = policy.Evaluate(
 			Running(TimeSpan.FromSeconds(30)),
-			new TelemetryReading.Unavailable("мод ещё не записал снимок"),
+			new TelemetryReading.Unavailable(Phrase.From("мод ещё не записал снимок")),
 			WatchdogSettings.Default,
 			previous: null,
 			now);

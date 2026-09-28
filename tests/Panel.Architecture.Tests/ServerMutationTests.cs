@@ -34,7 +34,7 @@ public sealed partial class ServerMutationTests
 			.Select(route => $"{route.Path} ({route.Command})")
 			.ToList();
 
-		Assert.True(wrong.Count == 0, "Метка расходится с server_mutations: " + string.Join(", ", wrong));
+		Assert.True(wrong.Count == 0, "Метка расходится со списком префиксов: " + string.Join(", ", wrong));
 	}
 
 	private static bool Marked(string command)

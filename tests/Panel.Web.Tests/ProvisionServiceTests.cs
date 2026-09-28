@@ -136,7 +136,7 @@ public sealed class ProvisionServiceTests : IDisposable
 		var record = await RunAsync();
 
 		Assert.Equal("success", (string?) record["status"]);
-		Assert.Equal("Сервер создан, запущен и отвечает", (string?) record["detail"]);
+		Assert.Equal("Сервер создан, запущен и отвечает", record["detail"].Said());
 		Assert.Equal(["catalogue", "download", "create", "service", "start", "ready"], Actions(record));
 		Assert.Equal(["instance-create", "instance-service-install", "service Start"], calls.Where(call => call != "status"));
 		Assert.Equal("/srv/vs-panel/creative", (string?) record["root"]);
@@ -170,13 +170,13 @@ public sealed class ProvisionServiceTests : IDisposable
 	[Fact]
 	public async Task Сервер_без_мода_телеметрии_всё_равно_считается_созданным()
 	{
-		telemetry.Reading = new TelemetryReading.Unavailable("Файл телеметрии не найден");
+		telemetry.Reading = new TelemetryReading.Unavailable(Phrase.From("Файл телеметрии не найден"));
 		runtime.Uptime = TimeSpan.FromSeconds(400);
 
 		var record = await RunAsync();
 
 		Assert.Equal("success", (string?) record["status"]);
-		Assert.Equal("Сервер создан и запущен, но готовность подтвердить не удалось: Файл телеметрии не найден", (string?) record["detail"]);
+		Assert.Equal("Сервер создан и запущен, но готовность подтвердить не удалось: Файл телеметрии не найден", record["detail"].Said());
 		Assert.Equal("warning", (string?) record["steps"]!.AsArray()[^1]!["status"]);
 		Assert.Equal("degraded", (string?) record["health"]!["state"]);
 	}
@@ -184,7 +184,7 @@ public sealed class ProvisionServiceTests : IDisposable
 	[Fact]
 	public async Task Сервер_в_цикле_перезапусков_не_ждёт_до_конца_срока()
 	{
-		telemetry.Reading = new TelemetryReading.Unavailable("нет");
+		telemetry.Reading = new TelemetryReading.Unavailable(Phrase.From("нет"));
 		runtime.Crashing = true;
 
 		var started = DateTime.UtcNow;
@@ -192,7 +192,7 @@ public sealed class ProvisionServiceTests : IDisposable
 
 		Assert.True(DateTime.UtcNow - started < TimeSpan.FromSeconds(4), "ожидание должно закончиться сразу");
 		Assert.Equal("failed", (string?) record["health"]!["state"]);
-		Assert.Contains("перезапускается после ошибки запуска", (string?) record["detail"], StringComparison.Ordinal);
+		Assert.Contains("перезапускается после ошибки запуска", record["detail"].Said(), StringComparison.Ordinal);
 	}
 
 	[Fact]
@@ -203,7 +203,7 @@ public sealed class ProvisionServiceTests : IDisposable
 		var record = await RunAsync();
 
 		Assert.Equal("failed", (string?) record["status"]);
-		Assert.Equal("Extracted package has no server DLL", (string?) record["detail"]);
+		Assert.Equal("Extracted package has no server DLL", record["detail"].Said());
 		Assert.Equal(["catalogue", "download"], Actions(record));
 		Assert.Empty(Staged());
 	}
@@ -219,7 +219,7 @@ public sealed class ProvisionServiceTests : IDisposable
 		Assert.Equal(["catalogue", "download", "create", "rollback"], Actions(record));
 		var rollback = record["steps"]!.AsArray()[^1]!;
 		Assert.Equal("skipped", (string?) rollback["status"]);
-		Assert.Equal("Сервер уже зарегистрирован; удалите его вручную, если он не нужен", (string?) rollback["detail"]);
+		Assert.Equal("Сервер уже зарегистрирован; удалите его вручную, если он не нужен", rollback["detail"].Said());
 	}
 
 	[Fact]
@@ -228,7 +228,7 @@ public sealed class ProvisionServiceTests : IDisposable
 		var record = await RunAsync(Spec("1.99.0"));
 
 		Assert.Equal("failed", (string?) record["status"]);
-		Assert.Equal("Версия 1.99.0 отсутствует в каталоге", (string?) record["detail"]);
+		Assert.Equal("Версия 1.99.0 отсутствует в каталоге", record["detail"].Said());
 		Assert.Empty(downloads);
 		Assert.Empty(Actions(record));
 	}
@@ -242,7 +242,7 @@ public sealed class ProvisionServiceTests : IDisposable
 
 		var record = await RunAsync();
 
-		Assert.Equal(message, (string?) record["detail"]);
+		Assert.Equal(message, record["detail"].Said());
 		Assert.Empty(downloads);
 		Assert.DoesNotContain("instance-create", calls);
 	}
@@ -254,7 +254,7 @@ public sealed class ProvisionServiceTests : IDisposable
 
 		var record = await RunAsync();
 
-		Assert.Equal("Реестр серверов доступен только на чтение; выполните scripts/install.sh", (string?) record["detail"]);
+		Assert.Equal("Реестр серверов доступен только на чтение; выполните scripts/install.sh", record["detail"].Said());
 	}
 
 	[Fact]
@@ -277,7 +277,7 @@ public sealed class ProvisionServiceTests : IDisposable
 		var report = await service.PreflightAsync(null, CancellationToken.None);
 
 		Assert.False((bool) report["ok"]!);
-		var blockers = report["blockers"]!.AsArray().Select(item => (string?) item).ToList();
+		var blockers = report["blockers"]!.AsArray().Select(item => item.Said()).ToList();
 		Assert.Contains(blockers, text => text!.StartsWith("Не найден dotnet", StringComparison.Ordinal));
 		Assert.Contains(blockers, text => text!.StartsWith("Не найден setpriv", StringComparison.Ordinal));
 		Assert.Contains(blockers, text => text!.StartsWith("Реестр серверов доступен только на чтение", StringComparison.Ordinal));
@@ -292,7 +292,7 @@ public sealed class ProvisionServiceTests : IDisposable
 		var report = await service.PreflightAsync(ChosenVersion.Create("1.22.7"), CancellationToken.None);
 
 		Assert.False((bool) report["ok"]!);
-		Assert.Equal("Недостаточно места: свободно 1 ГиБ, нужно около 3 ГиБ.", (string?) report["blockers"]!.AsArray().Single());
+		Assert.Equal("Недостаточно места: свободно 1 ГиБ, нужно около 3 ГиБ.", report["blockers"]!.AsArray().Single().Said());
 		Assert.Equal(3L * 1024 * 1024 * 1024, (long) report["required_free"]!);
 	}
 
@@ -323,7 +323,7 @@ public sealed class ProvisionServiceTests : IDisposable
 		var recovered = await service.RecoverAsync();
 
 		Assert.Equal("interrupted", (string?) recovered!["status"]);
-		Assert.Equal(OperationRecovery.InterruptedProvisionDetail, (string?) recovered["detail"]);
+		Assert.Equal(OperationRecovery.InterruptedProvisionDetail, PhraseJsonConverter.FromNode(recovered["detail"]));
 		var snapshot = await service.SnapshotAsync(CancellationToken.None);
 		Assert.Single(snapshot["history"]!.AsArray());
 	}

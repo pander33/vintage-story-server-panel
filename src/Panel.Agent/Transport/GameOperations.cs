@@ -143,7 +143,7 @@ public sealed partial class GameOperations : IServerOperations
 			FailureCode.Conflict => "conflict",
 			_ => "unavailable",
 		},
-		failure.Message);
+		failure.Text);
 
 	/// <summary>Номер версии игры.</summary>
 	[GeneratedRegex(@"\A\d{1,3}\.\d{1,3}\.\d{1,4}(?:-[A-Za-z0-9.]{1,16})?\z")]

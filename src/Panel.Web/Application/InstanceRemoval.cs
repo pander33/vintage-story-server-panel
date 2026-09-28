@@ -22,12 +22,12 @@ namespace Panel.Web.Application;
 public sealed class InstanceRemoval
 {
 	/// <summary>Сервер PANEL_INSTANCE панель использует и без реестра.</summary>
-	public const string PanelInstanceRefusal =
+	public static Phrase PanelInstanceRefusal { get; } = Phrase.From(
 		"Это сервер, выбранный панелью по умолчанию (PANEL_INSTANCE). " +
 		"Его нельзя удалить: панель продолжит обращаться к нему и без реестра. " +
-		"Смените PANEL_INSTANCE в настройках панели и перезапустите её.";
+		"Смените PANEL_INSTANCE в настройках панели и перезапустите её.");
 
-	public const string BusyRefusal = "Дождитесь завершения обслуживания или обновления этого сервера";
+	public static Phrase BusyRefusal { get; } = Phrase.From("Дождитесь завершения обслуживания или обновления этого сервера");
 
 	private readonly IRegistryAdministration registry;
 	private readonly MaintenanceCoordinator coordinator;

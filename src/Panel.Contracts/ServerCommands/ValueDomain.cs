@@ -26,7 +26,7 @@ public abstract record ValueDomain
 	public abstract Result<string> Validate(string? raw);
 
 	/// <summary>Выбор из закрытого списка без учёта регистра.</summary>
-	public sealed record Choice(IReadOnlyList<string> Options, string Label) : ValueDomain
+	public sealed record Choice(IReadOnlyList<string> Options, Phrase Label) : ValueDomain
 	{
 		public override Result<string> Validate(string? raw)
 		{
@@ -45,7 +45,7 @@ public abstract record ValueDomain
 	}
 
 	/// <summary>Число в пределах с заданным шагом и числом знаков после запятой.</summary>
-	public sealed record Number(decimal Min, decimal Max, decimal Step, int Decimals, string Label)
+	public sealed record Number(decimal Min, decimal Max, decimal Step, int Decimals, Phrase Label)
 		: ValueDomain
 	{
 		/// <summary>
@@ -87,7 +87,7 @@ public abstract record ValueDomain
 	/// <remarks>
 	/// Оба варианта описаны здесь, и интерфейс может нарисовать и список, и поле ввода часа.
 	/// </remarks>
-	public sealed record TimeOfDay(IReadOnlyList<string> Presets, string Label) : ValueDomain
+	public sealed record TimeOfDay(IReadOnlyList<string> Presets, Phrase Label) : ValueDomain
 	{
 		public override Result<string> Validate(string? raw)
 		{

@@ -35,15 +35,15 @@ public static class EventSeverityWire
 
 /// <summary>
 /// Событие панели, строка <c>events.jsonl</c>: <c>{id, ts, kind, severity, title, detail,
-/// source}</c>.
+/// source}</c>. Заголовок и подробности — фразы: в файле шаблон и значения, язык выбирает ответ.
 /// </summary>
 public sealed record PanelEvent(
 	string Id,
 	long Ts,
 	string Kind,
 	EventSeverity Severity,
-	string Title,
-	string Detail,
+	Phrase Title,
+	Phrase Detail,
 	string Source)
 {
 	/// <summary>
@@ -61,8 +61,8 @@ public sealed record PanelEvent(
 	public static Result<PanelEvent> Create(
 		string kind,
 		EventSeverity severity,
-		string title,
-		string detail,
+		Phrase title,
+		Phrase? detail,
 		string source,
 		DateTimeOffset now,
 		string? dedupeKey = null)
@@ -78,7 +78,7 @@ public sealed record PanelEvent(
 			kind,
 			severity,
 			Clip(title, maxTitle),
-			Clip(detail, maxDetail),
+			Clip(detail ?? Phrase.From(string.Empty), maxDetail),
 			Clip(source, maxSource))
 		{
 			NotificationKey = string.IsNullOrEmpty(dedupeKey) ? kind : dedupeKey,
@@ -91,30 +91,41 @@ public sealed record PanelEvent(
 		["ts"] = Ts,
 		["kind"] = Kind,
 		["severity"] = EventSeverityWire.ToWire(Severity),
-		["title"] = Title,
-		["detail"] = Detail,
+		["title"] = PhraseJsonConverter.ToNode(Title),
+		["detail"] = PhraseJsonConverter.ToNode(Detail),
 		["source"] = Source,
 	};
 
 	private static string Clip(string? value, int maximum) =>
 		value is null ? string.Empty : value.Length > maximum ? value[..maximum] : value;
+
+	/// <summary>Слишком длинная фраза становится обрезанным готовым текстом: шаблон у неё теряется.</summary>
+	private static Phrase Clip(Phrase value, int maximum)
+	{
+		var text = value.ToString();
+		return text.Length > maximum ? Phrase.From(text[..maximum]) : value;
+	}
 }
 
 /// <summary>Фильтр ленты событий: важность и подстрока в заголовке или подробностях.</summary>
 public sealed record EventFilter
 {
-	private EventFilter(string? severity, string needle)
+	private EventFilter(string? severity, string needle, Func<Phrase, string> render)
 	{
 		Severity = severity;
 		Needle = needle;
+		Render = render;
 	}
 
 	public string? Severity { get; }
 
 	private string Needle { get; }
 
-	/// <summary>Проверка фильтра; текст отказа для интерфейса.</summary>
-	public static Result<EventFilter> Create(string? severity, string? search)
+	/// <summary>Текст фразы на языке интерфейса: подстрока ищется в том, что видит пользователь.</summary>
+	private Func<Phrase, string> Render { get; }
+
+	/// <summary>Проверка фильтра; текст отказа для интерфейса. Без <paramref name="render"/> — по-русски.</summary>
+	public static Result<EventFilter> Create(string? severity, string? search, Func<Phrase, string>? render = null)
 	{
 		var value = severity ?? "all";
 		var text = search ?? string.Empty;
@@ -124,7 +135,7 @@ public sealed record EventFilter
 			return Failure.Invalid("Недопустимый фильтр событий");
 		}
 
-		return new EventFilter(value == "all" ? null : value, text.Trim().ToLowerInvariant());
+		return new EventFilter(value == "all" ? null : value, text.Trim().ToLowerInvariant(), render ?? (phrase => phrase.ToString()));
 	}
 
 	/// <summary>
@@ -139,11 +150,13 @@ public sealed record EventFilter
 			.Where(item =>
 				(Severity is null || TelemetryNumbers.Text(item["severity"]) == Severity)
 				&& (Needle.Length == 0
-					|| (TelemetryNumbers.Text(item["title"]) + " " + TelemetryNumbers.Text(item["detail"]))
+					|| (Text(item["title"]) + " " + Text(item["detail"]))
 						.ToLowerInvariant()
 						.Contains(Needle, StringComparison.Ordinal)))
 			.Take(limit)];
 	}
+
+	private string Text(JsonNode? node) => PhraseJsonConverter.FromNode(node) is { } phrase ? Render(phrase) : string.Empty;
 }
 
 /// <summary>
@@ -178,6 +191,12 @@ public sealed class NotificationSettings
 	public string TelegramToken => Secret("telegram_token");
 
 	public string TelegramChatId => Secret("telegram_chat_id");
+
+	/// <summary>
+	/// Язык уведомлений: <c>ru</c> или <c>en</c>. Запроса у уведомления нет, поэтому язык — того,
+	/// кто последним сохранил настройки; по умолчанию английский, как у интерфейса.
+	/// </summary>
+	public string Language => TelemetryNumbers.Text(document["language"]) == "ru" ? "ru" : "en";
 
 	/// <summary>Все заданные секреты, чтобы убрать их из текста ошибки доставки.</summary>
 	public IEnumerable<string> Secrets => secretKeys.Select(Secret).Where(value => value.Length > 0);
@@ -235,6 +254,7 @@ public sealed class NotificationSettings
 		document["enabled"] = update.Enabled;
 		document["minimum_severity"] = EventSeverityWire.ToWire(severity.Value);
 		document["cooldown_seconds"] = cooldown;
+		document["language"] = update.Language == "ru" ? "ru" : "en";
 
 		foreach (var (key, raw) in new[]
 		{
@@ -293,7 +313,8 @@ public sealed record NotificationUpdate(
 	string? WebhookUrl,
 	string? DiscordUrl,
 	string? TelegramToken,
-	string? TelegramChatId);
+	string? TelegramChatId,
+	string Language = "en");
 
 /// <summary>
 /// Решение, отправлять ли уведомление: уведомления включены, важность не ниже порога, и с
@@ -335,25 +356,33 @@ public sealed class NotificationGate
 public sealed record Delivery(string Url, JsonObject Payload);
 
 /// <summary>
-/// Сообщение о событии для каждого канала.
+/// Сообщение о событии для каждого канала. Фразы события пишутся текстом через
+/// <c>render</c>: вебхук получает строки, а не шаблоны.
 /// </summary>
 public static class NotificationMessage
 {
-	public static IReadOnlyList<Delivery> For(JsonObject record, NotificationSettings settings)
+	public static IReadOnlyList<Delivery> For(JsonObject record, NotificationSettings settings, Func<Phrase, string> render)
 	{
 		ArgumentNullException.ThrowIfNull(record);
 		ArgumentNullException.ThrowIfNull(settings);
+		ArgumentNullException.ThrowIfNull(render);
 
-		var text = $"[{TelemetryNumbers.Text(record["severity"]).ToUpperInvariant()}] {TelemetryNumbers.Text(record["title"])}";
-		if (TelemetryNumbers.Truthy(record["detail"]))
+		var rendered = (JsonObject) record.DeepClone();
+		foreach (var key in new[] { "title", "detail" })
 		{
-			text += "\n" + TelemetryNumbers.Text(record["detail"]);
+			rendered[key] = PhraseJsonConverter.FromNode(record[key]) is { } phrase ? render(phrase) : string.Empty;
+		}
+
+		var text = $"[{TelemetryNumbers.Text(record["severity"]).ToUpperInvariant()}] {TelemetryNumbers.Text(rendered["title"])}";
+		if (TelemetryNumbers.Truthy(rendered["detail"]))
+		{
+			text += "\n" + TelemetryNumbers.Text(rendered["detail"]);
 		}
 
 		var deliveries = new List<Delivery>();
 		if (settings.WebhookUrl.Length > 0)
 		{
-			deliveries.Add(new Delivery(settings.WebhookUrl, (JsonObject) record.DeepClone()));
+			deliveries.Add(new Delivery(settings.WebhookUrl, rendered));
 		}
 
 		if (settings.DiscordUrl.Length > 0)
@@ -374,8 +403,8 @@ public static class NotificationMessage
 	/// <summary>Тестовое сообщение формы «Проверить отправку».</summary>
 	public static JsonObject Test(DateTimeOffset now) => new()
 	{
-		["title"] = "Тест Vintage Story Panel",
-		["detail"] = "Канал уведомлений работает.",
+		["title"] = PhraseJsonConverter.ToNode(Phrase.From("Тест Vintage Story Panel")),
+		["detail"] = PhraseJsonConverter.ToNode(Phrase.From("Канал уведомлений работает.")),
 		["severity"] = "info",
 		["kind"] = "notification.test",
 		["ts"] = now.ToUnixTimeSeconds(),

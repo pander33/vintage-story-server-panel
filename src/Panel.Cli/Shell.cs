@@ -10,7 +10,7 @@ internal sealed record ShellResult(int ExitCode, string Output, string Error)
 	/// <summary>Первая непустая строка ответа для сообщений об отказе.</summary>
 	public string Reason => (Error.Trim() is { Length: > 0 } error ? error : Output.Trim()) is { Length: > 0 } text
 		? text.Split('\n')[0]
-		: $"код выхода {ExitCode}";
+		: $"exit code {ExitCode}";
 }
 
 /// <summary>
@@ -56,7 +56,7 @@ internal static class Shell
 		catch (OperationCanceledException)
 		{
 			process.Kill(entireProcessTree: true);
-			return new ShellResult(124, await output.ConfigureAwait(false), $"{file}: не завершилась за отведённое время");
+			return new ShellResult(124, await output.ConfigureAwait(false), $"{file}: did not finish within the allotted time");
 		}
 
 		return new ShellResult(process.ExitCode, await output.ConfigureAwait(false), await error.ConfigureAwait(false));

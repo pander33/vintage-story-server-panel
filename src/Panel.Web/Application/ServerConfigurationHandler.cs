@@ -139,7 +139,7 @@ public sealed class ServerConfigurationHandler
 		if (!written.IsSuccess)
 		{
 			await Report(instance, "config.save_failed", EventSeverity.Error,
-				"Не удалось сохранить настройки", written.Failure!, ct).ConfigureAwait(false);
+				Phrase.From("Не удалось сохранить настройки"), written.Failure!, ct).ConfigureAwait(false);
 			return Result.Fail<ConfigSaveResponse>(written.Failure!);
 		}
 
@@ -152,7 +152,7 @@ public sealed class ServerConfigurationHandler
 			if (!restarted.IsSuccess)
 			{
 				await Report(instance, "config.apply_failed", EventSeverity.Critical,
-					"Не удалось перезапустить сервер после изменения настроек", restarted.Failure!, ct).ConfigureAwait(false);
+					Phrase.From("Не удалось перезапустить сервер после изменения настроек"), restarted.Failure!, ct).ConfigureAwait(false);
 				return Result.Fail<ConfigSaveResponse>(restarted.Failure!);
 			}
 		}
@@ -192,7 +192,7 @@ public sealed class ServerConfigurationHandler
 		if (!restored.IsSuccess)
 		{
 			await Report(instance, "config.rollback_failed", EventSeverity.Error,
-				"Не удалось откатить настройки", restored.Failure!, ct).ConfigureAwait(false);
+				Phrase.From("Не удалось откатить настройки"), restored.Failure!, ct).ConfigureAwait(false);
 			return Result.Fail<ConfigRollbackResponse>(restored.Failure!);
 		}
 
@@ -211,7 +211,7 @@ public sealed class ServerConfigurationHandler
 			if (!restarted.IsSuccess)
 			{
 				await Report(instance, "config.apply_failed", EventSeverity.Critical,
-					"Не удалось перезапустить сервер после отката настроек", restarted.Failure!, ct).ConfigureAwait(false);
+					Phrase.From("Не удалось перезапустить сервер после отката настроек"), restarted.Failure!, ct).ConfigureAwait(false);
 				return Result.Fail<ConfigRollbackResponse>(restarted.Failure!);
 			}
 		}
@@ -434,10 +434,10 @@ public sealed class ServerConfigurationHandler
 		InstanceId instance,
 		string kind,
 		EventSeverity severity,
-		string title,
+		Phrase title,
 		Failure failure,
 		CancellationToken ct) =>
-		events.EmitAsync(instance, kind, severity, title, failure.Message, "configuration", ct: ct);
+		events.EmitAsync(instance, kind, severity, title, failure.Text, "configuration", ct: ct);
 
 	private sealed record Loaded(ServerConfiguration Configuration, long ModifiedNanoseconds);
 }

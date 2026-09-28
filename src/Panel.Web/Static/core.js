@@ -7,12 +7,12 @@ const VS = (() => {
 	const $ = (selector, root = document) => root.querySelector(selector);
 	const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
-	const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[char]));
+	const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;'}[char]));
 
 	const fmtBytes = value => {
 		const n = Number(value) || 0;
-		if (!n) return '0 Б';
-		const units = ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ'];
+		if (!n) return `0 ${I18N.t('units.b')}`;
+		const units = ['units.b', 'units.kb', 'units.mb', 'units.gb', 'units.tb'].map(key => I18N.t(key));
 		const i = Math.min(Math.floor(Math.log(n) / Math.log(1024)), units.length - 1);
 		return `${(n / 1024 ** i).toFixed(i ? 1 : 0)} ${units[i]}`;
 	};
@@ -20,9 +20,9 @@ const VS = (() => {
 	const fmtDuration = value => {
 		const s = Math.max(0, Number(value) || 0);
 		const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
-		if (d) return `${d} д ${h} ч`;
-		if (h) return `${h} ч ${m} мин`;
-		return `${m} мин`;
+		if (d) return `${d} ${I18N.t('units.d')} ${h} ${I18N.t('units.h')}`;
+		if (h) return `${h} ${I18N.t('units.h')} ${m} ${I18N.t('units.min')}`;
+		return `${m} ${I18N.t('units.min')}`;
 	};
 
 	/** Секунды Unix или ISO-строка — в Date. */
@@ -31,16 +31,16 @@ const VS = (() => {
 		const date = typeof value === 'number' ? new Date(value * 1000) : new Date(value);
 		return Number.isNaN(date.getTime()) ? null : date;
 	};
-	const fmtDateTime = value => { const d = toDate(value); return d ? d.toLocaleString('ru-RU', {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'}) : '—'; };
-	const fmtTime = value => { const d = toDate(value); return d ? d.toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit', second: '2-digit'}) : '—'; };
-	const fmtShortTime = value => { const d = toDate(value); return d ? d.toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'}) : '—'; };
+	const fmtDateTime = value => { const d = toDate(value); return d ? d.toLocaleString(I18N.locale(), {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'}) : '—'; };
+	const fmtTime = value => { const d = toDate(value); return d ? d.toLocaleTimeString(I18N.locale(), {hour: '2-digit', minute: '2-digit', second: '2-digit'}) : '—'; };
+	const fmtShortTime = value => { const d = toDate(value); return d ? d.toLocaleTimeString(I18N.locale(), {hour: '2-digit', minute: '2-digit'}) : '—'; };
 	const fmtAgo = value => {
 		const d = toDate(value);
 		if (!d) return '—';
 		const s = Math.round((Date.now() - d.getTime()) / 1000);
-		if (s < 60) return 'только что';
-		if (s < 3600) return `${Math.floor(s / 60)} мин назад`;
-		if (s < 86400) return `${Math.floor(s / 3600)} ч назад`;
+		if (s < 60) return I18N.t('units.agoJustNow');
+		if (s < 3600) return I18N.t('units.agoMin', {n: Math.floor(s / 60)});
+		if (s < 86400) return I18N.t('units.agoHour', {n: Math.floor(s / 3600)});
 		return fmtDateTime(value);
 	};
 	const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -49,16 +49,16 @@ const VS = (() => {
 		if (!d) return '';
 		const today = new Date();
 		const yesterday = new Date(today.getTime() - 86400000);
-		if (sameDay(d, today)) return 'сегодня';
-		if (sameDay(d, yesterday)) return 'вчера';
-		return d.toLocaleDateString('ru-RU', {day: 'numeric', month: 'long'});
+		if (sameDay(d, today)) return I18N.t('common.today');
+		if (sameDay(d, yesterday)) return I18N.t('common.yesterday');
+		return d.toLocaleDateString(I18N.locale(), {day: 'numeric', month: 'long'});
 	};
 
 	// ---------- состояние ----------
 
 	const state = {csrf: '', user: '', role: 'viewer', page: 'overview', instances: [], current: '', panelInstance: '', status: null, telemetry: null};
 	const rank = {viewer: 0, operator: 1, admin: 2};
-	const roleTitles = {viewer: 'Наблюдатель', operator: 'Оператор', admin: 'Администратор'};
+	const roleTitles = {viewer: I18N.t('role.viewer'), operator: I18N.t('role.operator'), admin: I18N.t('role.admin')};
 	const can = role => (rank[state.role] ?? 0) >= (rank[role] ?? 99);
 
 	// ---------- события ----------
@@ -102,11 +102,11 @@ const VS = (() => {
 		else if (options.body !== undefined) { init.headers['Content-Type'] = 'application/json'; init.body = JSON.stringify(options.body); }
 		let response;
 		try { response = await fetch(path, init); }
-		catch { setConnection(false, 'Нет связи с панелью'); throw new ApiError('Панель недоступна: проверьте соединение', 0); }
+		catch { setConnection(false, I18N.t('core.noConnectionPanel')); throw new ApiError(I18N.t('core.panelUnavailableCheckConnection'), 0); }
 		let data = {};
 		if (response.ok && options.response === 'blob') return response.blob();
 		try { data = await response.json(); } catch { /* пустое тело */ }
-		if (response.status === 401 && !options.allowAnonymous) { showLogin(); throw new ApiError('Требуется вход', 401); }
+		if (response.status === 401 && !options.allowAnonymous) { showLogin(); throw new ApiError(I18N.t('core.loginRequired'), 401); }
 		if (!response.ok) {
 			const detail = typeof data.detail === 'string' ? data.detail : (Array.isArray(data.detail) ? data.detail.map(item => item.msg).join('; ') : '');
 			throw new ApiError(detail || `HTTP ${response.status}`, response.status);
@@ -121,7 +121,7 @@ const VS = (() => {
 		for (const element of $$('[data-min-role]', root)) {
 			const allowed = can(element.dataset.minRole);
 			if (element.hasAttribute('data-hide-denied')) { element.hidden = !allowed; continue; }
-			const title = `Нужна роль «${roleTitles[element.dataset.minRole]}»`;
+			const title = I18N.t('core.requiresRole', {role: roleTitles[element.dataset.minRole]});
 			const controls = element.matches('button, input, select, textarea') ? [element] : $$('button, input, select, textarea', element);
 			if (element.matches('label.button')) element.classList.toggle('is-disabled', !allowed);
 			for (const control of controls) {
@@ -144,14 +144,14 @@ const VS = (() => {
 	 * Диалог подтверждения. phrase — фраза, которую нужно ввести дословно (её же проверяет сервер).
 	 * fields — поля ввода [{name, label, value, placeholder, type, hint}]. Возвращает значения или null.
 	 */
-	function dialog({eyebrow = 'ПОДТВЕРЖДЕНИЕ', title, text = '', phrase = '', fields = [], confirm = 'Продолжить', danger = false, cancel = 'Отмена'}) {
+	function dialog({eyebrow = I18N.t('core.confirmationEyebrow'), title, text = '', phrase = '', fields = [], confirm = I18N.t('core.continue'), danger = false, cancel = I18N.t('core.cancel')}) {
 		return new Promise(resolve => {
 			const box = document.createElement('dialog');
 			box.className = 'dialog small';
-			box.innerHTML = `<form method="dialog"><div class="dialog-head"><div><span class="eyebrow">${esc(eyebrow)}</span><h2>${esc(title)}</h2>${text ? `<p>${esc(text)}</p>` : ""}</div><button class="dialog-close" type="button" value="cancel" aria-label="Закрыть">×</button></div>
-				<div class="dialog-fields">${fields.map((field, index) => `<label class="form-field"><span>${esc(field.label)}</span>${field.type === "textarea" ? `<textarea data-field="${index}" rows="4">${esc(field.value || "")}</textarea>` : `<input data-field="${index}" type="${esc(field.type || "text")}" value="${esc(field.value || "")}" placeholder="${esc(field.placeholder || "")}" autocomplete="off">`}${field.hint ? `<small>${esc(field.hint)}</small>` : ""}</label>`).join("")}
-				${phrase ? `<div class="form-field"><span>Для подтверждения введите</span><div class="dialog-phrase">${esc(phrase)}</div><input data-phrase autocomplete="off" spellcheck="false"></div>` : ""}</div>
-				<div class="dialog-actions"><button class="button" type="button" data-cancel>${esc(cancel)}</button><button class="button ${danger ? "danger" : "primary"}" type="submit" data-confirm>${esc(confirm)}</button></div></form>`;
+			box.innerHTML = `<form method="dialog"><div class="dialog-head"><div><span class="eyebrow">${esc(eyebrow)}</span><h2>${esc(title)}</h2>${text ? `<p>${esc(text)}</p>` : ''}</div><button class="dialog-close" type="button" value="cancel" aria-label="${esc(I18N.t('common.close'))}">×</button></div>
+				<div class="dialog-fields">${fields.map((field, index) => `<label class="form-field"><span>${esc(field.label)}</span>${field.type === 'textarea' ? `<textarea data-field="${index}" rows="4">${esc(field.value || '')}</textarea>` : `<input data-field="${index}" type="${esc(field.type || 'text')}" value="${esc(field.value || '')}" placeholder="${esc(field.placeholder || '')}" autocomplete="off">`}${field.hint ? `<small>${esc(field.hint)}</small>` : ''}</label>`).join('')}
+				${phrase ? `<div class="form-field"><span>${esc(I18N.t('core.typeToConfirm'))}</span><div class="dialog-phrase">${esc(phrase)}</div><input data-phrase autocomplete="off" spellcheck="false"></div>` : ''}</div>
+				<div class="dialog-actions"><button class="button" type="button" data-cancel>${esc(cancel)}</button><button class="button ${danger ? 'danger' : 'primary'}" type="submit" data-confirm>${esc(confirm)}</button></div></form>`;
 			document.body.append(box);
 			const submit = $('[data-confirm]', box), phraseInput = $('[data-phrase]', box);
 			const check = () => { if (phraseInput) submit.disabled = phraseInput.value.trim() !== phrase; };
@@ -171,7 +171,7 @@ const VS = (() => {
 			($('[data-field]', box) || phraseInput || submit).focus();
 		});
 	}
-	const confirmAction = (title, text, confirm = 'Продолжить', danger = false) => dialog({title, text, confirm, danger}).then(result => result !== null);
+	const confirmAction = (title, text, confirm = I18N.t('core.continue'), danger = false) => dialog({title, text, confirm, danger}).then(result => result !== null);
 
 	/**
 	 * Диалог со своим содержимым: заголовок, тело и панель кнопок заполняет вызывающий.
@@ -180,7 +180,7 @@ const VS = (() => {
 	function modal({eyebrow = '', title, text = '', wide = false, onClose = null}) {
 		const box = document.createElement('dialog');
 		box.className = `dialog ${wide ? '' : 'small'}`.trim();
-		box.innerHTML = `<div class="dialog-head"><div>${eyebrow ? `<span class="eyebrow">${esc(eyebrow)}</span>` : ''}<h2>${esc(title)}</h2>${text ? `<p>${esc(text)}</p>` : ''}</div><button class="dialog-close" type="button" aria-label="Закрыть">×</button></div><div class="dialog-fields" data-body></div><div class="dialog-actions" data-actions></div>`;
+		box.innerHTML = `<div class="dialog-head"><div>${eyebrow ? `<span class="eyebrow">${esc(eyebrow)}</span>` : ''}<h2>${esc(title)}</h2>${text ? `<p>${esc(text)}</p>` : ''}</div><button class="dialog-close" type="button" aria-label="${esc(I18N.t('common.close'))}">×</button></div><div class="dialog-fields" data-body></div><div class="dialog-actions" data-actions></div>`;
 		document.body.append(box);
 		const close = () => { if (box.open) box.close(); };
 		$('.dialog-close', box).addEventListener('click', close);
@@ -214,9 +214,9 @@ const VS = (() => {
 		if (operation.box) return;
 		const box = document.createElement('dialog');
 		box.className = 'dialog small';
-		box.innerHTML = `<div class="dialog-head"><div><span class="eyebrow">ВЫПОЛНЯЕТСЯ</span><h2 data-title>Операция на сервере</h2><p>Операцию можно свернуть в строку статуса и продолжить работать.</p></div></div>
-			<div class="dialog-fields"><ol class="progress-steps" data-steps><li class="running">Передача данных и ожидание ответа сервера</li></ol><div class="operation-meter hidden" data-meter><i></i></div><small class="muted" data-elapsed></small></div>
-			<div class="dialog-actions"><button class="button" type="button" data-collapse>Свернуть в строку статуса</button></div>`;
+		box.innerHTML = `<div class="dialog-head"><div><span class="eyebrow">${esc(I18N.t('core.inProgress'))}</span><h2 data-title>${esc(I18N.t('core.serverOperation'))}</h2><p>${esc(I18N.t('core.collapseHint'))}</p></div></div>
+			<div class="dialog-fields"><ol class="progress-steps" data-steps><li class="running">${esc(I18N.t('core.sendingData'))}</li></ol><div class="operation-meter hidden" data-meter><i></i></div><small class="muted" data-elapsed></small></div>
+			<div class="dialog-actions"><button class="button" type="button" data-collapse>${esc(I18N.t('core.collapseToStatusBar'))}</button></div>`;
 		box.addEventListener('cancel', event => event.preventDefault());
 		$('[data-collapse]', box).addEventListener('click', () => closeOperation());
 		document.body.append(box);
@@ -242,25 +242,25 @@ const VS = (() => {
 		if (data.active) { operation.last = data; renderOperation(data); }
 		else if (operation.watching && operation.pending === 0) {
 			closeOperation();
-			toast('Операция завершена', 'ok');
+			toast(I18N.t('core.operationDone'), 'ok');
 			emit('operation-finished');
 		}
 	}
 
 	function renderOperation(data) {
 		const box = operation.box, meter = $('[data-meter]', box);
-		$('[data-title]', box).textContent = data.title || 'Операция на сервере';
+		$('[data-title]', box).textContent = data.title || I18N.t('core.serverOperation');
 		$('[data-steps]', box).innerHTML = (data.stages || []).map((stage, index) => {
 			const state = index < data.stage ? 'done' : (index === data.stage ? 'running' : '');
 			const counting = index === data.stage && data.total_bytes > 0;
-			const detail = counting ? ` — ${fmtBytes(data.done_bytes || 0)} из ${fmtBytes(data.total_bytes)}` : '';
+			const detail = counting ? I18N.t('core.progressDetail', {done: fmtBytes(data.done_bytes || 0), total: fmtBytes(data.total_bytes)}) : '';
 			return `<li class="${state}"><span>${esc(stage)}${esc(detail)}</span></li>`;
 		}).join('');
 		const counting = data.total_bytes > 0;
 		meter.classList.toggle('hidden', !counting);
 		if (counting) $('i', meter).style.width = `${Math.min(100, Math.round((data.done_bytes || 0) * 100 / data.total_bytes))}%`;
 		const seconds = Math.floor(data.elapsed_seconds || 0);
-		$('[data-elapsed]', box).textContent = `Прошло ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+		$('[data-elapsed]', box).textContent = I18N.t('core.elapsedTime', {time: `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`});
 	}
 
 	/** После перезагрузки страницы: если демон ещё работает над операцией, снова показать её ход. */
@@ -307,13 +307,13 @@ const VS = (() => {
 				if (!element.dataset.busyLocked) {
 					element.dataset.busyLocked = '1';
 					element.disabled = true;
-					element.title = 'Сервер занят: дождитесь окончания операции.';
+					element.title = I18N.t('core.serverBusy');
 				}
 			} else if (element.dataset.busyLocked) {
 				delete element.dataset.busyLocked;
 				const role = element.dataset.roleLocked;
 				element.disabled = !!role;
-				element.title = role ? `Нужна роль «${roleTitles[element.dataset.minRole] || ""}»` : '';
+				element.title = role ? I18N.t('core.requiresRole', {role: roleTitles[element.dataset.minRole] || ''}) : '';
 			}
 		}
 	}
@@ -345,8 +345,8 @@ const VS = (() => {
 		} catch { /* оценка недоступна — считаем успехом по умолчанию */ }
 		bar.classList.remove('hidden', 'running');
 		bar.classList.add(ok ? 'ok' : 'error');
-		$('#activity-dot').className = `pulse-dot ${ok ? "ok" : "error"}`;
-		$('#activity-title').textContent = ok ? '✓ Готово' : '✕ Ошибка';
+		$('#activity-dot').className = `pulse-dot ${ok ? 'ok' : 'error'}`;
+		$('#activity-title').textContent = I18N.t(ok ? 'core.done' : 'core.errorShort');
 		$('#activity-stage').textContent = '';
 		$('#activity-track').hidden = true;
 		$('#activity-time').textContent = '';
@@ -510,7 +510,7 @@ const VS = (() => {
 	// ---------- разделы и вкладки ----------
 
 	const pages = {};
-	const pageTitles = {overview: 'Обзор', players: 'Игроки и консоль', logs: 'Журнал и события', content: 'Миры и моды', backups: 'Резервные копии', maintenance: 'Обслуживание', settings: 'Настройки'};
+	const pageTitles = {overview: I18N.t('nav.overview'), players: I18N.t('nav.players'), logs: I18N.t('nav.logs'), content: I18N.t('nav.content'), backups: I18N.t('nav.backups'), maintenance: I18N.t('nav.maintenance'), settings: I18N.t('nav.settings')};
 	const activeTab = {};
 
 	// ---------- мобильное меню ----------
@@ -542,7 +542,7 @@ const VS = (() => {
 		$('#breadcrumb-page').textContent = pageTitles[name];
 		closeMenu();
 		if (tab) selectTab(name, tab, {silent: true});
-		if (updateHash) history.replaceState(null, '', `#${name}${activeTab[name] ? `/${activeTab[name]}` : ""}`);
+		if (updateHash) history.replaceState(null, '', `#${name}${activeTab[name] ? `/${activeTab[name]}` : ''}`);
 		pages[name]?.enter?.(activeTab[name] || defaultTab(name));
 		window.scrollTo({top: 0});
 	}
@@ -592,7 +592,7 @@ const VS = (() => {
 	// ---------- статус и телеметрия ----------
 
 	function setConnection(ok, text) {
-		$('#connection-dot').className = `pulse-dot ${ok ? "ok" : "error"}`;
+		$('#connection-dot').className = `pulse-dot ${ok ? 'ok' : 'error'}`;
 		$('#connection-text').textContent = text;
 	}
 
@@ -600,10 +600,10 @@ const VS = (() => {
 		try {
 			const status = await api('/api/status');
 			state.status = status;
-			setConnection(true, 'Связь установлена');
+			setConnection(true, I18N.t('core.connectionOk'));
 			emit('status', status);
 		} catch (error) {
-			if (error.status !== 401) { setConnection(false, 'Нет связи с сервером'); emit('status-error', error); }
+			if (error.status !== 401) { setConnection(false, I18N.t('core.noConnectionServer')); emit('status-error', error); }
 		}
 	}
 
@@ -614,15 +614,15 @@ const VS = (() => {
 	function updateSystemWidget() {
 		const status = state.status;
 		const dot = $('#system-dot'), title = $('#system-title'), detail = $('#system-detail');
-		if (!status) { dot.className = 'pulse-dot error'; title.textContent = 'Состояние неизвестно'; detail.textContent = 'Панель не получила статус'; return; }
+		if (!status) { dot.className = 'pulse-dot error'; title.textContent = I18N.t('core.stateUnknown'); detail.textContent = I18N.t('core.noStatus'); return; }
 		const health = status.health?.state || 'unknown';
 		const good = ['ready'].includes(health), warn = ['starting', 'degraded', 'disabled', 'stopped', 'recovering'].includes(health);
-		dot.className = `pulse-dot ${good ? "ok" : (warn ? "warn" : "error")}`;
-		title.textContent = good ? 'Сервер готов' : (health === 'stopped' ? 'Сервер остановлен' : (healthTitles[health] || 'Требует внимания'));
-		detail.textContent = `Проверка · ${fmtShortTime(Date.now() / 1000)}`;
+		dot.className = `pulse-dot ${good ? 'ok' : (warn ? 'warn' : 'error')}`;
+		title.textContent = good ? I18N.t('core.serverReady') : (health === 'stopped' ? I18N.t('core.serverStopped') : (healthTitles[health] || I18N.t('core.needsAttention')));
+		detail.textContent = I18N.t('core.checkedAt', {time: fmtShortTime(Date.now() / 1000)});
 	}
 
-	const healthTitles = {disabled: 'Наблюдение выключено', stopped: 'Остановлен', starting: 'Загружается', ready: 'Готов', degraded: 'Ограниченная проверка', unresponsive: 'Нет ответа', hung: 'Зависание подтверждено', recovering: 'Восстановление', unknown: 'Неизвестно'};
+	const healthTitles = Object.fromEntries(['disabled', 'stopped', 'starting', 'ready', 'degraded', 'unresponsive', 'hung', 'recovering', 'unknown'].map(key => [key, I18N.t(`health.${key}`)]));
 	const healthLevel = state => state === 'ready' ? 'ok' : (['starting', 'recovering', 'degraded', 'disabled', 'stopped'].includes(state) ? 'warn' : 'error');
 
 	// ---------- графики ----------
@@ -647,7 +647,7 @@ const VS = (() => {
 	function lineChart(container, options) {
 		container.vsChartArgs = options;
 		chartResize.observe(container);
-		const {series, max, labels = [], marks = [], empty = 'Недостаточно измерений', height = 210, unit = ''} = options;
+		const {series, max, labels = [], marks = [], empty = I18N.t('core.notEnoughData'), height = 210, unit = ''} = options;
 		const length = Math.max(0, ...series.map(item => item.values.length));
 		if (length < 2) { container.innerHTML = `<div class="chart-empty">${esc(empty)}</div>`; return; }
 		const width = 1000, top = 8, bottom = height - 8;
@@ -658,15 +658,15 @@ const VS = (() => {
 			let d = '', open = false;
 			item.values.forEach((value, index) => {
 				if (value === null || value === undefined || Number.isNaN(value)) { open = false; return; }
-				d += `${open ? "L" : "M"}${x(index).toFixed(1)} ${y(value).toFixed(1)}`;
+				d += `${open ? 'L' : 'M'}${x(index).toFixed(1)} ${y(value).toFixed(1)}`;
 				open = true;
 			});
 			const area = item.area && d ? `<path class="area" d="${d}L${width} ${bottom}L0 ${bottom}Z"/>` : '';
 			return `${area}<path class="line ${esc(item.cls)}" d="${d}"/>`;
 		}).join('');
-		const markup = marks.map(mark => `<rect class="mark ${esc(mark.cls || "")}" x="${(x(mark.index) - 3).toFixed(1)}" y="${bottom - 12}" width="6" height="12"/>`).join('');
-		const axis = labels.length ? `<div class="chart-axis">${labels.map(label => `<span>${esc(label)}</span>`).join("")}</div>` : '';
-		container.innerHTML = `<div class="chart-scale">шкала до ${esc(Math.round(max))}${esc(unit)}</div><svg class="chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="График"><path class="gridline" d="${grid}"/>${paths}${markup}</svg>${axis}`;
+		const markup = marks.map(mark => `<rect class="mark ${esc(mark.cls || '')}" x="${(x(mark.index) - 3).toFixed(1)}" y="${bottom - 12}" width="6" height="12"/>`).join('');
+		const axis = labels.length ? `<div class="chart-axis">${labels.map(label => `<span>${esc(label)}</span>`).join('')}</div>` : '';
+		container.innerHTML = `<div class="chart-scale">${esc(I18N.t('core.chartScale', {max: Math.round(max), unit}))}</div><svg class="chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="${esc(I18N.t('core.chartAriaLabel'))}"><path class="gridline" d="${grid}"/>${paths}${markup}</svg>${axis}`;
 		container.querySelector('.chart').style.height = `${height}px`;
 	}
 
@@ -707,10 +707,17 @@ const VS = (() => {
 	}
 
 	function tickClock() {
-		$('#local-time').textContent = new Date().toLocaleDateString('ru-RU', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'});
+		$('#local-time').textContent = new Date().toLocaleDateString(I18N.locale(), {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'});
+	}
+
+	function initLangSwitch() {
+		const buttons = $$('[data-lang]');
+		buttons.forEach(button => button.classList.toggle('active', button.dataset.lang === I18N.getLang()));
+		buttons.forEach(button => button.addEventListener('click', () => I18N.setLang(button.dataset.lang)));
 	}
 
 	document.addEventListener('DOMContentLoaded', async () => {
+		initLangSwitch();
 		tickClock();
 		setInterval(tickClock, 60000);
 

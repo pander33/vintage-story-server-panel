@@ -1,4 +1,5 @@
 using Panel.Observability.Domain;
+using Panel.SharedKernel;
 
 namespace Panel.Observability.Tests;
 
@@ -11,7 +12,7 @@ public sealed class GameEventTests
 	[InlineData("Lava", "Lava")]
 	[InlineData("", "неизвестно")]
 	public void Причина_смерти_по_источнику(string text, string expected) =>
-		Assert.Equal(expected, Event("death", "Alice", text).Detail);
+		Assert.Equal(expected, Event("death", "Alice", text).Detail?.ToString());
 
 	[Fact]
 	public void У_чата_причины_нет() =>

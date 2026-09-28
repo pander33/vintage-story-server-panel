@@ -35,7 +35,7 @@ internal sealed partial class ReleaseHistory
 	{
 		if (!IsVersion(version))
 		{
-			throw new ArgumentException($"Недопустимое имя версии: {version}", nameof(version));
+			throw new ArgumentException($"Invalid version name: {version}", nameof(version));
 		}
 
 		return new ReleaseHistory([.. this.activations.Where(item => item != version), version]);

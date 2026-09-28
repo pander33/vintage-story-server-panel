@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using Panel.Contracts.Privacy;
 using Panel.Observability.Domain;
 using Panel.Web.Application;
+using Panel.SharedKernel;
 
 namespace Panel.Web.Tests;
 
@@ -44,7 +45,7 @@ public sealed class DiagnosticsTests
 
 		var redacted = DiagnosticsRedaction.Redact(payload)!;
 
-		Assert.Equal($"Client {AddressMask.Hidden} disconnected", (string?) redacted["recent_events"]![0]!["detail"]);
+		Assert.Equal($"Client {AddressMask.Hidden} disconnected", redacted["recent_events"]![0]!["detail"].Said());
 		Assert.Equal(42420, (int) redacted["port"]!);
 		Assert.True((bool) redacted["active"]!);
 		Assert.Null(redacted["missing"]);
@@ -66,7 +67,7 @@ public sealed class DiagnosticsTests
 	{
 		var watchdog = new JsonObject { ["state"] = "ready", ["detail"] = "Телеметрия свежая" };
 
-		var causes = DiagnosticsHandler.Causes(true, watchdog, Journal("Address already in use"), string.Empty);
+		var causes = DiagnosticsHandler.Causes(true, watchdog, Journal("Address already in use"), null);
 
 		var startup = causes["startup"]!.AsObject();
 		Assert.Equal("ok", (string?) startup["level"]);
@@ -80,7 +81,7 @@ public sealed class DiagnosticsTests
 	[Fact]
 	public void Найденная_причина_несёт_строку_и_время()
 	{
-		var causes = DiagnosticsHandler.Causes(false, new JsonObject(), Journal("Failed to bind: address already in use"), string.Empty);
+		var causes = DiagnosticsHandler.Causes(false, new JsonObject(), Journal("Failed to bind: address already in use"), null);
 
 		var startup = causes["startup"]!.AsObject();
 		Assert.Equal("error", (string?) startup["level"]);
@@ -94,19 +95,19 @@ public sealed class DiagnosticsTests
 	{
 		var watchdog = new JsonObject { ["state"] = "starting", ["detail"] = "Ждём первую телеметрию" };
 
-		var causes = DiagnosticsHandler.Causes(true, watchdog, Journal("Saving"), string.Empty);
+		var causes = DiagnosticsHandler.Causes(true, watchdog, Journal("Saving"), null);
 
 		Assert.Equal("not-ready", (string?) causes["startup"]!["code"]);
-		Assert.Equal("Ждём первую телеметрию", (string?) causes["startup"]!["detail"]);
+		Assert.Equal("Ждём первую телеметрию", causes["startup"]!["detail"].Said());
 	}
 
 	/// <summary>Пакет собирается и при недоступном журнале: это одна из возможных причин проблем.</summary>
 	[Fact]
 	public void Недоступный_журнал_попадает_в_причины()
 	{
-		var causes = DiagnosticsHandler.Causes(false, new JsonObject(), [], "journalctl не ответил");
+		var causes = DiagnosticsHandler.Causes(false, new JsonObject(), [], Phrase.From("journalctl не ответил"));
 
-		Assert.Equal("journalctl не ответил", (string?) causes["journal_error"]);
+		Assert.Equal("journalctl не ответил", causes["journal_error"].Said());
 		Assert.Equal("stopped", (string?) causes["startup"]!["code"]);
 	}
 
@@ -117,7 +118,7 @@ public sealed class DiagnosticsTests
 			true,
 			new JsonObject { ["state"] = "ready" },
 			Journal("Player Bob is not on the whitelist", "Disconnecting client Eve because server is full"),
-			string.Empty);
+			null);
 
 		var codes = causes["connections"]!.AsArray().Select(item => (string?) item!["code"]).ToList();
 		Assert.Equal(["full", "whitelist"], codes);

@@ -1,4 +1,5 @@
 using System.Globalization;
+using Panel.SharedKernel;
 
 namespace Panel.Agent.Provisioning;
 
@@ -33,16 +34,16 @@ public static class LinuxServersRoot
 	}
 
 	/// <summary>Чем опасен предок; <see langword="null"/>, если ничем.</summary>
-	public static string? Weakness(string path, int uid, int mode)
+	public static Phrase? Weakness(string path, int uid, int mode)
 	{
 		if (uid != 0)
 		{
-			return $"Каталог {path} принадлежит не root: его владелец может подменить каталог серверов. Выберите каталог внутри каталога root, например /srv/vs-panel";
+			return Phrase.Format($"Каталог {path} принадлежит не root: его владелец может подменить каталог серверов. Выберите каталог внутри каталога root, например /srv/vs-panel");
 		}
 
 		if ((mode & groupOrOtherWrite) != 0 && (mode & sticky) == 0)
 		{
-			return $"В каталог {path} может писать не только root: каталог серверов в нём можно подменить. Выберите каталог внутри каталога root, например /srv/vs-panel";
+			return Phrase.Format($"В каталог {path} может писать не только root: каталог серверов в нём можно подменить. Выберите каталог внутри каталога root, например /srv/vs-panel");
 		}
 
 		return null;

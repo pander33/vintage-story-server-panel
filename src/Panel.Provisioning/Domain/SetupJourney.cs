@@ -120,7 +120,7 @@ public sealed class SetupJourney
 
 		if (Prepared is { } prepared && registered.Contains(prepared))
 		{
-			Complete(prepared, $"Сервер {prepared.Value} создан установщиком", now);
+			Complete(prepared, Phrase.Format($"Сервер {prepared.Value} создан установщиком"), now);
 			return true;
 		}
 
@@ -270,7 +270,7 @@ public sealed class SetupJourney
 			return Failure.Conflict("Сервер ещё не зарегистрирован: дождитесь окончания создания");
 		}
 
-		Complete(instance, $"Сервер {instance.Value} создан через мастер установки", now);
+		Complete(instance, Phrase.Format($"Сервер {instance.Value} создан через мастер установки"), now);
 		return Done.Ok;
 	}
 
@@ -284,7 +284,7 @@ public sealed class SetupJourney
 		var reached = Require(SetupStep.Preflight);
 		if (!reached.IsSuccess)
 		{
-			return reached.Failure!.Message == atEarlierStep
+			return reached.Failure!.Text.Equals(atEarlierStep)
 				? Failure.Conflict("Сначала настройте доступ к панели")
 				: reached;
 		}
@@ -293,7 +293,7 @@ public sealed class SetupJourney
 		value["completed_at"] = now;
 		value["step"] = SetupStepWire.ToWire(SetupStep.Done);
 		value.Remove("instance");
-		value["detail"] = "Установка завершена без создания сервера";
+		value["detail"] = PhraseJsonConverter.ToNode(Phrase.From("Установка завершена без создания сервера"));
 		return Done.Ok;
 	}
 
@@ -309,19 +309,19 @@ public sealed class SetupJourney
 			return false;
 		}
 
-		Complete(panelInstance, "Панель была настроена до появления мастера установки", now);
+		Complete(panelInstance, Phrase.From("Панель была настроена до появления мастера установки"), now);
 		return true;
 	}
 
 	public JsonObject ToJson() => (JsonObject) value.DeepClone();
 
-	private void Complete(InstanceId instance, string detail, long now)
+	private void Complete(InstanceId instance, Phrase detail, long now)
 	{
 		value["completed"] = true;
 		value["completed_at"] = now;
 		value["step"] = SetupStepWire.ToWire(SetupStep.Done);
 		value["instance"] = instance.Value;
-		value["detail"] = detail;
+		value["detail"] = PhraseJsonConverter.ToNode(detail);
 	}
 
 	/// <summary><c>remember</c>: записать ответы шага и передвинуть указатель на следующий, только вперёд.</summary>
@@ -359,7 +359,7 @@ public sealed class SetupJourney
 		return Step >= step ? Done.Ok : Failure.Conflict(atEarlierStep);
 	}
 
-	private const string atEarlierStep = "Сначала пройдите предыдущий шаг мастера установки";
+	private static readonly Phrase atEarlierStep = Phrase.From("Сначала пройдите предыдущий шаг мастера установки");
 
 	private static string? Text(JsonNode? node) =>
 		node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;

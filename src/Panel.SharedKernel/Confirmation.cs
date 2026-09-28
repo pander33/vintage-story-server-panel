@@ -10,6 +10,11 @@ namespace Panel.SharedKernel;
 /// (ADR-16), поэтому она не меняется.
 /// </para>
 /// <para>
+/// Интерфейс двуязычный, и человек набирает фразу на языке, который видит: у каждой фразы есть
+/// русская и английская форма, и подходит любая из двух. Смысл фразы — набрать её осознанно, а
+/// не угадать: она не секрет, и вторая форма её не ослабляет.
+/// </para>
+/// <para>
 /// С этим типом новое разрушительное действие получает подтверждение через сигнатуру метода.
 /// </para>
 /// <para>
@@ -21,44 +26,55 @@ namespace Panel.SharedKernel;
 public readonly record struct Confirmation
 {
 	private readonly string expected;
+	private readonly string english;
 
-	private Confirmation(string expected) => this.expected = expected;
+	private Confirmation(string expected, string english)
+	{
+		this.expected = expected;
+		this.english = english;
+	}
 
-	/// <summary>Фраза, которую нужно набрать; показывается в интерфейсе как есть.</summary>
+	/// <summary>Русская форма фразы.</summary>
 	public string Expected => expected ?? string.Empty;
 
+	/// <summary>Английская форма фразы.</summary>
+	public string English => english ?? string.Empty;
+
 	/// <summary>«УДАЛИТЬ имя»: для резервной копии и для перемещения мира в корзину.</summary>
-	public static Confirmation ToDelete(string subject) => new("УДАЛИТЬ " + subject);
+	public static Confirmation ToDelete(string subject) => new("УДАЛИТЬ " + subject, "DELETE " + subject);
 
 	/// <summary>«АРХИВИРОВАТЬ имя»: мир перемещается в <c>.archive</c>, а не в корзину.</summary>
-	public static Confirmation ToArchive(string subject) => new("АРХИВИРОВАТЬ " + subject);
+	public static Confirmation ToArchive(string subject) => new("АРХИВИРОВАТЬ " + subject, "ARCHIVE " + subject);
 
 	/// <summary>«ВОССТАНОВИТЬ имя»: развернуть резервную копию поверх данных.</summary>
-	public static Confirmation ToRestore(string subject) => new("ВОССТАНОВИТЬ " + subject);
+	public static Confirmation ToRestore(string subject) => new("ВОССТАНОВИТЬ " + subject, "RESTORE " + subject);
 
 	/// <summary>«ИЗВЛЕЧЬ имя»: достать мир из резервной копии под новым именем.</summary>
-	public static Confirmation ToExtract(string subject) => new("ИЗВЛЕЧЬ " + subject);
+	public static Confirmation ToExtract(string subject) => new("ИЗВЛЕЧЬ " + subject, "EXTRACT " + subject);
 
 	/// <summary>
 	/// Только имя, без глагола: так подтверждается удаление мода. Отдельная фабрика, чтобы это
 	/// исключение было видно в месте вызова.
 	/// </summary>
-	public static Confirmation ByNameAlone(string subject) => new(subject);
+	public static Confirmation ByNameAlone(string subject) => new(subject, subject);
 
 	/// <summary>
-	/// Фраза без предмета, например «ОЧИСТИТЬ СТАРЫЕ КОПИИ»: для действий над набором, где в
-	/// подтверждении нечего назвать.
+	/// Фраза, заданная целиком на обоих языках, например «ОЧИСТИТЬ СТАРЫЕ КОПИИ» и
+	/// «CLEAR OLD BACKUPS»: для действий над набором и для глаголов, нужных одному маршруту.
 	/// </summary>
-	public static Confirmation Exactly(string phrase) => new(phrase);
+	public static Confirmation Exactly(string russian, string english) => new(russian, english);
 
 	/// <summary>
-	/// Проверка набранного. Сравнение обычное, не за постоянное время: фраза не секрет, она
-	/// показывается на экране.
+	/// Проверка набранного: подходит любая из двух форм. Сравнение обычное, не за постоянное
+	/// время: фраза не секрет, она показывается на экране.
 	/// </summary>
-	public Result<Done> Check(string? typed) =>
-		string.Equals((typed ?? string.Empty).Trim(), Expected.Trim(), StringComparison.Ordinal)
+	public Result<Done> Check(string? typed)
+	{
+		var text = (typed ?? string.Empty).Trim();
+		return string.Equals(text, Expected.Trim(), StringComparison.Ordinal) || string.Equals(text, English.Trim(), StringComparison.Ordinal)
 			? Done.Ok
 			: Failure.Invalid("Фраза подтверждения не совпадает");
+	}
 
 	public override string ToString() => Expected;
 }

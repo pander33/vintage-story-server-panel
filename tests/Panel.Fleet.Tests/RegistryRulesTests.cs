@@ -31,7 +31,7 @@ public sealed class RegistryRulesTests
 	[Fact]
 	public void Недоступный_реестр_не_сбивает_выбор()
 	{
-		var unavailable = new RegistrySnapshot.Unavailable("нет файла");
+		var unavailable = new RegistrySnapshot.Unavailable(Phrase.From("нет файла"));
 
 		Assert.Equal(second, RegistryRules.Resolve(unavailable, second, panel));
 		Assert.Equal(panel, RegistryRules.Resolve(unavailable, null, panel));

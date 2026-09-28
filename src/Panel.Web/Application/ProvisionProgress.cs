@@ -1,11 +1,14 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
+using Panel.Contracts;
+using Panel.SharedKernel;
 
 namespace Panel.Web.Application;
 
 /// <summary>
 /// Ход создания сервера для <c>manage provision</c>: каждый шаг выводится строкой, как только
-/// записан в операцию, а пока шаг идёт, раз в <see cref="Heartbeat"/> выводится «идёт …».
+/// записан в операцию, а пока шаг идёт, раз в <see cref="Heartbeat"/> выводится «идёт …». Вывод —
+/// по-английски, как у всего установщика.
 /// </summary>
 /// <remarks>
 /// Создание сервера занимает минуты: пакет игры в сотни мегабайт, распаковка, первый запуск.
@@ -55,7 +58,7 @@ public sealed class ProvisionProgress
 
 		if (now - lastLine >= Heartbeat)
 		{
-			output.WriteLine($"  … {Pending(steps.Count)} (прошло {Elapsed(now)})");
+			output.WriteLine($"  … {Pending(steps.Count)} ({Elapsed(now)} elapsed)");
 			lastLine = now;
 		}
 
@@ -70,42 +73,42 @@ public sealed class ProvisionProgress
 		var detail = Text(step["detail"]);
 		if (status == "failed")
 		{
-			return $"Ошибка на шаге «{Title(action)}»{(detail.Length > 0 ? ": " + detail : string.Empty)}";
+			return $"Step \"{Title(action)}\" failed{(detail.Length > 0 ? ": " + detail : string.Empty)}";
 		}
 
 		if (status == "skipped")
 		{
-			return detail.Length > 0 ? detail : Capitalized(Title(action)) + ": пропущено";
+			return detail.Length > 0 ? detail : Capitalized(Title(action)) + ": skipped";
 		}
 
 		if (action == "ready")
 		{
 			return status == "ok"
-				? "Сервер готов"
-				: "Готовность сервера не подтверждена" + (detail.Length > 0 ? ": " + detail : string.Empty);
+				? "Server is ready"
+				: "Server readiness not confirmed" + (detail.Length > 0 ? ": " + detail : string.Empty);
 		}
 
 		switch (action)
 		{
 			case "catalogue":
 				packageSize = Number(step["size"]);
-				return $"Версия {Text(step["version"])}" + (packageSize > 0 ? $", пакет {Megabytes(packageSize)} МБ" : string.Empty);
+				return $"Version {Text(step["version"])}" + (packageSize > 0 ? $", package {Megabytes(packageSize)} MB" : string.Empty);
 			case "download":
-				return $"Пакет скачан и сверен: {Megabytes(Number(step["bytes"]))} МБ";
+				return $"Package downloaded and verified: {Megabytes(Number(step["bytes"]))} MB";
 			default:
-				return Capitalized(Title(action)) + ": готово";
+				return Capitalized(Title(action)) + ": done";
 		}
 	}
 
 	/// <summary>Шаг, который идёт после <paramref name="done"/> завершённых.</summary>
 	private string Pending(int done) => done switch
 	{
-		0 => "выбор версии игры",
-		1 => "скачивание пакета игры" + DownloadProgress(),
-		2 => "распаковка и первичная настройка сервера",
-		3 => "регистрация сервера у демона",
-		4 => "запуск сервера",
-		_ => "ожидание готовности сервера",
+		0 => "choosing the game version",
+		1 => "downloading the game package" + DownloadProgress(),
+		2 => "unpacking and initial server setup",
+		3 => "registering the server with the daemon",
+		4 => "starting the server",
+		_ => "waiting for the server to become ready",
 	};
 
 	private string DownloadProgress()
@@ -116,18 +119,18 @@ public sealed class ProvisionProgress
 		}
 
 		return packageSize > 0
-			? $": {Megabytes(bytes)} из {Megabytes(packageSize)} МБ"
-			: $": {Megabytes(bytes)} МБ";
+			? $": {Megabytes(bytes)} of {Megabytes(packageSize)} MB"
+			: $": {Megabytes(bytes)} MB";
 	}
 
 	private static string Title(string action) => action switch
 	{
-		"catalogue" => "выбор версии",
-		"download" => "скачивание пакета",
-		"create" => "распаковка и настройка сервера",
-		"service" => "регистрация сервера у демона",
-		"start" => "запуск сервера",
-		"rollback" => "откат",
+		"catalogue" => "choosing the version",
+		"download" => "downloading the package",
+		"create" => "unpacking and server setup",
+		"service" => "registering the server with the daemon",
+		"start" => "starting the server",
+		"rollback" => "rollback",
 		_ => action,
 	};
 
@@ -144,8 +147,9 @@ public sealed class ProvisionProgress
 
 	private static string Megabytes(long bytes) => (bytes / megabyte).ToString("0", CultureInfo.InvariantCulture);
 
+	/// <summary>Строка или фраза (<c>$phrase</c>) — по-английски, как весь вывод.</summary>
 	private static string Text(JsonNode? node) =>
-		node is JsonValue value && value.TryGetValue<string>(out var text) ? text : string.Empty;
+		PhraseJsonConverter.FromNode(node) is { } phrase ? PhraseCatalog.Translate(phrase, PanelLanguage.English) : string.Empty;
 
 	private static long Number(JsonNode? node) =>
 		node is JsonValue value && value.TryGetValue<long>(out var number) ? number : 0;

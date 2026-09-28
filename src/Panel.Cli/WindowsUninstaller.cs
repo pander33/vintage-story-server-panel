@@ -15,7 +15,7 @@ namespace Panel.Cli;
 internal sealed class WindowsUninstaller
 {
 	/// <summary>Фраза подтверждения полного удаления, как на Linux.</summary>
-	public const string Confirmation = "удалить";
+	public const string Confirmation = "delete";
 
 	private readonly WindowsHost host;
 
@@ -40,20 +40,20 @@ internal sealed class WindowsUninstaller
 					confirmed = true;
 					break;
 				default:
-					throw new InstallFailed($"Неизвестный параметр: {argument}");
+					throw new InstallFailed($"Unknown option: {argument}");
 			}
 		}
 
 		var roots = ServersRoots();
 		if (purge && !confirmed)
 		{
-			Output.WriteLine($"Будут удалены программа {Paths.ProgramRoot}, состояние {this.host.StateDirectory()} (учётные записи,");
-			Output.WriteLine($"аудит, история операций) и настройки {Paths.PanelEnv}, {Paths.PanelConfig}.");
-			Output.WriteLine($"Игровые серверы в {roots}, их миры и копии останутся.");
-			Output.Write($"Для подтверждения введите: {Confirmation}\n> ");
+			Output.WriteLine($"The program {Paths.ProgramRoot}, state {this.host.StateDirectory()} (accounts,");
+			Output.WriteLine($"audit log, operation history) and settings {Paths.PanelEnv}, {Paths.PanelConfig} will be removed.");
+			Output.WriteLine($"Game servers in {roots}, their worlds and backups will remain.");
+			Output.Write($"To confirm, type: {Confirmation}\n> ");
 			if (Console.ReadLine()?.Trim() != Confirmation)
 			{
-				throw new InstallFailed("Отменено.");
+				throw new InstallFailed("Cancelled.");
 			}
 		}
 
@@ -63,7 +63,7 @@ internal sealed class WindowsUninstaller
 			{
 				await this.host.StopAsync(service, 120).ConfigureAwait(false);
 				ServiceManager.Delete(service);
-				Output.WriteLine($"Служба {service} удалена.");
+				Output.WriteLine($"Service {service} removed.");
 			}
 		}
 
@@ -78,16 +78,16 @@ internal sealed class WindowsUninstaller
 		var servers = this.host.RegisteredServers() ?? 1;
 		if (servers > 0)
 		{
-			this.host.Warn($"в реестре серверов: {servers}. Запущенные продолжат работу до перезагрузки, но запускать их больше некому.");
+			this.host.Warn($"Server registry contains {servers}. Running servers will continue until reboot, but nothing will start them afterward.");
 		}
 
 		if (!purge)
 		{
 			// Сама команда остаётся: через неё выполняется полное удаление.
-			Output.WriteLine("Службы панели и демона удалены.");
-			Output.WriteLine($"Сохранены: программа {Paths.ProgramRoot}, данные и настройки {Paths.DataRoot}.");
-			Output.WriteLine("Повторная установка вернёт панель с прежними учётными записями.");
-			Output.WriteLine("Полное удаление: vs-panel uninstall --purge");
+			Output.WriteLine("Panel and agent services removed.");
+			Output.WriteLine($"Preserved: program {Paths.ProgramRoot}, data and settings {Paths.DataRoot}.");
+			Output.WriteLine("Reinstalling will restore the panel with its previous accounts.");
+			Output.WriteLine("Full removal: vs-panel uninstall --purge");
 			return 0;
 		}
 
@@ -112,13 +112,13 @@ internal sealed class WindowsUninstaller
 		// Остальное удаляется сейчас, каталог — при следующей возможности.
 		if (!TryDelete(Paths.ProgramRoot))
 		{
-			Output.WriteLine($"Каталог {Paths.ProgramRoot} занят этой командой — удалите его вручную после выхода.");
+			Output.WriteLine($"Directory {Paths.ProgramRoot} is in use by this command — remove it manually after exit.");
 		}
 
-		Output.WriteLine("Панель удалена полностью.");
+		Output.WriteLine("Panel removed completely.");
 		if (servers != 0)
 		{
-			Output.WriteLine($"Реестр {Paths.Registry} и серверы в {roots} сохранены.");
+			Output.WriteLine($"Registry {Paths.Registry} and servers in {roots} were preserved.");
 		}
 
 		return 0;

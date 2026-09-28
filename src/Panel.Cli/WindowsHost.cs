@@ -25,7 +25,7 @@ internal sealed class WindowsHost
 
 	public void Step(string title) => Output.WriteLine($"\n==> {title}");
 
-	public void Warn(string message) => Console.Error.WriteLine($"Предупреждение: {message}");
+	public void Warn(string message) => Console.Error.WriteLine($"Warning: {message}");
 
 	/// <summary>Состояние службы; <see langword="null"/>, если она не установлена.</summary>
 	public static ServiceControllerStatus? Status(string name)
@@ -59,7 +59,7 @@ internal sealed class WindowsHost
 
 			if (service.Status is ServiceControllerStatus.Running)
 			{
-				Output.WriteLine($"{name} уже работает.");
+				Output.WriteLine($"{name} is already running.");
 				return true;
 			}
 
@@ -70,7 +70,7 @@ internal sealed class WindowsHost
 		}
 		catch (InvalidOperationException exception)
 		{
-			await Console.Error.WriteLineAsync($"{name} не запущена: {Reason(exception)}").ConfigureAwait(false);
+			await Console.Error.WriteLineAsync($"{name} did not start: {Reason(exception)}").ConfigureAwait(false);
 			return false;
 		}
 
@@ -80,26 +80,26 @@ internal sealed class WindowsHost
 			service.Refresh();
 			if (service.Status == ServiceControllerStatus.Running)
 			{
-				Output.WriteLine($"{name} запущена.");
+				Output.WriteLine($"{name} started.");
 				return true;
 			}
 
 			if (service.Status == ServiceControllerStatus.Stopped)
 			{
-				await Console.Error.WriteLineAsync($"{name} остановилась сразу после запуска. Причина — в журнале событий Windows (Журналы Windows → Приложение).").ConfigureAwait(false);
+				await Console.Error.WriteLineAsync($"{name} stopped immediately after starting. Check Windows Event Viewer → Windows Logs → Application.").ConfigureAwait(false);
 				return false;
 			}
 
 			if (elapsed > 0 && elapsed % 10 == 0)
 			{
-				Output.WriteLine($"Ожидание запуска {name}: {service.Status}, прошло {elapsed} с...");
+				Output.WriteLine($"Waiting for {name} to start: {service.Status}, {elapsed} s elapsed...");
 			}
 
 			await Task.Delay(poll).ConfigureAwait(false);
 			elapsed++;
 		}
 
-		await Console.Error.WriteLineAsync($"{name} не запустилась за {seconds} с. Проверьте: vs-panel status").ConfigureAwait(false);
+		await Console.Error.WriteLineAsync($"{name} did not start within {seconds} s. Check: vs-panel status").ConfigureAwait(false);
 		return false;
 	}
 
@@ -124,17 +124,17 @@ internal sealed class WindowsHost
 		}
 		catch (InvalidOperationException exception)
 		{
-			await Console.Error.WriteLineAsync($"{name} не остановлена: {Reason(exception)}").ConfigureAwait(false);
+			await Console.Error.WriteLineAsync($"{name} did not stop: {Reason(exception)}").ConfigureAwait(false);
 			return false;
 		}
 
 		if (await WaitAsync(service, ServiceControllerStatus.Stopped, seconds).ConfigureAwait(false))
 		{
-			Output.WriteLine($"{name} остановлена.");
+			Output.WriteLine($"{name} stopped.");
 			return true;
 		}
 
-		await Console.Error.WriteLineAsync($"{name} не остановилась за {seconds} с: возможно, панель дописывает долгую операцию.").ConfigureAwait(false);
+		await Console.Error.WriteLineAsync($"{name} did not stop within {seconds} s: the panel may be finishing a long operation.").ConfigureAwait(false);
 		return false;
 	}
 
@@ -169,8 +169,8 @@ internal sealed class WindowsHost
 		}
 
 		Output.WriteLine(await DesktopShell.OpenAsync(url).ConfigureAwait(false)
-			? "Страница открыта в браузере."
-			: "Браузер открыть не удалось — откройте ссылку выше вручную.");
+			? "Page opened in the browser."
+			: "Could not open the browser; open the link above manually.");
 	}
 
 	public Dictionary<string, string> PanelEnvironment() => EnvironmentFile.Load(Paths.PanelEnv);

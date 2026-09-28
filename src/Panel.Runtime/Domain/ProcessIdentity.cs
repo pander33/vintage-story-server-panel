@@ -39,11 +39,11 @@ public readonly record struct ProcessIdentity(string BootId, int Pid, long Start
 			|| !int.TryParse(parts[1], out var pid)
 			|| !long.TryParse(parts[2], out var ticks))
 		{
-			return Failure.Invalid("Не удалось разобрать идентичность процесса: " + raw);
+			return Failure.Invalid($"Не удалось разобрать идентичность процесса: {raw}");
 		}
 
 		return new ProcessIdentity(parts[0], pid, ticks);
 	}
 
-	public override string ToString() => IsKnown ? Serialize() : "<неизвестен>";
+	public override string ToString() => IsKnown ? Serialize() : "<unknown>";
 }

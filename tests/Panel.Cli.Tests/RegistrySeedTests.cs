@@ -43,7 +43,7 @@ public sealed class RegistrySeedTests
 			      "data_dir": "/srv/vintagestory/data",
 			      "disk_warning_free_gb": 10,
 			      "command_transport": "fifo",
-			      "name": "Основной сервер"
+			      "name": "Main server"
 			    }
 			  }
 			}

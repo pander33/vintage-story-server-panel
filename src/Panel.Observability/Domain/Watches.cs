@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
+using Panel.SharedKernel;
 
 namespace Panel.Observability.Domain;
 
@@ -30,8 +31,8 @@ public sealed class ServerWatch
 			events.Add(Event(
 				active ? "server.recovered" : "server.stopped",
 				active ? EventSeverity.Info : EventSeverity.Error,
-				active ? "Сервер снова работает" : "Сервер остановлен",
-				string.Empty,
+				active ? Phrase.From("Сервер снова работает") : Phrase.From("Сервер остановлен"),
+				null,
 				now));
 		}
 
@@ -43,8 +44,8 @@ public sealed class ServerWatch
 			events.Add(Event(
 				"disk.low",
 				EventSeverity.Critical,
-				"Заканчивается место на диске",
-				$"Свободно {freeGigabytes.ToString(CultureInfo.InvariantCulture)} ГБ",
+				Phrase.From("Заканчивается место на диске"),
+				Phrase.Format($"Свободно {freeGigabytes} ГБ"),
 				now));
 		}
 
@@ -55,15 +56,15 @@ public sealed class ServerWatch
 			events.Add(Event(
 				"backup.stale",
 				EventSeverity.Warning,
-				"Нет свежей резервной копии",
-				"Последняя копия старше трёх дней или отсутствует.",
+				Phrase.From("Нет свежей резервной копии"),
+				Phrase.From("Последняя копия старше трёх дней или отсутствует."),
 				now));
 		}
 
 		return events;
 	}
 
-	private static PanelEvent Event(string kind, EventSeverity severity, string title, string detail, DateTimeOffset now) =>
+	private static PanelEvent Event(string kind, EventSeverity severity, Phrase title, Phrase? detail, DateTimeOffset now) =>
 		PanelEvent.Create(kind, severity, title, detail, "monitor", now).Value;
 }
 
@@ -109,12 +110,12 @@ public sealed class TelemetryWatch
 		{
 			foreach (var name in names.Except(known).Order(StringComparer.Ordinal))
 			{
-				events.Add(Event("player.joined", EventSeverity.Info, "Игрок вошёл", name, now));
+				events.Add(Event("player.joined", EventSeverity.Info, Phrase.From("Игрок вошёл"), Phrase.From(name), now));
 			}
 
 			foreach (var name in known.Except(names).Order(StringComparer.Ordinal))
 			{
-				events.Add(Event("player.left", EventSeverity.Info, "Игрок вышел", name, now));
+				events.Add(Event("player.left", EventSeverity.Info, Phrase.From("Игрок вышел"), Phrase.From(name), now));
 			}
 
 			known = names;
@@ -139,8 +140,8 @@ public sealed class TelemetryWatch
 					events.Add(Event(
 						"player.ping_critical",
 						EventSeverity.Warning,
-						"Критический ping игрока",
-						$"{name}: {Whole(value)} мс",
+						Phrase.From("Критический ping игрока"),
+						Phrase.Format($"{name}: {Whole(value)} мс"),
 						now,
 						$"player.ping_critical:{name}"));
 				}
@@ -163,8 +164,8 @@ public sealed class TelemetryWatch
 			events.Add(Event(
 				"server.long_tick",
 				EventSeverity.Warning,
-				"Сервер не успевает обрабатывать тики",
-				$"{longTicks.ToString(CultureInfo.InvariantCulture)} длинных тиков подряд, порог {Whole(threshold)} мс",
+				Phrase.From("Сервер не успевает обрабатывать тики"),
+				Phrase.Format($"{longTicks} длинных тиков подряд, порог {Whole(threshold)} мс"),
 				now,
 				"server.long_tick"));
 		}
@@ -179,8 +180,8 @@ public sealed class TelemetryWatch
 	private static PanelEvent Event(
 		string kind,
 		EventSeverity severity,
-		string title,
-		string detail,
+		Phrase title,
+		Phrase detail,
 		DateTimeOffset now,
 		string? dedupeKey = null) =>
 		PanelEvent.Create(kind, severity, title, detail, "telemetry", now, dedupeKey).Value;

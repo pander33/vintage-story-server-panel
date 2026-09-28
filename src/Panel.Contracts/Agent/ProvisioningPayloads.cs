@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Panel.SharedKernel;
 
 namespace Panel.Contracts.Agent;
 
@@ -40,7 +41,7 @@ public sealed record RuntimeProbePayload
 	/// <summary>Причина неудачной проверки; есть только в ответе панели, не демона.</summary>
 	[JsonPropertyName("detail")]
 	[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-	public string? Detail { get; init; }
+	public Phrase? Detail { get; init; }
 }
 
 /// <summary>Ответ <c>disk-free</c>: свободное место там, где будут создаваться серверы.</summary>
@@ -120,7 +121,7 @@ public sealed record PanelEnvironmentSetPayload
 	/// Новое в 2.0: правило брандмауэра для порта панели не удалось привести к новому адресу или
 	/// порту. Строка записана; <see langword="null"/> — с брандмауэром всё в порядке или он не менялся.
 	/// </summary>
-	[JsonPropertyName("firewall_warning")] public string? FirewallWarning { get; init; }
+	[JsonPropertyName("firewall_warning")] public Phrase? FirewallWarning { get; init; }
 }
 
 /// <summary>

@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using Panel.SharedKernel;
 
 namespace Panel.Contracts.Configuration;
 
@@ -91,13 +92,13 @@ public sealed record WorldCategoryPayload
 
 /// <summary>
 /// Ответ демона на <c>world-config-schema</c>: параметры мира, объявленные игрой и включёнными
-/// модами. Подписи уже разрешены (русский → английский → данные игры → сам код), панели искать их
-/// не нужно.
+/// модами. Подписи уже разрешены на языке запроса (русский → английский или английский → данные
+/// игры → сам код), панели искать их не нужно.
 /// </summary>
 public sealed record WorldSchemaPayload
 {
 	[JsonPropertyName("playstyles")] public IReadOnlyList<WorldPlaystylePayload> Playstyles { get; init; } = [];
 	[JsonPropertyName("categories")] public IReadOnlyList<WorldCategoryPayload> Categories { get; init; } = [];
 	[JsonPropertyName("attributes")] public IReadOnlyList<WorldAttributePayload> Attributes { get; init; } = [];
-	[JsonPropertyName("warnings")] public IReadOnlyList<string> Warnings { get; init; } = [];
+	[JsonPropertyName("warnings")] public IReadOnlyList<Phrase> Warnings { get; init; } = [];
 }

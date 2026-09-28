@@ -129,7 +129,7 @@ public static class ConfigEndpoints
 				: PanelResults.Refuse(allowed.Failure!);
 		});
 
-		// ADR-17: маршрут 2.0, из fixtures/routes-2.0.txt. То же право, что у GET /api/world-config:
+		// Маршрут 2.0. То же право, что у GET /api/world-config:
 		// схема нужна, чтобы построить форму шаблона, а не отдельное действие.
 		routes.MapGet("/api/world-config/schema", async (
 			HttpContext http,
@@ -140,7 +140,7 @@ public static class ConfigEndpoints
 			var allowed = PanelResults.Authorize(http, authorizer, typeof(ReadWorldTemplate), requireCsrf: false);
 
 			return allowed.IsSuccess
-				? PanelResults.From(await schema.ReadAsync(Instance(http), ct).ConfigureAwait(false))
+				? PanelResults.From(await schema.ReadAsync(Instance(http), LocalizedJson.LanguageOf(http), ct).ConfigureAwait(false))
 				: PanelResults.Refuse(allowed.Failure!);
 		});
 
@@ -210,13 +210,13 @@ public static class ConfigEndpoints
 			var command = WorldConfigCommand.Create(body.Action, body.DataType, body.Name, body.Value);
 			if (!command.IsSuccess)
 			{
-				return PanelResults.Refuse(StatusCodes.Status409Conflict, command.Failure!.Message);
+				return PanelResults.Refuse(StatusCodes.Status409Conflict, command.Failure!.Text);
 			}
 
 			var sent = await live.ChangeAsync(Instance(http), command.Value, ct).ConfigureAwait(false);
 			if (!sent.IsSuccess)
 			{
-				return PanelResults.Refuse(StatusCodes.Status409Conflict, sent.Failure!.Message);
+				return PanelResults.Refuse(StatusCodes.Status409Conflict, sent.Failure!.Text);
 			}
 
 			await audit
@@ -229,8 +229,8 @@ public static class ConfigEndpoints
 					Instance(http),
 					"world.config",
 					Observability.Domain.EventSeverity.Info,
-					"Команда настройки мира отправлена",
-					$"{command.Value.Action}: {command.Value.Name}",
+					Phrase.From("Команда настройки мира отправлена"),
+					Phrase.Format($"{command.Value.Action}: {command.Value.Name}"),
 					"configuration",
 					notify: false,
 					ct: ct)

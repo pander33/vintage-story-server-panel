@@ -38,7 +38,7 @@ public sealed class ProvisionOperationTests : IDisposable
 	{
 		var operation = Created();
 		operation.NoteHealth(new JsonObject { ["state"] = "ready", ["detail"] = "Сервер отвечает" });
-		operation.Advance(new OperationStep(StepAction.Ready, StepResult.Ok) { Detail = "Сервер отвечает" });
+		operation.Advance(new OperationStep(StepAction.Ready, StepResult.Ok) { Detail = Phrase.From("Сервер отвечает") });
 		operation.Succeed(200);
 
 		var json = operation.ToJson();
@@ -47,10 +47,10 @@ public sealed class ProvisionOperationTests : IDisposable
 			["id", "type", "instance", "title", "target_version", "started_at", "status", "steps", "phase", "root", "health", "detail", "finished_at", "ts"],
 			json.Select(pair => pair.Key));
 		Assert.Equal("instance", (string?) json["type"]);
-		Assert.Equal("Создание сервера creative", (string?) json["title"]);
+		Assert.Equal("Создание сервера creative", json["title"].Said());
 		Assert.Equal("ready", (string?) json["phase"]);
 		Assert.Equal("/srv/vs-panel/creative", (string?) json["root"]);
-		Assert.Equal("Сервер создан, запущен и отвечает", (string?) json["detail"]);
+		Assert.Equal("Сервер создан, запущен и отвечает", json["detail"].Said());
 
 		var steps = json["steps"]!.AsArray();
 		Assert.Equal(
@@ -70,13 +70,13 @@ public sealed class ProvisionOperationTests : IDisposable
 	{
 		var operation = Created();
 		operation.NoteHealth(new JsonObject { ["state"] = "degraded", ["detail"] = "Телеметрия недоступна; автоперезапуск запрещён" });
-		operation.Advance(new OperationStep(StepAction.Ready, StepResult.Warning) { Detail = "Телеметрия недоступна; автоперезапуск запрещён" });
+		operation.Advance(new OperationStep(StepAction.Ready, StepResult.Warning) { Detail = Phrase.From("Телеметрия недоступна; автоперезапуск запрещён") });
 		operation.Succeed(200);
 
 		Assert.Equal(OperationStatus.Success, operation.Status);
 		Assert.Equal(
 			"Сервер создан и запущен, но готовность подтвердить не удалось: Телеметрия недоступна; автоперезапуск запрещён",
-			operation.Detail);
+			operation.Detail?.ToString());
 		Assert.Equal("warning", (string?) operation.ToJson()["steps"]!.AsArray()[^1]!["status"]);
 	}
 
@@ -86,7 +86,7 @@ public sealed class ProvisionOperationTests : IDisposable
 		var operation = Created();
 		operation.Advance(new OperationStep(StepAction.Rollback, StepResult.Skipped)
 		{
-			Detail = "Сервер уже зарегистрирован; удалите его вручную, если он не нужен",
+			Detail = Phrase.From("Сервер уже зарегистрирован; удалите его вручную, если он не нужен"),
 		});
 		operation.Fail(Failure.Unavailable("systemctl start вернул 1"), 200);
 
@@ -103,7 +103,7 @@ public sealed class ProvisionOperationTests : IDisposable
 		preflight.Fail(Failure.Unavailable("нет"), 101);
 
 		Assert.Equal("preflight", (string?) preflight.ToJson()["type"]);
-		Assert.Equal("Сервер не создан", preflight.Title);
+		Assert.Equal("Сервер не создан", preflight.Title.ToString());
 		Assert.Throws<ArgumentException>(() => Operation.Start(OperationId.New(), OperationKind.Provision, 1));
 	}
 
@@ -120,7 +120,7 @@ public sealed class ProvisionOperationTests : IDisposable
 
 		Assert.NotNull(recovered);
 		Assert.Equal("interrupted", (string?) recovered!["status"]);
-		Assert.Equal(OperationRecovery.InterruptedProvisionDetail, (string?) recovered["detail"]);
+		Assert.Equal(OperationRecovery.InterruptedProvisionDetail, PhraseJsonConverter.FromNode(recovered["detail"]));
 		Assert.Equal(100, (long) recovered["ts"]!);
 		Assert.Null(await store.ReadCurrentAsync(CancellationToken.None));
 		Assert.Single(await store.RecentAsync(20, CancellationToken.None));

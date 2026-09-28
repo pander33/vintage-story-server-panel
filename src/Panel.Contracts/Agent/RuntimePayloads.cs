@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Panel.SharedKernel;
 
 namespace Panel.Contracts.Agent;
 
@@ -33,7 +34,7 @@ public sealed record ConsoleCapabilityPayload
 {
 	[JsonPropertyName("transport")] public string Transport { get; init; } = "disabled";
 	[JsonPropertyName("available")] public bool Available { get; init; }
-	[JsonPropertyName("reason")] public string? Reason { get; init; }
+	[JsonPropertyName("reason")] public Phrase? Reason { get; init; }
 }
 
 /// <summary>

@@ -69,7 +69,7 @@ public sealed class ServerConfigurationTests
 	{
 		var config = Configuration("{\"Port\":0}");
 
-		Assert.Equal("Порт: значение меньше 1", config.ValidationWarning);
+		Assert.Equal("Порт: значение меньше 1", config.ValidationWarning?.ToString());
 		Assert.Null(Configuration("{\"Port\":1}").ValidationWarning);
 	}
 
@@ -97,7 +97,7 @@ public sealed class ServerConfigurationTests
 			custom =>
 			{
 				Assert.Equal("Custom", custom.Key);
-				Assert.Equal("Custom", custom.Label);
+				Assert.Equal("Custom", custom.Label.ToString());
 				Assert.True(custom.RestartRequired);
 			},
 			whitelist =>
@@ -107,7 +107,7 @@ public sealed class ServerConfigurationTests
 			},
 			port =>
 			{
-				Assert.Equal("Порт", port.Label);
+				Assert.Equal("Порт", port.Label.ToString());
 				Assert.Equal("42420", port.Before!.ToJsonString());
 				Assert.Equal("42421", port.After!.ToJsonString());
 			});

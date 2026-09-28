@@ -26,7 +26,7 @@ internal sealed class LinuxHost
 
 	public void Step(string title) => Output.WriteLine($"\n==> {title}");
 
-	public void Warn(string message) => Console.Error.WriteLine($"Предупреждение: {message}");
+	public void Warn(string message) => Console.Error.WriteLine($"Warning: {message}");
 
 	public Task<ShellResult> SystemctlAsync(params string[] arguments) => Shell.RunAsync("systemctl", arguments, quick);
 
@@ -58,11 +58,11 @@ internal sealed class LinuxHost
 			.ConfigureAwait(false);
 		if (!created.Succeeded)
 		{
-			throw new InstallFailed($"Учётная запись {InstallPaths.PanelUser} не создана: {created.Reason}");
+			throw new InstallFailed($"Account {InstallPaths.PanelUser} was not created: {created.Reason}");
 		}
 
 		return await UidAsync(InstallPaths.PanelUser).ConfigureAwait(false)
-			?? throw new InstallFailed($"Учётная запись {InstallPaths.PanelUser} создана, но не находится");
+			?? throw new InstallFailed($"Account {InstallPaths.PanelUser} was created but cannot be found");
 	}
 
 	public static void CreateDirectory(string path, UnixFileMode mode)
@@ -92,7 +92,7 @@ internal sealed class LinuxHost
 		var changed = await Shell.RunAsync("chown", arguments, quick).ConfigureAwait(false);
 		if (!changed.Succeeded)
 		{
-			throw new InstallFailed($"Владелец {path} не изменён: {changed.Reason}");
+			throw new InstallFailed($"Owner of {path} was not changed: {changed.Reason}");
 		}
 	}
 
@@ -108,7 +108,7 @@ internal sealed class LinuxHost
 		var moved = made.Succeeded ? await Shell.RunAsync("mv", ["-Tf", temporary, link], quick).ConfigureAwait(false) : made;
 		if (!moved.Succeeded)
 		{
-			throw new InstallFailed($"Ссылка {link} → {target} не заменена: {moved.Reason}");
+			throw new InstallFailed($"Link {link} → {target} was not replaced: {moved.Reason}");
 		}
 	}
 
@@ -167,26 +167,26 @@ internal sealed class LinuxHost
 			var pid = await UnitPropertyAsync(unit, "MainPID").ConfigureAwait(false);
 			if (state == "active" && pid is not ("" or "0") && (oldPid is "" or "0" || pid != oldPid))
 			{
-				Output.WriteLine($"{unit} запущен: PID {pid}.");
+				Output.WriteLine($"{unit} started: PID {pid}.");
 				return true;
 			}
 
 			if (state == "failed")
 			{
-				await Console.Error.WriteLineAsync($"Не удалось запустить {unit}.").ConfigureAwait(false);
+				await Console.Error.WriteLineAsync($"Could not start {unit}.").ConfigureAwait(false);
 				await Shell.RunAttachedAsync("systemctl", ["status", unit, "--no-pager", "-l"]).ConfigureAwait(false);
 				return false;
 			}
 
-			Output.WriteLine($"Ожидание запуска {unit}: {(state.Length > 0 ? state : "unknown")}, прошло {elapsed} с...");
+			Output.WriteLine($"Waiting for {unit} to start: {(state.Length > 0 ? state : "unknown")}, {elapsed} s elapsed...");
 			await Task.Delay(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
 			elapsed += 5;
 		}
 
-		await Console.Error.WriteLineAsync($"\nЗапуск передан systemd, но не завершился за {seconds} с.").ConfigureAwait(false);
-		await Console.Error.WriteLineAsync("Операция не была принудительно прервана: панель может безопасно завершать обновление или резервную копию.").ConfigureAwait(false);
-		await Console.Error.WriteLineAsync($"Проверьте: systemctl status {unit} --no-pager -l").ConfigureAwait(false);
-		await Console.Error.WriteLineAsync($"И журнал:  journalctl -u {unit} -n 100 --no-pager").ConfigureAwait(false);
+		await Console.Error.WriteLineAsync($"\nStart was requested from systemd but did not finish within {seconds} s.").ConfigureAwait(false);
+		await Console.Error.WriteLineAsync("The operation was not forcibly interrupted: the panel may be finishing an update or backup safely.").ConfigureAwait(false);
+		await Console.Error.WriteLineAsync($"Check: systemctl status {unit} --no-pager -l").ConfigureAwait(false);
+		await Console.Error.WriteLineAsync($"And the log: journalctl -u {unit} -n 100 --no-pager").ConfigureAwait(false);
 		return false;
 	}
 

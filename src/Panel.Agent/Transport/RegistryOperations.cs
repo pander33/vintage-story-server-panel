@@ -97,7 +97,7 @@ public sealed partial class RegistryOperations : IRegistryOperations
 		var name = InstanceName.Create(Argument(request, 1));
 		if (!id.IsSuccess || !name.IsSuccess)
 		{
-			return AgentReply.Failure("invalid", (id.Failure ?? name.Failure)!.Message);
+			return AgentReply.Failure("invalid", (id.Failure ?? name.Failure)!.Text);
 		}
 
 		var renamed = await editor.EditAsync(document =>

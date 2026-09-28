@@ -137,7 +137,7 @@ public sealed class AgentDispatcherTests
 
 		Assert.True(reply.Ok);
 		Assert.True(group.Seen!.Active);
-		Assert.Equal(title, group.Seen.Title);
+		Assert.Equal(title, group.Seen.Title?.ToString());
 		Assert.Equal(op, group.Seen.Kind);
 		Assert.False(tracker.Snapshot("main").Active);
 	}
@@ -159,7 +159,7 @@ public sealed class AgentDispatcherTests
 
 		await Dispatcher(registry: [group]).DispatchAsync(Request(AgentProtocol.OpInstanceDelete, "-", "main"), CancellationToken.None);
 
-		Assert.Equal("Удаление сервера", group.Seen!.Title);
+		Assert.Equal("Удаление сервера", group.Seen!.Title?.ToString());
 		Assert.False(tracker.Snapshot("main").Active);
 	}
 

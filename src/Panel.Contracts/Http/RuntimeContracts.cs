@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Panel.Contracts.ServerCommands;
+using Panel.SharedKernel;
 
 namespace Panel.Contracts.Http;
 
@@ -68,7 +69,7 @@ public sealed record CommandCapabilityResponse
 {
 	[JsonPropertyName("commands")] public required bool Commands { get; init; }
 	[JsonPropertyName("transport")] public required string Transport { get; init; }
-	[JsonPropertyName("detail")] public required string Detail { get; init; }
+	[JsonPropertyName("detail")] public required Phrase Detail { get; init; }
 }
 
 /// <summary>
@@ -78,11 +79,11 @@ public sealed record CommandCapabilityResponse
 public sealed record ServerCommandView
 {
 	[JsonPropertyName("action")] public required string Action { get; init; }
-	[JsonPropertyName("group")] public required string Group { get; init; }
-	[JsonPropertyName("label")] public required string Label { get; init; }
-	[JsonPropertyName("hint")] public required string Hint { get; init; }
+	[JsonPropertyName("group")] public required Phrase Group { get; init; }
+	[JsonPropertyName("label")] public required Phrase Label { get; init; }
+	[JsonPropertyName("hint")] public required Phrase Hint { get; init; }
 	[JsonPropertyName("reply")] public required bool Reply { get; init; }
-	[JsonPropertyName("confirm")] public string? Confirm { get; init; }
+	[JsonPropertyName("confirm")] public Phrase? Confirm { get; init; }
 	[JsonPropertyName("value")] public ValueDomainView? Value { get; init; }
 
 	public static ServerCommandView Of(ServerCommandSpec spec) => new()
@@ -102,7 +103,7 @@ public sealed record ValueDomainView
 	/// <summary>choice | number | time: какой элемент нарисовать.</summary>
 	[JsonPropertyName("kind")] public required string Kind { get; init; }
 
-	[JsonPropertyName("label")] public required string Label { get; init; }
+	[JsonPropertyName("label")] public required Phrase Label { get; init; }
 	[JsonPropertyName("options")] public IReadOnlyList<string>? Options { get; init; }
 	[JsonPropertyName("min")] public decimal? Min { get; init; }
 	[JsonPropertyName("max")] public decimal? Max { get; init; }
@@ -149,7 +150,7 @@ public sealed record ConsoleStateResponse
 {
 	[JsonPropertyName("transport")] public required string Transport { get; init; }
 	[JsonPropertyName("available")] public required bool Available { get; init; }
-	[JsonPropertyName("detail")] public string? Detail { get; init; }
+	[JsonPropertyName("detail")] public Phrase? Detail { get; init; }
 }
 
 public sealed record ServerCommandResponse

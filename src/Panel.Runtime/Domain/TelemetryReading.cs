@@ -1,3 +1,5 @@
+using Panel.SharedKernel;
+
 namespace Panel.Runtime.Domain;
 
 /// <summary>
@@ -17,5 +19,5 @@ public abstract record TelemetryReading
 	public sealed record Stale(TelemetrySnapshot Snapshot, TimeSpan Age) : TelemetryReading;
 
 	/// <summary>Снимка нет. Причина по-русски, она показывается в интерфейсе.</summary>
-	public sealed record Unavailable(string Detail) : TelemetryReading;
+	public sealed record Unavailable(Phrase? Detail) : TelemetryReading;
 }

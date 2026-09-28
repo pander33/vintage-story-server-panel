@@ -1,31 +1,32 @@
 using System.Collections.Concurrent;
 using Panel.Contracts.Content;
+using Panel.SharedKernel;
 
 namespace Panel.Agent.Content;
 
-/// <summary>Названия стадий долгих операций: их читает человек, и они же служат ключом стадии.</summary>
+/// <summary>Названия стадий долгих операций: их читает человек (переводит панель), и они же служат ключом стадии.</summary>
 public static class OperationStages
 {
-	public const string Verify = "Проверка копии";
-	public const string Stop = "Остановка сервера";
-	public const string Safety = "Страховочная копия текущих данных";
-	public const string Checksums = "Подсчёт контрольных сумм";
-	public const string Pack = "Упаковка данных";
-	public const string Check = "Проверка архива";
-	public const string Extract = "Распаковка копии";
-	public const string Swap = "Замена данных сервера";
-	public const string Extracting = "Извлечение мира";
-	public const string Start = "Запуск сервера";
+	public static readonly Phrase Verify = Phrase.From("Проверка копии");
+	public static readonly Phrase Stop = Phrase.From("Остановка сервера");
+	public static readonly Phrase Safety = Phrase.From("Страховочная копия текущих данных");
+	public static readonly Phrase Checksums = Phrase.From("Подсчёт контрольных сумм");
+	public static readonly Phrase Pack = Phrase.From("Упаковка данных");
+	public static readonly Phrase Check = Phrase.From("Проверка архива");
+	public static readonly Phrase Extract = Phrase.From("Распаковка копии");
+	public static readonly Phrase Swap = Phrase.From("Замена данных сервера");
+	public static readonly Phrase Extracting = Phrase.From("Извлечение мира");
+	public static readonly Phrase Start = Phrase.From("Запуск сервера");
 
-	public const string BackupTitle = "Создание резервной копии";
-	public const string ExportTitle = "Экспорт пакета сервера";
-	public const string RestoreTitle = "Восстановление копии";
-	public const string RestoreWorldTitle = "Извлечение мира из копии";
+	public static readonly Phrase BackupTitle = Phrase.From("Создание резервной копии");
+	public static readonly Phrase ExportTitle = Phrase.From("Экспорт пакета сервера");
+	public static readonly Phrase RestoreTitle = Phrase.From("Восстановление копии");
+	public static readonly Phrase RestoreWorldTitle = Phrase.From("Извлечение мира из копии");
 
-	public static readonly IReadOnlyList<string> Backup = [Stop, Checksums, Pack, Check, Start];
-	public static readonly IReadOnlyList<string> Export = [Stop, Checksums, Pack, Check, Start];
-	public static readonly IReadOnlyList<string> Restore = [Verify, Stop, Safety, Extract, Swap, Start];
-	public static readonly IReadOnlyList<string> RestoreWorld = [Verify, Extracting];
+	public static readonly IReadOnlyList<Phrase> Backup = [Stop, Checksums, Pack, Check, Start];
+	public static readonly IReadOnlyList<Phrase> Export = [Stop, Checksums, Pack, Check, Start];
+	public static readonly IReadOnlyList<Phrase> Restore = [Verify, Stop, Safety, Extract, Swap, Start];
+	public static readonly IReadOnlyList<Phrase> RestoreWorld = [Verify, Extracting];
 }
 
 /// <summary>
@@ -47,7 +48,7 @@ public sealed class OperationTracker
 	}
 
 	/// <summary>Начать операцию. Запись убирается, когда возвращённая область освобождена.</summary>
-	public OperationScope Begin(string instance, string kind, IReadOnlyList<string> stages, string title = "")
+	public OperationScope Begin(string instance, string kind, IReadOnlyList<Phrase> stages, Phrase title)
 	{
 		ArgumentException.ThrowIfNullOrEmpty(instance);
 		var scope = new OperationScope(this, instance, kind, title, stages, clock.GetTimestamp(), clock);
@@ -68,8 +69,8 @@ public sealed class OperationScope : IDisposable
 {
 	private readonly OperationTracker owner;
 	private readonly string kind;
-	private readonly string title;
-	private readonly IReadOnlyList<string> stages;
+	private readonly Phrase title;
+	private readonly IReadOnlyList<Phrase> stages;
 	private readonly long started;
 	private readonly TimeProvider clock;
 	private readonly Lock gate = new();
@@ -78,7 +79,7 @@ public sealed class OperationScope : IDisposable
 	private long? total;
 
 	internal OperationScope(
-		OperationTracker owner, string instance, string kind, string title, IReadOnlyList<string> stages, long started, TimeProvider clock)
+		OperationTracker owner, string instance, string kind, Phrase title, IReadOnlyList<Phrase> stages, long started, TimeProvider clock)
 	{
 		this.owner = owner;
 		Instance = instance;
@@ -92,12 +93,12 @@ public sealed class OperationScope : IDisposable
 	public string Instance { get; }
 
 	/// <summary>Перейти к стадии по названию. Названия, которых в этой операции нет, пропускаются.</summary>
-	public void Enter(string title)
+	public void Enter(Phrase title)
 	{
 		var index = -1;
 		for (var candidate = 0; candidate < stages.Count; candidate++)
 		{
-			if (stages[candidate] == title)
+			if (stages[candidate].Equals(title))
 			{
 				index = candidate;
 				break;

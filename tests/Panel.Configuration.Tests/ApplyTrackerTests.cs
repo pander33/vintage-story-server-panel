@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Panel.Configuration.Domain;
+using Panel.SharedKernel;
 
 namespace Panel.Configuration.Tests;
 
@@ -16,14 +17,14 @@ public sealed class ApplyTrackerTests
 		ServerConfiguration.FromJson(JsonNode.Parse("{\"Port\":42420}")).Value;
 
 	private static readonly IReadOnlyList<ConfigChange> portChanged =
-		[new("Port", "Порт", 1, 42420, RestartRequired: true)];
+		[new("Port", Phrase.From("Порт"), 1, 42420, RestartRequired: true)];
 
 	[Fact]
 	public void Отметка_хранит_только_ключи_требующие_перезапуска()
 	{
 		var marker = ApplyTracker.Mark(
 			saved,
-			[.. portChanged, new("OnlyWhitelisted", "…", false, true, RestartRequired: false)],
+			[.. portChanged, new("OnlyWhitelisted", Phrase.From("…"), false, true, RestartRequired: false)],
 			Running(process),
 			now);
 

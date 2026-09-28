@@ -108,7 +108,7 @@ internal static class Templates
 	public static string Read(string name)
 	{
 		using var stream = typeof(Templates).Assembly.GetManifestResourceStream("Panel.Cli.Deploy." + name)
-			?? throw new InvalidOperationException($"Шаблон {name} не встроен в сборку");
+			?? throw new InvalidOperationException($"Template {name} is not embedded in the assembly");
 		using var reader = new StreamReader(stream);
 		return reader.ReadToEnd().Replace("\r\n", "\n", StringComparison.Ordinal);
 	}

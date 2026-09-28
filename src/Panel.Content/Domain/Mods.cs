@@ -193,6 +193,6 @@ public sealed record ModProfile(ModProfileName Name, IReadOnlyList<ModArchiveNam
 		return absent.Length == 0
 			? Done.Ok
 			: Failure.Conflict(
-				"Профиль ссылается на моды, которых больше нет: " + string.Join(", ", absent.Select(file => file.Value)));
+				$"Профиль ссылается на моды, которых больше нет: {string.Join(", ", absent.Select(file => file.Value))}");
 	}
 }

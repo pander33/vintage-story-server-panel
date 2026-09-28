@@ -761,5 +761,5 @@ public sealed class ContentOperations : IServerOperations
 			FailureCode.Forbidden => "forbidden",
 			_ => "unavailable",
 		},
-		failure.Message);
+		failure.Text);
 }

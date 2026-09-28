@@ -36,7 +36,7 @@ public readonly record struct ConfigRevision
 }
 
 /// <summary>Одно отличие двух конфигураций в виде строки предпросмотра.</summary>
-public sealed record ConfigChange(string Key, string Label, JsonNode? Before, JsonNode? After, bool RestartRequired);
+public sealed record ConfigChange(string Key, Phrase Label, JsonNode? Before, JsonNode? After, bool RestartRequired);
 
 /// <summary>
 /// Содержимое <c>serverconfig.json</c> одного сервера.
@@ -111,7 +111,7 @@ public sealed class ServerConfiguration
 	/// Предупреждение для формы. На старом или изменённом модами сервере значение может выходить
 	/// за схему; редактор при этом работает, а отказ будет только при сохранении.
 	/// </summary>
-	public string? ValidationWarning => Validate().Match<string?>(_ => null, failure => failure.Message);
+	public Phrase? ValidationWarning => Validate().Match<Phrase?>(_ => null, failure => failure.Text);
 
 	/// <summary>
 	/// Отличия этой конфигурации от следующей: ключи без учёта регистра, пароль скрыт.
@@ -139,7 +139,7 @@ public sealed class ServerConfiguration
 			var field = ConfigSchema.FindFor(key);
 			changes.Add(new ConfigChange(
 				key,
-				field?.Label ?? key,
+				field?.Label ?? Phrase.From(key),
 				Shown(key, before),
 				Shown(key, after),
 				field?.RestartRequired ?? true));

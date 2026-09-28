@@ -58,5 +58,5 @@ public sealed class PlayerListOperations : IServerOperations
 			FailureCode.Conflict => "conflict",
 			_ => "unavailable",
 		},
-		failure.Message);
+		failure.Text);
 }

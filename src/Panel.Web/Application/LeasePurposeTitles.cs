@@ -1,19 +1,20 @@
 using Panel.Maintenance.Domain;
+using Panel.SharedKernel;
 
 namespace Panel.Web.Application;
 
 /// <summary>
-/// Русская подпись назначения аренды для строки операций (интерфейс 2.1 §1). Текст интерфейса,
+/// Подпись назначения аренды для строки операций (интерфейс 2.1 §1). Текст интерфейса,
 /// поэтому лежит здесь, а не в домене Maintenance.
 /// </summary>
 public static class LeasePurposeTitles
 {
-	public static string ToTitle(LeasePurpose purpose) => purpose switch
+	public static Phrase ToTitle(LeasePurpose purpose) => purpose switch
 	{
-		LeasePurpose.ScheduledMaintenance => "Плановое обслуживание",
-		LeasePurpose.WatchdogRecovery => "Восстановление наблюдателем",
-		LeasePurpose.Update => "Обновление",
-		LeasePurpose.Provision => "Создание сервера",
-		_ => "Обслуживание",
+		LeasePurpose.ScheduledMaintenance => Phrase.From("Плановое обслуживание"),
+		LeasePurpose.WatchdogRecovery => Phrase.From("Восстановление наблюдателем"),
+		LeasePurpose.Update => Phrase.From("Обновление"),
+		LeasePurpose.Provision => Phrase.From("Создание сервера"),
+		_ => Phrase.From("Обслуживание"),
 	};
 }

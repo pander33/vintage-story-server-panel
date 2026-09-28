@@ -128,7 +128,7 @@ public static partial class SetupEndpoints
 				return PanelResults.Refuse(StatusCodes.Status409Conflict, "Сначала пройдите предыдущий шаг мастера установки");
 			}
 
-			string? firewallWarning = null;
+			Phrase? firewallWarning = null;
 			foreach (var (key, value) in access.Value.Values)
 			{
 				// Значение проверяется и здесь, чтобы оператор получил понятное «неверный адрес», а не отказ
@@ -161,7 +161,7 @@ public static partial class SetupEndpoints
 				["published"] = access.Value.Published,
 				["restart_required"] = true,
 				["url"] = access.Value.Url,
-				["firewall_warning"] = firewallWarning,
+				["firewall_warning"] = firewallWarning is null ? null : PhraseJsonConverter.ToNode(firewallWarning),
 			});
 		});
 
@@ -283,13 +283,13 @@ public static partial class SetupEndpoints
 			var spec = guarded.Journey!.SpecificationToCreate();
 			if (!spec.IsSuccess)
 			{
-				return PanelResults.Refuse(StatusCodes.Status400BadRequest, spec.Failure!.Message);
+				return PanelResults.Refuse(StatusCodes.Status400BadRequest, spec.Failure!.Text);
 			}
 
 			var launched = await provision.LaunchAsync(spec.Value).ConfigureAwait(false);
 			if (!launched.IsSuccess)
 			{
-				return PanelResults.Refuse(StatusCodes.Status409Conflict, launched.Failure!.Message);
+				return PanelResults.Refuse(StatusCodes.Status409Conflict, launched.Failure!.Text);
 			}
 
 			await setup.ChangeAsync(journey => journey.BeginCreation(launched.Value.Value), ct).ConfigureAwait(false);
@@ -312,7 +312,7 @@ public static partial class SetupEndpoints
 
 			await ServerSentEvents.StreamAsync(http, TimeSpan.FromSeconds(2), ct, async previous =>
 			{
-				var encoded = (await provision.SnapshotAsync(ct).ConfigureAwait(false)).ToJsonString(PanelJson.Options);
+				var encoded = LocalizedJson.Serialize(await provision.SnapshotAsync(ct).ConfigureAwait(false), http);
 				return encoded == previous ? null : encoded;
 			}).ConfigureAwait(false);
 			return Results.Empty;
@@ -476,7 +476,7 @@ public static partial class SetupEndpoints
 				return PanelResults.Refuse(closed.Failure!);
 			}
 
-			await audit.RecordAsync(http, "setup_finished", "без сервера", ct).ConfigureAwait(false);
+			await audit.RecordAsync(http, "setup_finished", "without_server", ct).ConfigureAwait(false);
 			return await RestartAsync(host, body, null, PanelUrl(guarded.Journey!, options), ct).ConfigureAwait(false);
 		}
 
@@ -550,7 +550,7 @@ public static partial class SetupEndpoints
 					["instance"] = instance,
 					["url"] = url,
 					["restarted"] = false,
-					["detail"] = "Панель не удалось перезапустить автоматически: " + restart.Failure!.Message,
+					["detail"] = PhraseJsonConverter.ToNode(Phrase.Format($"Панель не удалось перезапустить автоматически: {restart.Failure!}")),
 				});
 			}
 
@@ -563,7 +563,7 @@ public static partial class SetupEndpoints
 			["instance"] = instance,
 			["url"] = url,
 			["restarted"] = restarted,
-			["detail"] = restarted ? "Перезапуск панели выполняется" : "Перезапустите панель: sudo systemctl restart vs-panel",
+			["detail"] = PhraseJsonConverter.ToNode(restarted ? Phrase.From("Перезапуск панели выполняется") : Phrase.From("Перезапустите панель: sudo systemctl restart vs-panel")),
 		});
 	}
 
@@ -620,7 +620,7 @@ public static partial class SetupEndpoints
 	private static IResult Gone() => PanelResults.Refuse(StatusCodes.Status410Gone, "Мастер установки уже завершён");
 
 	/// <summary>Отказ привилегированной стороны — 502.</summary>
-	private static IResult Upstream(Failure failure) => PanelResults.Refuse(StatusCodes.Status502BadGateway, failure.Message);
+	private static IResult Upstream(Failure failure) => PanelResults.Refuse(StatusCodes.Status502BadGateway, failure.Text);
 
 	private static bool Flag(string? value) =>
 		value?.Trim().ToLowerInvariant() is "1" or "true" or "on" or "yes" or "y" or "t";

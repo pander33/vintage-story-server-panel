@@ -78,7 +78,7 @@ public static class RuntimeEndpoints
 				{
 					Transport = "disabled",
 					Available = false,
-					Detail = server.Failure!.Message,
+					Detail = server.Failure!.Text,
 				};
 
 			return PanelResults.Json(new CommandCatalogueResponse
@@ -90,7 +90,7 @@ public static class RuntimeEndpoints
 				{
 					Commands = console.Available,
 					Transport = console.Transport,
-					Detail = console.Detail ?? string.Empty,
+					Detail = console.Detail ?? Phrase.From(string.Empty),
 				},
 			});
 		});

@@ -103,7 +103,7 @@ public sealed class GetServerStatusHandler
 	internal static StatusResponse Compose(
 		ServiceSnapshot service,
 		ReadinessVerdict verdict,
-		string? recoveryBlocked = null,
+		Phrase? recoveryBlocked = null,
 		Panel.Maintenance.Domain.MaintenanceLease? lease = null) => new()
 		{
 			Active = service.IsActive,

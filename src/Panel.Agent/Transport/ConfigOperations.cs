@@ -71,5 +71,5 @@ public sealed class ConfigOperations : IServerOperations
 			FailureCode.Conflict => "conflict",
 			_ => "unavailable",
 		},
-		failure.Message);
+		failure.Text);
 }

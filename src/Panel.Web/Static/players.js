@@ -6,8 +6,8 @@
 (() => {
 	const {$, $$, esc, fmtTime, fmtShortTime, state, api, toast, fail, busy} = VS;
 
-	const QUALITY = {excellent: 'Отличное', good: 'Хорошее', unstable: 'Нестабильное', poor: 'Плохое', unavailable: 'Нет данных'};
-	const CHAT_KINDS = {chat: 'Чат', join: 'Вход', leave: 'Выход', death: 'Смерть', respawn: 'Возрождение'};
+	const QUALITY = {excellent: I18N.t('playersDynamic.p001'), good: I18N.t('playersDynamic.p002'), unstable: I18N.t('playersDynamic.p003'), poor: I18N.t('playersDynamic.p004'), unavailable: I18N.t('playersDynamic.p005')};
+	const CHAT_KINDS = {chat: I18N.t('playersDynamic.p006'), join: I18N.t('playersDynamic.p007'), leave: I18N.t('playersDynamic.p008'), death: I18N.t('playersDynamic.p009'), respawn: I18N.t('playersDynamic.p010')};
 	const RAW_HISTORY_KEY = 'vs-console-history';
 
 	let catalogue = [];
@@ -59,11 +59,11 @@
 				const level = replyLevel(line);
 				if (level === 'error') outcome = 'error';
 				else if (level === 'warn' && outcome === 'ok') outcome = 'warn';
-				block.append(consoleRow(line, `reply${level ? ` ${level}` : ""}`));
+				block.append(consoleRow(line, `reply${level ? ` ${level}` : ''}`));
 			});
 			block.classList.add(outcome);
 		} else {
-			block.append(consoleRow('Сервер не вывел ответ за секунду ожидания. Полный вывод — во вкладке «Журнал».', 'quiet'));
+			block.append(consoleRow(I18N.t('playersDynamic.p011'), 'quiet'));
 			block.classList.add('quiet-outcome');
 		}
 		output.append(block);
@@ -73,36 +73,36 @@
 
 	function setConsoleState(available, text) {
 		consoleAvailable = available;
-		$('#console-dot').className = `pulse-dot ${available ? "ok" : "error"}`;
+		$('#console-dot').className = `pulse-dot ${available ? 'ok' : 'error'}`;
 		$('#console-state').textContent = text;
 		$$('#console-catalog-form button, #console-raw-form button, #console-raw-input').forEach(control => { if (!control.dataset.roleLocked && !control.dataset.busyLocked) control.disabled = !available || (control.closest('#console-raw-form') ? !VS.can('admin') : !VS.can('operator')); });
 	}
 
 	function valueControl(item) {
 		const value = item.value;
-		if (!value) return '<input disabled placeholder="Без значения">';
-		if (value.kind === 'choice') return `<select id="console-value">${value.options.map(option => `<option>${esc(option)}</option>`).join("")}</select>`;
-		return `<input id="console-value" type="number" min="${esc(value.min)}" max="${esc(value.max)}" step="${esc(value.step ?? 1)}" value="${esc(value.default ?? "")}">`;
+		if (!value) return I18N.t('playersDynamic.p012');
+		if (value.kind === 'choice') return `<select id="console-value">${value.options.map(option => `<option>${esc(option)}</option>`).join('')}</select>`;
+		return `<input id="console-value" type="number" min="${esc(value.min)}" max="${esc(value.max)}" step="${esc(value.step ?? 1)}" value="${esc(value.default ?? '')}">`;
 	}
 
 	function renderCatalogValue() {
 		const item = catalogue.find(entry => entry.action === $('#console-action').value);
 		$('#console-value-slot').innerHTML = item ? valueControl(item) : '';
-		$('#console-value-field > span').textContent = item?.value?.label || 'Значение';
-		$('#console-action-hint').textContent = item ? [item.hint, item.confirm ? `Потребует подтверждения: ${item.confirm}` : ''].filter(Boolean).join(' · ') : '';
+		$('#console-value-field > span').textContent = item?.value?.label || I18N.t('playersDynamic.p013');
+		$('#console-action-hint').textContent = item ? [item.hint, item.confirm ? `${I18N.t('playersDynamic.p014')}${item.confirm}` : ''].filter(Boolean).join(' · ') : '';
 	}
 
 	async function loadCatalogue() {
 		const data = await api('/api/server/actions');
 		catalogue = data.commands || [];
 		const groups = {};
-		catalogue.forEach(item => { (groups[item.group || 'Прочее'] ||= []).push(item); });
+		catalogue.forEach(item => { (groups[item.group || I18N.t('playersDynamic.p015')] ||= []).push(item); });
 		const selected = $('#console-action').value;
-		$('#console-action').innerHTML = Object.entries(groups).map(([group, items]) => `<optgroup label="${esc(group)}">${items.map(item => `<option value="${esc(item.action)}">${esc(item.label)}</option>`).join("")}</optgroup>`).join('');
+		$('#console-action').innerHTML = Object.entries(groups).map(([group, items]) => `<optgroup label="${esc(group)}">${items.map(item => `<option value="${esc(item.action)}">${esc(item.label)}</option>`).join('')}</optgroup>`).join('');
 		if (catalogue.some(item => item.action === selected)) $('#console-action').value = selected;
 		renderCatalogValue();
 		const capability = data.capability || {};
-		setConsoleState(!!capability.commands, capability.commands ? `Канал ${capability.transport} доступен` : `Консоль недоступна: ${capability.detail || "транспорт не настроен"}`);
+		setConsoleState(!!capability.commands, capability.commands ? `${I18N.t('playersDynamic.p016')}${capability.transport}${I18N.t('playersDynamic.p017')}` : `${I18N.t('playersDynamic.p018')}${capability.detail || I18N.t('playersDynamic.p019')}`);
 	}
 
 	function selectConsoleMode(mode) {
@@ -121,11 +121,11 @@
 	// ---------- очистка и копирование вывода ----------
 
 	$('#console-clear').addEventListener('click', () => {
-		$('#console-output').innerHTML = '<div class="quiet">Ответы сервера появятся здесь.</div>';
+		$('#console-output').innerHTML = I18N.t('playersDynamic.p020');
 	});
 	$('#console-copy-all').addEventListener('click', () => {
 		const text = $$('#console-output time').map(time => `${time.textContent} ${time.nextSibling?.textContent || ''}`).join('\n');
-		navigator.clipboard?.writeText(text).then(() => toast('Вывод скопирован', 'ok')).catch(() => {});
+		navigator.clipboard?.writeText(text).then(() => toast(I18N.t('playersDynamic.p021'), 'ok')).catch(() => {});
 	});
 
 	// ---------- закреплённые команды ----------
@@ -139,8 +139,8 @@
 		const box = $('#console-pins');
 		box.hidden = !pins.length;
 		box.innerHTML = pins.map((pin, index) => pin.kind === 'raw'
-			? `<button type="button" data-raw data-pin="${index}" title="Подставить в поле">${esc(pin.label)}</button>`
-			: `<button type="button" data-pin="${index}" title="Отправить">${esc(pin.label)}</button>`).join('');
+			? `<button type="button" data-raw data-pin="${index}${I18N.t('playersDynamic.p022')}${esc(pin.label)}</button>`
+			: `<button type="button" data-pin="${index}${I18N.t('playersDynamic.p023')}${esc(pin.label)}</button>`).join('');
 	}
 
 	function addPin(pin) {
@@ -165,7 +165,7 @@
 			return;
 		}
 		const item = catalogue.find(entry => entry.action === pin.action);
-		if (!item) { toast('Действие каталога больше недоступно', 'error'); return; }
+		if (!item) { toast(I18N.t('playersDynamic.p024'), 'error'); return; }
 		api('/api/server/action', {method: 'POST', body: {action: pin.action, value: pin.value || ''}})
 			.then(data => printReply(data.command || pin.label, data.reply || []))
 			.catch(error => { consoleLine(`${pin.label}: ${error.message}`, 'fail'); fail(error); });
@@ -194,7 +194,7 @@
 		const firstSpace = trimmed.indexOf(' ');
 		const head = firstSpace === -1 ? trimmed : trimmed.slice(0, firstSpace);
 		const byHistory = rawHistory.filter(item => item.startsWith(trimmed) && item !== trimmed).slice(-5).reverse()
-			.map(item => ({command: item, syntax: item, description: 'Из истории'}));
+			.map(item => ({command: item, syntax: item, description: I18N.t('playersDynamic.p025')}));
 		const byCommand = firstSpace === -1
 			? consoleCommands.filter(item => item.command.startsWith(head))
 			: consoleCommands.filter(item => item.command === head);
@@ -210,10 +210,10 @@
 	function renderSuggest() {
 		const list = $('#console-suggest');
 		if (!suggestItems.length) { closeSuggest(); return; }
-		list.innerHTML = suggestItems.map((item, index) => `<li role="option" class="${index === suggestIndex ? "active" : ""}" data-index="${index}">${esc(item.syntax)}${item.description ? `<small>${esc(item.description)}</small>` : ""}</li>`).join('');
+		list.innerHTML = suggestItems.map((item, index) => `<li role="option" class="${index === suggestIndex ? 'active' : ''}" data-index="${index}">${esc(item.syntax)}${item.description ? `<small>${esc(item.description)}</small>` : ''}</li>`).join('');
 		list.classList.remove('hidden');
 		$('#console-raw-input').setAttribute('aria-expanded', 'true');
-		$('#console-raw-syntax').textContent = suggestIndex >= 0 ? suggestItems[suggestIndex].syntax : 'Строка уходит в консоль игры как есть и записывается в аудит. Только для администратора.';
+		$('#console-raw-syntax').textContent = suggestIndex >= 0 ? suggestItems[suggestIndex].syntax : I18N.t('playersDynamic.p026');
 	}
 
 	function applySuggestion(index) {
@@ -241,7 +241,7 @@
 		const action = $('#console-action').value;
 		const item = catalogue.find(entry => entry.action === action);
 		if (!item) return;
-		if (item.confirm && !await VS.confirmAction(item.label, item.confirm, 'Выполнить')) return;
+		if (item.confirm && !await VS.confirmAction(item.label, item.confirm, I18N.t('playersDynamic.p027'))) return;
 		const value = $('#console-value') ? String($('#console-value').value) : '';
 		try {
 			const data = await busy(event.submitter, () => api('/api/server/action', {method: 'POST', body: {action, value}}));
@@ -297,18 +297,14 @@
 	function renderPlayers(list) {
 		players = list;
 		const picked = $('#player-name').value.trim();
-		$('#players-table').innerHTML = list.map(player => `<tr class="clickable${player.name === picked ? " picked" : ""}" data-player="${esc(player.name)}">
-			<td data-label="Игрок"><span class="player-cell"><span class="player-avatar">${esc((player.name || "?").slice(0, 1))}</span><span>${esc(player.name)}<small>${esc(player.role || player.state || "")}</small></span></span></td>
-			<td class="mono" data-label="Адрес">${esc(player.ip || (VS.can("operator") ? "—" : "скрыт"))}</td>
-			<td data-label="Ping"><b>${player.ping_ms == null ? "—" : `${Number(player.ping_ms).toFixed(0)} мс`}</b></td>
-			<td data-label="Средний / макс.">${player.average_ping_ms == null ? "—" : `${Number(player.average_ping_ms).toFixed(0)} / ${Number(player.max_ping_ms).toFixed(0)} мс`}</td>
-			<td data-label="Jitter">${player.jitter_ms == null ? "—" : `${Number(player.jitter_ms).toFixed(1)} мс`}${player.spike_count ? `<small>${esc(player.spike_count)} скач.</small>` : ""}</td>
-			<td data-label="Качество"><span class="quality ${esc(player.quality || "unavailable")}">${esc(QUALITY[player.quality] || "Нет данных")}</span></td></tr>`).join('') || '<tr><td colspan="6" class="muted">Подключённых игроков нет</td></tr>';
+		$('#players-table').innerHTML = list.map(player => `<tr class="clickable${player.name === picked ? ' picked' : ''}" data-player="${esc(player.name)}${I18N.t('playersDynamic.p028')}${esc((player.name || '?').slice(0, 1))}</span><span>${esc(player.name)}<small>${esc(player.role || player.state || '')}${I18N.t('playersDynamic.p029')}${esc(player.ip || (VS.can('operator') ? '—' : I18N.t('playersDynamic.p030')))}</td>
+			<td data-label="Ping"><b>${player.ping_ms == null ? '—' : `${Number(player.ping_ms).toFixed(0)}${I18N.t('playersDynamic.p031')}`}${I18N.t('playersDynamic.p032')}${player.average_ping_ms == null ? '—' : `${Number(player.average_ping_ms).toFixed(0)} / ${Number(player.max_ping_ms).toFixed(0)}${I18N.t('playersDynamic.p033')}`}</td>
+			<td data-label="Jitter">${player.jitter_ms == null ? '—' : `${Number(player.jitter_ms).toFixed(1)}${I18N.t('playersDynamic.p034')}`}${player.spike_count ? `<small>${esc(player.spike_count)}${I18N.t('playersDynamic.p035')}` : ''}${I18N.t('playersDynamic.p036')}${esc(player.quality || 'unavailable')}">${esc(QUALITY[player.quality] || I18N.t('playersDynamic.p037'))}</span></td></tr>`).join('') || I18N.t('playersDynamic.p038');
 		$('#player-names').innerHTML = list.map(player => `<option value="${esc(player.name)}">`).join('');
 		const select = $('#ping-player'), selected = select.value;
-		select.innerHTML = '<option value="">Выберите игрока</option>' + list.map(player => `<option value="${esc(player.name)}">${esc(player.name)}</option>`).join('');
+		select.innerHTML = I18N.t('playersDynamic.p039') + list.map(player => `<option value="${esc(player.name)}">${esc(player.name)}</option>`).join('');
 		if (list.some(player => player.name === selected)) select.value = selected;
-		$('#quality-list').innerHTML = list.map(player => `<div><span class="player-avatar">${esc(player.name.slice(0, 1))}</span><span class="grow"><b>${esc(player.name)}</b><small>ping ${player.ping_ms == null ? "—" : `${Number(player.ping_ms).toFixed(0)} мс`} · jitter ${player.jitter_ms == null ? "—" : `${Number(player.jitter_ms).toFixed(1)} мс`} · скачков ${esc(player.spike_count || 0)}${player.ip ? ` · ${esc(player.ip)}` : ""}</small></span><span class="quality ${esc(player.quality || "unavailable")}">${esc(QUALITY[player.quality] || "Нет данных")}</span></div>`).join('') || '<div class="empty">Подключённых игроков нет.</div>';
+		$('#quality-list').innerHTML = list.map(player => `<div><span class="player-avatar">${esc(player.name.slice(0, 1))}</span><span class="grow"><b>${esc(player.name)}</b><small>ping ${player.ping_ms == null ? '—' : `${Number(player.ping_ms).toFixed(0)}${I18N.t('playersDynamic.p040')}`} · jitter ${player.jitter_ms == null ? '—' : `${Number(player.jitter_ms).toFixed(1)}${I18N.t('playersDynamic.p041')}`}${I18N.t('playersDynamic.p042')}${esc(player.spike_count || 0)}${player.ip ? ` · ${esc(player.ip)}` : ''}</small></span><span class="quality ${esc(player.quality || 'unavailable')}">${esc(QUALITY[player.quality] || I18N.t('playersDynamic.p043'))}</span></div>`).join('') || I18N.t('playersDynamic.p044');
 	}
 
 	$('#players-table').addEventListener('click', event => {
@@ -321,16 +317,16 @@
 
 	function renderTelemetryState(telemetry) {
 		const fresh = telemetry?.available && !telemetry?.stale;
-		$('#telemetry-dot').className = `pulse-dot ${fresh ? "ok" : "warn"}`;
-		$('#telemetry-detail').textContent = fresh ? `Телеметрия получена ${telemetry.age_seconds != null ? `${telemetry.age_seconds} с назад` : "только что"}` : (telemetry?.detail || 'Телеметрия недоступна: показан список из журнала, ping неизвестен');
-		$('#players-source').textContent = fresh ? 'Список обновляется вместе с телеметрией' : 'Резервный список из журнала: ping и качество недоступны';
+		$('#telemetry-dot').className = `pulse-dot ${fresh ? 'ok' : 'warn'}`;
+		$('#telemetry-detail').textContent = fresh ? `${I18N.t('playersDynamic.p045')}${telemetry.age_seconds != null ? `${telemetry.age_seconds}${I18N.t('playersDynamic.p046')}` : I18N.t('playersDynamic.p047')}` : (telemetry?.detail || I18N.t('playersDynamic.p048'));
+		$('#players-source').textContent = fresh ? I18N.t('playersDynamic.p049') : I18N.t('playersDynamic.p050');
 	}
 
 	function renderPlayerEvents(events) {
 		$('#player-events').innerHTML = events.slice(-12).reverse().map(event => {
 			const player = event.player_event || {};
-			return `<div><time>${esc(event.timestamp ? fmtShortTime(event.timestamp) : "—")}</time><span class="event-kind ${player.type === "join" ? "join" : "leave"}">${player.type === "join" ? "Вход" : "Выход"}</span><span><strong>${esc(player.player)}</strong></span></div>`;
-		}).join('') || '<div class="empty">Входов и выходов в журнале пока нет.</div>';
+			return `<div><time>${esc(event.timestamp ? fmtShortTime(event.timestamp) : '—')}</time><span class="event-kind ${player.type === 'join' ? 'join' : 'leave'}">${player.type === 'join' ? I18N.t('playersDynamic.p051') : I18N.t('playersDynamic.p052')}</span><span><strong>${esc(player.player)}</strong></span></div>`;
+		}).join('') || I18N.t('playersDynamic.p053');
 	}
 
 	async function loadPlayers() {
@@ -339,7 +335,7 @@
 		renderTelemetryState(data.telemetry || {});
 		renderPlayerEvents(data.events || []);
 		const count = (data.online || []).length;
-		$('#players-count').textContent = `${String(count).padStart(2, "0")} онлайн`;
+		$('#players-count').textContent = `${String(count).padStart(2, '0')}${I18N.t('playersDynamic.p054')}`;
 	}
 
 	function watchPlayerEvents() {
@@ -352,7 +348,7 @@
 	VS.on('telemetry', data => {
 		if (state.page !== 'players' || !(data?.available && !data?.stale)) return;
 		// Поток телеметрии несёт игроков без статистики ping; полная таблица — по запросу раз в 10 с.
-		$('#players-count').textContent = `${String((data.players || []).length).padStart(2, "0")} онлайн`;
+		$('#players-count').textContent = `${String((data.players || []).length).padStart(2, '0')}${I18N.t('playersDynamic.p055')}`;
 	});
 
 	$('#players-refresh').addEventListener('click', event => busy(event.currentTarget, loadPlayers).catch(fail));
@@ -367,16 +363,16 @@
 	$('#player-action').addEventListener('change', updateActionForm);
 	updateActionForm();
 
-	const ACTION_TITLES = {kick: 'Отключить', ban: 'Заблокировать', unban: 'Разблокировать', 'whitelist-add': 'Добавить в whitelist', 'whitelist-remove': 'Убрать из whitelist', op: 'Выдать оператора', deop: 'Снять оператора', gamemode: 'Сменить режим'};
+	const ACTION_TITLES = {kick: I18N.t('playersDynamic.p056'), ban: I18N.t('playersDynamic.p057'), unban: I18N.t('playersDynamic.p058'), 'whitelist-add': I18N.t('playersDynamic.p059'), 'whitelist-remove': I18N.t('playersDynamic.p060'), op: I18N.t('playersDynamic.p061'), deop: I18N.t('playersDynamic.p062'), gamemode: I18N.t('playersDynamic.p063')};
 
 	$('#player-action-form').addEventListener('submit', async event => {
 		event.preventDefault();
 		const action = $('#player-action').value, player = $('#player-name').value.trim();
 		const detail = action === 'gamemode' ? $('#player-mode').value : $('#player-detail').value.trim();
-		if (['ban', 'op'].includes(action) && !await VS.confirmAction(`${ACTION_TITLES[action]}: ${player}?`, action === 'ban' ? 'Игрок будет отключён и не сможет войти до разблокировки.' : 'Оператор получает полный доступ к командам сервера.', ACTION_TITLES[action], action === 'ban')) return;
+		if (['ban', 'op'].includes(action) && !await VS.confirmAction(`${ACTION_TITLES[action]}: ${player}?`, action === 'ban' ? I18N.t('playersDynamic.p064') : I18N.t('playersDynamic.p065'), ACTION_TITLES[action], action === 'ban')) return;
 		try {
 			await busy(event.submitter, () => api('/api/players/action', {method: 'POST', body: {action, player, detail}}));
-			toast(`${ACTION_TITLES[action]}: ${player} — команда отправлена`, 'ok');
+			toast(`${ACTION_TITLES[action]}: ${player}${I18N.t('playersDynamic.p066')}`, 'ok');
 			$('#player-detail').value = '';
 			setTimeout(() => loadPlayers().catch(() => {}), 1200);
 			if (['ban', 'unban', 'whitelist-add', 'whitelist-remove'].includes(action)) reloadListsSoon();
@@ -390,7 +386,7 @@
 			await busy(event.submitter, () => api('/api/players/action', {method: 'POST', body: {action: 'announce', player: '', detail: text}}));
 			$('#announce-text').value = '';
 			consoleLine(`> /announce ${text}`, 'sent');
-			toast('Объявление отправлено', 'ok');
+			toast(I18N.t('playersDynamic.p067'), 'ok');
 		} catch (error) { fail(error); }
 	});
 
@@ -398,27 +394,27 @@
 
 	function chatText(event) {
 		if (event.kind === 'chat') return event.text || '';
-		if (event.kind === 'death') return `погиб: ${event.detail || event.text || "причина неизвестна"}`;
-		return {join: 'вошёл в игру', leave: 'вышел из игры', respawn: 'возродился'}[event.kind] || event.text || '';
+		if (event.kind === 'death') return `${I18N.t('playersDynamic.p068')}${event.detail || event.text || I18N.t('playersDynamic.p069')}`;
+		return {join: I18N.t('playersDynamic.p070'), leave: I18N.t('playersDynamic.p071'), respawn: I18N.t('playersDynamic.p072')}[event.kind] || event.text || '';
 	}
-	const chatRow = event => `<div><time>${esc(event.at ? fmtShortTime(event.at) : "—")}</time><span class="event-kind ${esc(event.kind)}">${esc(CHAT_KINDS[event.kind] || event.kind)}</span><span><strong>${esc(event.player || "—")}</strong> ${esc(chatText(event))}</span></div>`;
-	const chatQuery = () => `kind=${encodeURIComponent($("#chat-kind").value)}&search=${encodeURIComponent($("#chat-search").value.trim())}`;
+	const chatRow = event => `<div><time>${esc(event.at ? fmtShortTime(event.at) : '—')}</time><span class="event-kind ${esc(event.kind)}">${esc(CHAT_KINDS[event.kind] || event.kind)}</span><span><strong>${esc(event.player || '—')}</strong> ${esc(chatText(event))}</span></div>`;
+	const chatQuery = () => `kind=${encodeURIComponent($('#chat-kind').value)}&search=${encodeURIComponent($('#chat-search').value.trim())}`;
 
 	async function loadChat() {
 		VS.closeStream('chat');
 		const data = await api(`/api/game-events?lines=200&${chatQuery()}`);
 		const support = $('#chat-support');
 		support.classList.toggle('hidden', !!data.supported);
-		support.className = `notice warn${data.supported ? " hidden" : ""}`;
-		support.textContent = 'Установленный мод телеметрии не ведёт журнал событий. Обновите vspaneltelemetry и перезапустите сервер.';
+		support.className = `notice warn${data.supported ? ' hidden' : ''}`;
+		support.textContent = I18N.t('playersDynamic.p073');
 		const feed = $('#chat-feed');
-		feed.innerHTML = (data.events || []).map(chatRow).join('') || '<div class="empty">Событий пока нет.</div>';
+		feed.innerHTML = (data.events || []).map(chatRow).join('') || I18N.t('playersDynamic.p074');
 		feed.scrollTop = feed.scrollHeight;
-		if (!data.supported) { $('#chat-state').textContent = 'Поток недоступен'; return; }
+		if (!data.supported) { $('#chat-state').textContent = I18N.t('playersDynamic.p075'); return; }
 		VS.stream('chat', `/api/game-events/stream?${chatQuery()}`, {
 			page: 'players',
-			onOpen: () => { $('#chat-state').textContent = 'Поток активен'; },
-			onError: () => { $('#chat-state').textContent = 'Переподключение…'; },
+			onOpen: () => { $('#chat-state').textContent = I18N.t('playersDynamic.p076'); },
+			onError: () => { $('#chat-state').textContent = I18N.t('playersDynamic.p077'); },
 			onMessage: event => {
 				if (event.stream_error) { $('#chat-state').textContent = event.stream_error; return; }
 				const box = $('#chat-feed'), bottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
@@ -439,13 +435,13 @@
 	async function loadPing() {
 		const player = $('#ping-player').value;
 		const box = $('#ping-chart');
-		if (!player) { box.innerHTML = '<div class="chart-empty">Выберите подключённого игрока.</div>'; $('#ping-summary').innerHTML = ''; return; }
+		if (!player) { box.innerHTML = I18N.t('playersDynamic.p078'); $('#ping-summary').innerHTML = ''; return; }
 		const data = await api(`/api/telemetry?player=${encodeURIComponent(player)}&minutes=60`);
 		const history = data.history || [];
 		const values = history.map(point => Number(point.ping_ms) || 0);
-		VS.lineChart(box, {series: [{values, cls: 'ping', area: true}], max: Math.max(50, ...values) * 1.1, unit: ' мс', labels: VS.timeLabels(history.map(point => point.ts)), empty: `Недостаточно измерений для ${player}.`, height: 190});
+		VS.lineChart(box, {series: [{values, cls: 'ping', area: true}], max: Math.max(50, ...values) * 1.1, unit: I18N.t('playersDynamic.p079'), labels: VS.timeLabels(history.map(point => point.ts)), empty: `${I18N.t('playersDynamic.p080')}${player}.`, height: 190});
 		const info = players.find(item => item.name === player) || {};
-		$('#ping-summary').innerHTML = values.length ? `<span>Сейчас <b>${info.ping_ms == null ? "—" : `${Number(info.ping_ms).toFixed(0)} мс`}</b></span><span>Средний <b>${(values.reduce((a, b) => a + b, 0) / values.length).toFixed(0)} мс</b></span><span>Максимум <b>${Math.max(...values).toFixed(0)} мс</b></span><span>Jitter <b>${info.jitter_ms == null ? "—" : `${Number(info.jitter_ms).toFixed(1)} мс`}</b></span>` : '';
+		$('#ping-summary').innerHTML = values.length ? `${I18N.t('playersDynamic.p081')}${info.ping_ms == null ? '—' : `${Number(info.ping_ms).toFixed(0)}${I18N.t('playersDynamic.p082')}`}${I18N.t('playersDynamic.p083')}${(values.reduce((a, b) => a + b, 0) / values.length).toFixed(0)}${I18N.t('playersDynamic.p084')}${Math.max(...values).toFixed(0)}${I18N.t('playersDynamic.p085')}${info.jitter_ms == null ? '—' : `${Number(info.jitter_ms).toFixed(1)}${I18N.t('playersDynamic.p086')}`}</b></span>` : '';
 	}
 	$('#ping-player').addEventListener('change', () => loadPing().catch(fail));
 
@@ -458,8 +454,8 @@
 	let listsTimer = null;
 
 	function listUntil(entry) {
-		if (entry.forever) return 'навсегда';
-		return entry.until ? `до ${VS.fmtDateTime(entry.until)}` : '—';
+		if (entry.forever) return I18N.t('playersDynamic.p087');
+		return entry.until ? `${I18N.t('playersDynamic.p088')}${VS.fmtDateTime(entry.until)}` : '—';
 	}
 
 	function renderLists() {
@@ -472,29 +468,29 @@
 		}
 
 		const mode = $('#lists-mode');
-		mode.className = `notice${lists.stale ? " warn" : ""}${listView === "whitelisted" ? "" : " hidden"}`;
+		mode.className = `notice${lists.stale ? ' warn' : ''}${listView === 'whitelisted' ? '' : ' hidden'}`;
 		mode.textContent = lists.stale
-			? 'Не удалось прочитать serverconfig.json: включён ли белый список, неизвестно.'
+			? I18N.t('playersDynamic.p089')
 			: lists.whitelist_mode
-				? 'Белый список включён: войти могут только игроки из этого списка.'
-				: 'Белый список выключен в настройках сервера: список хранится, но вход не ограничивает.';
+				? I18N.t('playersDynamic.p090')
+				: I18N.t('playersDynamic.p091');
 		$('#whitelist-add-form').classList.toggle('hidden', listView !== 'whitelisted');
 
 		const banned = listView === 'banned';
 		$('#lists-head').innerHTML = banned
-			? '<th>Игрок</th><th>Выдал</th><th>Срок</th><th>Причина</th><th></th>'
-			: '<th>Игрок</th><th>Добавил</th><th></th>';
+			? I18N.t('playersDynamic.p092')
+			: I18N.t('playersDynamic.p093');
 		const query = $('#lists-search').value.trim().toLowerCase();
 		const rows = (banned ? lists.banned : lists.whitelisted)
-			.filter(entry => !query || `${entry.player} ${entry.issued_by || ""}`.toLowerCase().includes(query));
+			.filter(entry => !query || `${entry.player} ${entry.issued_by || ''}`.toLowerCase().includes(query));
 		const action = banned ? 'unban' : 'whitelist-remove';
-		const label = banned ? 'Разблокировать' : 'Убрать';
-		const player = entry => `<td data-label="Игрок"><b>${esc(entry.player)}</b>${entry.uid ? `<small class="mono">${esc(entry.uid)}</small>` : ""}</td>`;
+		const label = banned ? I18N.t('playersDynamic.p094') : I18N.t('playersDynamic.p095');
+		const player = entry => `${I18N.t('playersDynamic.p096')}${esc(entry.player)}</b>${entry.uid ? `<small class="mono">${esc(entry.uid)}</small>` : ''}</td>`;
 		const button = entry => `<td><button class="button small" type="button" data-list-action="${action}" data-player="${esc(entry.player)}" data-min-role="operator" data-mutates>${label}</button></td>`;
 		$('#lists-table').innerHTML = rows.map(entry => banned
-			? `<tr>${player(entry)}<td data-label="Выдал">${esc(entry.issued_by || "—")}</td><td data-label="Срок">${esc(listUntil(entry))}</td><td data-label="Причина">${esc(entry.reason || "—")}</td>${button(entry)}</tr>`
-			: `<tr>${player(entry)}<td data-label="Добавил">${esc(entry.issued_by || "—")}</td>${button(entry)}</tr>`).join('')
-			|| `<tr><td colspan="${banned ? 5 : 3}" class="muted">${query ? "Никто не найден" : banned ? "Заблокированных игроков нет" : "Белый список пуст"}</td></tr>`;
+			? `<tr>${player(entry)}${I18N.t('playersDynamic.p097')}${esc(entry.issued_by || '—')}${I18N.t('playersDynamic.p098')}${esc(listUntil(entry))}${I18N.t('playersDynamic.p099')}${esc(entry.reason || '—')}</td>${button(entry)}</tr>`
+			: `<tr>${player(entry)}${I18N.t('playersDynamic.p100')}${esc(entry.issued_by || '—')}</td>${button(entry)}</tr>`).join('')
+			|| `<tr><td colspan="${banned ? 5 : 3}" class="muted">${query ? I18N.t('playersDynamic.p101') : banned ? I18N.t('playersDynamic.p102') : I18N.t('playersDynamic.p103')}</td></tr>`;
 		VS.applyRoles($('#lists-table'));
 		VS.applyBusyLock($('#lists-table'));
 	}
@@ -511,7 +507,7 @@
 
 	async function sendListAction(button, action, player) {
 		await busy(button, () => api('/api/players/action', {method: 'POST', body: {action, player, detail: ''}}));
-		toast(`${ACTION_TITLES[action]}: ${player} — команда отправлена`, 'ok');
+		toast(`${ACTION_TITLES[action]}: ${player}${I18N.t('playersDynamic.p104')}`, 'ok');
 		reloadListsSoon();
 	}
 
@@ -524,7 +520,7 @@
 		if (!button) return;
 		const {listAction: action, player} = button.dataset;
 		if (action === 'whitelist-remove' && lists.whitelist_mode
-			&& !await VS.confirmAction(`Убрать ${player} из белого списка?`, 'Белый список включён: игрок не сможет войти, пока его не добавят снова.', 'Убрать', true)) return;
+			&& !await VS.confirmAction(`${I18N.t('playersDynamic.p105')}${player}${I18N.t('playersDynamic.p106')}`, I18N.t('playersDynamic.p107'), I18N.t('playersDynamic.p108'), true)) return;
 		try { await sendListAction(button, action, player); } catch (error) { fail(error); }
 	});
 
@@ -540,7 +536,7 @@
 	// ---------- раздел ----------
 
 	VS.on('session', () => {
-		if (!VS.can('admin')) { $('#console-raw-tab').disabled = true; $('#console-raw-tab').title = 'Произвольная консоль доступна только администратору'; }
+		if (!VS.can('admin')) { $('#console-raw-tab').disabled = true; $('#console-raw-tab').title = I18N.t('playersDynamic.p109'); }
 	});
 
 	VS.on('instances', renderPins);

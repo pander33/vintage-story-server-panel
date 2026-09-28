@@ -75,8 +75,8 @@ public sealed record ServersRoot
 		if (InstanceLayout.NormalizeRoot(text, layout) is not { } path)
 		{
 			return Failure.Invalid(windows
-				? $"Каталог серверов «{text}» не подходит: нужен полный путь с буквой диска из латинских букв, цифр, точки, дефиса и подчёркивания, без пробелов — например D:\\vs-servers"
-				: $"Каталог серверов «{text}» не подходит: нужен абсолютный путь из латинских букв, цифр, точки, дефиса и подчёркивания, без пробелов — например /data/vs-servers");
+				? Phrase.Format($"Каталог серверов «{text}» не подходит: нужен полный путь с буквой диска из латинских букв, цифр, точки, дефиса и подчёркивания, без пробелов — например D:\\vs-servers")
+				: Phrase.Format($"Каталог серверов «{text}» не подходит: нужен абсолютный путь из латинских букв, цифр, точки, дефиса и подчёркивания, без пробелов — например /data/vs-servers"));
 		}
 
 		var comparison = windows ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;

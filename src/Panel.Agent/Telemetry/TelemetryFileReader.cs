@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Panel.Contracts;
 using Panel.Contracts.Agent;
+using Panel.SharedKernel;
 
 namespace Panel.Agent.Telemetry;
 
@@ -23,7 +24,7 @@ public sealed class TelemetryFileReader
 	{
 		if (string.IsNullOrWhiteSpace(path))
 		{
-			return Unavailable("Для этого сервера не настроен файл телеметрии");
+			return Unavailable(Phrase.From("Для этого сервера не настроен файл телеметрии"));
 		}
 
 		FileInfo info;
@@ -33,23 +34,23 @@ public sealed class TelemetryFileReader
 			info = new FileInfo(path);
 			if (!info.Exists)
 			{
-				return Unavailable("Установите и запустите мод VS Panel Telemetry");
+				return Unavailable(Phrase.From("Установите и запустите мод VS Panel Telemetry"));
 			}
 
 			if (info.LinkTarget is not null || info.Length > maxBytes)
 			{
-				return Unavailable("Telemetry file is invalid");
+				return Unavailable(Phrase.From("Telemetry file is invalid"));
 			}
 
 			json = await File.ReadAllTextAsync(path, ct).ConfigureAwait(false);
 		}
 		catch (FileNotFoundException)
 		{
-			return Unavailable("Установите и запустите мод VS Panel Telemetry");
+			return Unavailable(Phrase.From("Установите и запустите мод VS Panel Telemetry"));
 		}
 		catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
 		{
-			return Unavailable($"Cannot read telemetry: {exception.Message}");
+			return Unavailable(Phrase.Format($"Cannot read telemetry: {exception.Message}"));
 		}
 
 		JsonNode? node;
@@ -59,12 +60,12 @@ public sealed class TelemetryFileReader
 		}
 		catch (JsonException exception)
 		{
-			return Unavailable($"Cannot read telemetry: {exception.Message}");
+			return Unavailable(Phrase.Format($"Cannot read telemetry: {exception.Message}"));
 		}
 
 		if (node is not JsonObject root || root["players"] is not (null or JsonArray))
 		{
-			return Unavailable("Telemetry has an unsupported format");
+			return Unavailable(Phrase.From("Telemetry has an unsupported format"));
 		}
 
 		// Снимок разбирается целиком; нетипизированные поля попадают в Extra и передаются дальше
@@ -76,12 +77,12 @@ public sealed class TelemetryFileReader
 		}
 		catch (Exception exception) when (exception is JsonException or InvalidOperationException or FormatException)
 		{
-			return Unavailable("Telemetry has an unsupported format");
+			return Unavailable(Phrase.From("Telemetry has an unsupported format"));
 		}
 
 		if (snapshot is null)
 		{
-			return Unavailable("Telemetry has an unsupported format");
+			return Unavailable(Phrase.From("Telemetry has an unsupported format"));
 		}
 
 		var generatedAt = snapshot.GeneratedAt ?? 0;
@@ -94,11 +95,11 @@ public sealed class TelemetryFileReader
 			Available = true,
 			Stale = stale,
 			AgeSeconds = age,
-			Detail = stale ? "Телеметрия устарела: сервер или мод не отвечает" : snapshot.Detail,
+			Detail = stale ? Phrase.From("Телеметрия устарела: сервер или мод не отвечает") : snapshot.Detail,
 		};
 	}
 
-	private static TelemetryPayload Unavailable(string detail) => new()
+	private static TelemetryPayload Unavailable(Phrase detail) => new()
 	{
 		Available = false,
 		Stale = true,

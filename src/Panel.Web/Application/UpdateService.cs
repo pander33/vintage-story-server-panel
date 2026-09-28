@@ -56,7 +56,7 @@ public sealed partial class UpdateService : IHostedService
 	private readonly ConcurrentDictionary<Task, byte> running = new();
 	private readonly GameVersions versions;
 	private readonly IServerRuntime runtime;
-	private readonly IPlayerCommands players;
+	private readonly Announcements announcements;
 	private readonly IBackupStore backups;
 	private readonly IModStore mods;
 	private readonly IGamePackages packages;
@@ -72,7 +72,7 @@ public sealed partial class UpdateService : IHostedService
 	public UpdateService(
 		GameVersions versions,
 		IServerRuntime runtime,
-		IPlayerCommands players,
+		Announcements announcements,
 		IBackupStore backups,
 		IModStore mods,
 		IGamePackages packages,
@@ -87,7 +87,7 @@ public sealed partial class UpdateService : IHostedService
 	{
 		this.versions = versions;
 		this.runtime = runtime;
-		this.players = players;
+		this.announcements = announcements;
 		this.backups = backups;
 		this.mods = mods;
 		this.packages = packages;
@@ -161,23 +161,23 @@ public sealed partial class UpdateService : IHostedService
 			var version = mod.Version ?? string.Empty;
 			var status = UpgradeStatus.Unverified;
 			JsonNode tags = new JsonArray();
-			string detail;
+			Phrase detail;
 
 			var details = await moddb.DetailsAsync(mod.ModId, target, mod.DisplayName ?? string.Empty, ct).ConfigureAwait(false);
 			if (!details.IsSuccess)
 			{
-				detail = $"Проверка недоступна: {details.Failure!.Message}";
+				detail = Phrase.Format($"Проверка недоступна: {details.Failure!}");
 			}
 			else if (details.Value.Releases.FirstOrDefault(item => PythonText.Of(item.Json["version"]) == version) is not { } release)
 			{
-				detail = "Установленная версия не найдена в ModDB";
+				detail = Phrase.From("Установленная версия не найдена в ModDB");
 			}
 			else
 			{
 				tags = release.Json["tags"]?.DeepClone() ?? new JsonArray();
 				var compatible = release.Release.Compatibility.IsCompatible;
 				status = compatible ? UpgradeStatus.Compatible : UpgradeStatus.Incompatible;
-				detail = compatible ? "Совместимость заявлена" : "Для установленной версии совместимость не заявлена";
+				detail = compatible ? Phrase.From("Совместимость заявлена") : Phrase.From("Для установленной версии совместимость не заявлена");
 			}
 
 			results.Add(new JsonObject
@@ -186,7 +186,7 @@ public sealed partial class UpdateService : IHostedService
 				["version"] = version,
 				["status"] = UpgradePlan.ToWire(status),
 				["tags"] = tags,
-				["detail"] = detail,
+				["detail"] = PhraseJsonConverter.ToNode(detail),
 			});
 		}
 
@@ -366,7 +366,7 @@ public sealed partial class UpdateService : IHostedService
 			wasActive = status.IsActive;
 			if (wasActive)
 			{
-				await run.AnnounceAsync("Сервер обновляет моды и будет перезапущен.").ConfigureAwait(false);
+				await run.AnnounceAsync(Phrase.From("Сервер обновляет моды и будет перезапущен.")).ConfigureAwait(false);
 				await run.ServiceAsync(ServiceAction.Stop).ConfigureAwait(false);
 			}
 
@@ -413,7 +413,7 @@ public sealed partial class UpdateService : IHostedService
 			}
 			catch (Exception rollback)
 			{
-				operation.Record(new OperationStep(StepAction.Rollback, StepResult.Failed) { Detail = ReasonOf(rollback).Message });
+				operation.Record(new OperationStep(StepAction.Rollback, StepResult.Failed) { Detail = ReasonOf(rollback).Text });
 			}
 
 			await FinishAsync(instance, workspace, operation, ReasonOf(exception)).ConfigureAwait(false);
@@ -449,7 +449,7 @@ public sealed partial class UpdateService : IHostedService
 			wasActive = status.IsActive;
 			if (wasActive)
 			{
-				await run.AnnounceAsync("Сервер обновляется и будет перезапущен.").ConfigureAwait(false);
+				await run.AnnounceAsync(Phrase.From("Сервер обновляется и будет перезапущен.")).ConfigureAwait(false);
 				await run.ServiceAsync(ServiceAction.Stop).ConfigureAwait(false);
 			}
 
@@ -498,7 +498,7 @@ public sealed partial class UpdateService : IHostedService
 				}
 				catch (Exception rollback)
 				{
-					operation.Record(new OperationStep(StepAction.Rollback, StepResult.Failed) { Detail = ReasonOf(rollback).Message });
+					operation.Record(new OperationStep(StepAction.Rollback, StepResult.Failed) { Detail = ReasonOf(rollback).Text });
 				}
 			}
 
@@ -575,7 +575,7 @@ public sealed partial class UpdateService : IHostedService
 		}
 		catch (Exception exception)
 		{
-			var recovery = string.Empty;
+			Failure? restartFailure = null;
 			if (wasActive)
 			{
 				try
@@ -588,14 +588,13 @@ public sealed partial class UpdateService : IHostedService
 				}
 				catch (Exception restart)
 				{
-					var message = ReasonOf(restart).Message;
-					recovery = $"; сервер не удалось запустить: {message}";
-					operation.Record(new OperationStep(StepAction.RestartAfterFailedRollback, StepResult.Failed) { Detail = message });
+					restartFailure = ReasonOf(restart);
+					operation.Record(new OperationStep(StepAction.RestartAfterFailedRollback, StepResult.Failed) { Detail = restartFailure.Text });
 				}
 			}
 
 			var reason = ReasonOf(exception);
-			await FinishAsync(instance, workspace, operation, reason with { Message = reason.Message + recovery }).ConfigureAwait(false);
+			await FinishAsync(instance, workspace, operation, restartFailure is null ? reason : reason with { Text = Phrase.Format($"{reason.Text}; сервер не удалось запустить: {restartFailure.Text}") }).ConfigureAwait(false);
 		}
 	}
 
@@ -626,7 +625,7 @@ public sealed partial class UpdateService : IHostedService
 				"update." + status,
 				operation.Status == OperationStatus.Success ? EventSeverity.Info : EventSeverity.Critical,
 				operation.Title,
-				operation.Detail ?? string.Empty,
+				operation.Detail,
 				"updates",
 				ct: CancellationToken.None)
 			.ConfigureAwait(false);
@@ -707,17 +706,13 @@ public sealed partial class UpdateService : IHostedService
 		public Task<Done> ServiceAsync(ServiceAction action) =>
 			CallAsync(OperationPhase.Service, () => owner.runtime.ServiceAsync(instance, action, serviceTimeout, CancellationToken.None));
 
-		/// <summary>Предупреждение игрокам. Его отказ операцию не останавливает, как <c>except Exception: pass</c>.</summary>
-		public async Task AnnounceAsync(string text)
+		/// <summary>Предупреждение игрокам на языке сервера. Его отказ операцию не останавливает.</summary>
+		public async Task AnnounceAsync(Phrase text)
 		{
 			try
 			{
-				var command = PlayerCommand.Create("announce", string.Empty, text);
-				if (command.IsSuccess)
-				{
-					await CallAsync(OperationPhase.PlayerAction, () => owner.players.SendAsync(instance, command.Value, CancellationToken.None))
-						.ConfigureAwait(false);
-				}
+				await CallAsync(OperationPhase.PlayerAction, () => owner.announcements.SendAsync(instance, text, CancellationToken.None))
+					.ConfigureAwait(false);
 			}
 			catch (Exception exception) when (exception is not OutOfMemoryException)
 			{

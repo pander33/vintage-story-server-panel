@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Microsoft.AspNetCore.Http;
 using Panel.Access.Authorization;
 using Panel.Access.Domain;
@@ -15,16 +16,24 @@ namespace Panel.Web.Endpoints;
 /// </summary>
 public static class PanelResults
 {
-	public static IResult Json<T>(T value) => Results.Json(value, PanelJson.Options);
+	/// <summary>
+	/// Ответ JSON на языке запроса: фразы (<see cref="Phrase"/>) в нём пишутся переведёнными строками
+	/// (<see cref="LocalizedJson"/>).
+	/// </summary>
+	public static IResult Json<T>(T value, int? status = null) => new Localized<T>(value, status);
 
-	/// <summary>Тело отказа как у FastAPI: <c>{"detail": "…"}</c>.</summary>
-	public static IResult Refuse(int status, string detail) =>
-		Results.Json(new ErrorResponse { Detail = detail }, PanelJson.Options, statusCode: status);
+	/// <summary>Тело отказа <c>{"detail": "…"}</c>; текст переводится при записи, как в <see cref="Json{T}"/>.</summary>
+	public static IResult Refuse(int status, Phrase detail) => Json(new ErrorResponse { Detail = detail }, status);
 
-	public static IResult Refuse(Failure failure) => Refuse(StatusFor(failure.Code), failure.Message);
+	public static IResult Refuse(int status, string detail) => Refuse(status, Phrase.From(detail));
+
+	[OverloadResolutionPriority(1)]
+	public static IResult Refuse(int status, ref PhraseHandler detail) => Refuse(status, detail.ToPhrase());
+
+	public static IResult Refuse(Failure failure) => Refuse(StatusFor(failure.Code), failure.Text);
 
 	public static IResult From<T>(Result<T> result) =>
-		result.Match(Json, Refuse);
+		result.Match(value => Json(value), Refuse);
 
 	public static int StatusFor(FailureCode code) => code switch
 	{
@@ -82,4 +91,12 @@ public static class PanelResults
 
 	public static string ClientAddress(HttpContext http) =>
 		http.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+	private sealed class Localized<T>(T value, int? status) : IResult, IStatusCodeHttpResult
+	{
+		public int? StatusCode => status;
+
+		public Task ExecuteAsync(HttpContext httpContext) =>
+			Results.Json(value, LocalizedJson.For(httpContext), statusCode: status).ExecuteAsync(httpContext);
+	}
 }

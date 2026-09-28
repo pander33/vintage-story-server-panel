@@ -1,6 +1,7 @@
 using Panel.Agent.Client;
 using Panel.Contracts.Agent;
 using Panel.Runtime.Domain;
+using Panel.SharedKernel;
 
 namespace Panel.Contracts.Tests;
 
@@ -70,7 +71,7 @@ public sealed class AgentMappingTests
 			Stale = stale,
 			AgeSeconds = 120,
 			GeneratedAt = 1758369600,
-			Detail = "подробность",
+			Detail = Phrase.From("подробность"),
 		});
 
 		Assert.IsType(expected, reading);
@@ -91,6 +92,6 @@ public sealed class AgentMappingTests
 		});
 
 		var unavailable = Assert.IsType<TelemetryReading.Unavailable>(reading);
-		Assert.Equal("Телеметрия недоступна", unavailable.Detail);
+		Assert.Equal("Телеметрия недоступна", unavailable.Detail?.ToString());
 	}
 }

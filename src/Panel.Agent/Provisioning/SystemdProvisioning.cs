@@ -272,7 +272,7 @@ public sealed class SystemdProvisioning : IProvisioningPlatform
 	/// Правила ufw для порта панели, как у установщика (<c>PanelAccess</c>). Без ufw или при
 	/// неактивном ufw ничего не делается: правил, которые никто не применяет, не заводим.
 	/// </summary>
-	public async Task<string?> SyncPanelFirewallAsync(PanelListener previous, PanelListener current, CancellationToken ct)
+	public async Task<Phrase?> SyncPanelFirewallAsync(PanelListener previous, PanelListener current, CancellationToken ct)
 	{
 		ArgumentNullException.ThrowIfNull(previous);
 		ArgumentNullException.ThrowIfNull(current);
@@ -297,7 +297,7 @@ public sealed class SystemdProvisioning : IProvisioningPlatform
 			var added = await HostTools.RunAsync(ufw, rule, TimeSpan.FromSeconds(30), ct).ConfigureAwait(false);
 			if (added.ExitCode != 0)
 			{
-				return $"Порт панели {current.Port.ToString(CultureInfo.InvariantCulture)} в ufw не открыт: {added.Tail("ufw отказал")}";
+				return Phrase.Format($"Порт панели {current.Port.ToString(CultureInfo.InvariantCulture)} в ufw не открыт: {added.Tail("ufw отказал")}");
 			}
 		}
 

@@ -74,8 +74,8 @@ public sealed class AuditLog
 				instance,
 				"admin." + action,
 				severity,
-				"Действие администратора: " + action,
-				detail,
+				Phrase.Format($"Действие администратора: {action}"),
+				Phrase.From(detail),
 				"audit",
 				notify: severity != EventSeverity.Info,
 				ct: ct)

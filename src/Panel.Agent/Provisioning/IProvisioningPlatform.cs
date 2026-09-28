@@ -55,5 +55,5 @@ public interface IProvisioningPlatform
 	/// новое ставится, если панель видна снаружи (<see cref="PanelListener.OpensFirewall"/>).
 	/// </summary>
 	/// <returns>Текст для оператора, если правило не удалось поставить; иначе <see langword="null"/>.</returns>
-	Task<string?> SyncPanelFirewallAsync(PanelListener previous, PanelListener current, CancellationToken ct);
+	Task<Phrase?> SyncPanelFirewallAsync(PanelListener previous, PanelListener current, CancellationToken ct);
 }

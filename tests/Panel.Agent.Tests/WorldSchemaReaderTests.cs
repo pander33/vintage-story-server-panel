@@ -151,7 +151,7 @@ public sealed class WorldSchemaReaderTests : IDisposable
 		// роняет чтение схемы сервера целиком.
 		Assert.True(schema.IsSuccess);
 		Assert.Single(schema.Value.Warnings);
-		Assert.Contains("with-dll.zip", schema.Value.Warnings[0], StringComparison.Ordinal);
+		Assert.Contains("with-dll.zip", schema.Value.Warnings[0].ToString(), StringComparison.Ordinal);
 	}
 
 	[Fact]

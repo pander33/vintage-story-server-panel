@@ -91,7 +91,7 @@ public sealed class InstanceRemovalTests : IDisposable
 		var deleted = await removal.DeleteAsync(InstanceId.Parse("main"), "УДАЛИТЬ main", CancellationToken.None);
 
 		Assert.Equal(FailureCode.Invalid, deleted.Failure!.Code);
-		Assert.Equal(InstanceRemoval.PanelInstanceRefusal, deleted.Failure.Message);
+		Assert.Equal(InstanceRemoval.PanelInstanceRefusal, deleted.Failure.Text);
 		Assert.Empty(registry.Deleted);
 	}
 
@@ -104,7 +104,7 @@ public sealed class InstanceRemovalTests : IDisposable
 
 		Assert.NotNull(held);
 		Assert.Equal(FailureCode.Conflict, deleted.Failure!.Code);
-		Assert.Equal(InstanceRemoval.BusyRefusal, deleted.Failure.Message);
+		Assert.Equal(InstanceRemoval.BusyRefusal, deleted.Failure.Text);
 		Assert.Empty(registry.Deleted);
 	}
 

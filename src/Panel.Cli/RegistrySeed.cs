@@ -66,12 +66,12 @@ internal static class RegistrySeed
 			}
 			catch (JsonException exception)
 			{
-				return Failure.Invalid($"/etc/vs-panel.json не разбирается, реестр серверов не создан: {exception.Message}");
+				return Failure.Invalid($"Could not parse /etc/vs-panel.json; server registry was not created: {exception.Message}");
 			}
 
 			if (node is not JsonObject legacy)
 			{
-				return Failure.Invalid("/etc/vs-panel.json не является объектом JSON, реестр серверов не создан");
+				return Failure.Invalid("/etc/vs-panel.json is not a JSON object; server registry was not created");
 			}
 
 			if (!legacy.ContainsKey("version"))
@@ -99,7 +99,7 @@ internal static class RegistrySeed
 
 		if (!instance.ContainsKey("name"))
 		{
-			instance["name"] = "Основной сервер";
+			instance["name"] = "Main server";
 		}
 
 		var registry = new JsonObject

@@ -65,7 +65,7 @@ public sealed class DoctorTests : IDisposable
 	{
 		var findings = Doctor.CheckFiles(Paths, State);
 
-		Assert.Contains(findings, finding => finding.Severity == Severity.Problem && finding.Text.Contains("не установлена", StringComparison.Ordinal));
+		Assert.Contains(findings, finding => finding.Severity == Severity.Problem && finding.Text.Contains("not installed", StringComparison.Ordinal));
 		Assert.Equal(1, Doctor.Print(findings, TextWriter.Null));
 	}
 
@@ -109,7 +109,7 @@ public sealed class DoctorTests : IDisposable
 		Installed();
 		File.WriteAllBytes(Path.Combine(State, "secret.key"), new byte[16]);
 
-		Assert.Contains(Doctor.CheckFiles(Paths, State), finding => finding.Severity == Severity.Problem && finding.Text.Contains("ключа сессий", StringComparison.Ordinal));
+		Assert.Contains(Doctor.CheckFiles(Paths, State), finding => finding.Severity == Severity.Problem && finding.Text.Contains("session key", StringComparison.Ordinal));
 	}
 
 	[Fact]
@@ -118,7 +118,7 @@ public sealed class DoctorTests : IDisposable
 		Installed();
 		File.WriteAllText(Paths.PanelConfig, "{\"data_dir\": \"/srv/vintagestory/data\"}");
 
-		Assert.Contains(Doctor.CheckFiles(Paths, State), finding => finding.Severity == Severity.Problem && finding.Text.Contains("версии 1", StringComparison.Ordinal));
+		Assert.Contains(Doctor.CheckFiles(Paths, State), finding => finding.Severity == Severity.Problem && finding.Text.Contains("version 1", StringComparison.Ordinal));
 	}
 
 	[Fact]

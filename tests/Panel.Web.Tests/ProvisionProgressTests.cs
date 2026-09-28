@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Panel.SharedKernel;
 using Panel.Web.Application;
 
 namespace Panel.Web.Tests;
@@ -40,7 +41,7 @@ public sealed class ProvisionProgressTests
 		progress.Report(Operation(catalogue, download, Step("create")), start.AddSeconds(6));
 
 		Assert.Equal(
-			["  Версия 1.21.1, пакет 120 МБ", "  Пакет скачан и сверен: 120 МБ", "  Распаковка и настройка сервера: готово"],
+			["  Version 1.21.1, package 120 MB", "  Package downloaded and verified: 120 MB", "  Unpacking and server setup: done"],
 			Lines());
 	}
 
@@ -63,7 +64,7 @@ public sealed class ProvisionProgressTests
 		progress.Report(Operation(catalogue), start.AddSeconds(95));
 
 		Assert.Equal(
-			["  Версия 1.21.1, пакет 100 МБ", "  … скачивание пакета игры: 40 из 100 МБ (прошло 0:16)", "  … скачивание пакета игры: 75 из 100 МБ (прошло 1:35)"],
+			["  Version 1.21.1, package 100 MB", "  … downloading the game package: 40 of 100 MB (0:16 elapsed)", "  … downloading the game package: 75 of 100 MB (1:35 elapsed)"],
 			Lines());
 	}
 
@@ -72,31 +73,31 @@ public sealed class ProvisionProgressTests
 	{
 		Progress().Report(null, start.AddSeconds(15));
 
-		Assert.Equal(["  … выбор версии игры (прошло 0:15)"], Lines());
+		Assert.Equal(["  … choosing the game version (0:15 elapsed)"], Lines());
 	}
 
 	[Fact]
 	public void Отказ_шага_печатается_с_причиной()
 	{
 		var failed = Step("create", "failed");
-		failed["detail"] = "Архив повреждён";
+		failed["detail"] = PhraseJsonConverter.ToNode(Phrase.Format($"Архив повреждён: {"unexpected end"}"));
 		var rollback = Step("rollback", "skipped");
-		rollback["detail"] = "Сервер уже зарегистрирован; удалите его вручную, если он не нужен";
+		rollback["detail"] = PhraseJsonConverter.ToNode(Phrase.From("Сервер уже зарегистрирован; удалите его вручную, если он не нужен"));
 
 		Progress().Report(Operation(Step("catalogue"), Step("download"), failed, rollback), start.AddSeconds(3));
 
-		Assert.Contains("  Ошибка на шаге «распаковка и настройка сервера»: Архив повреждён", Lines());
-		Assert.Contains("  Сервер уже зарегистрирован; удалите его вручную, если он не нужен", Lines());
+		Assert.Contains("  Step \"unpacking and server setup\" failed: The archive is corrupted: unexpected end", Lines());
+		Assert.Contains("  The server is already registered; remove it manually if it is no longer needed", Lines());
 	}
 
 	[Fact]
 	public void Неподтверждённая_готовность_не_выдаётся_за_готовность()
 	{
 		var ready = Step("ready", "warning");
-		ready["detail"] = "Ограниченная проверка: нет мода телеметрии";
+		ready["detail"] = "limited check";
 
 		Progress().Report(Operation(ready), start.AddSeconds(3));
 
-		Assert.Equal(["  Готовность сервера не подтверждена: Ограниченная проверка: нет мода телеметрии"], Lines());
+		Assert.Equal(["  Server readiness not confirmed: limited check"], Lines());
 	}
 }

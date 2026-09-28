@@ -25,7 +25,7 @@ public sealed class AgentTelemetryReader : ITelemetryReader
 			.CallAsync<TelemetryPayload>(AgentProtocol.OpTelemetry, instance, [], ct)
 			.ConfigureAwait(false);
 
-		return payload.Match(ToReading, failure => new TelemetryReading.Unavailable(failure.Message));
+		return payload.Match(ToReading, failure => new TelemetryReading.Unavailable(failure.Text));
 	}
 
 	internal static TelemetryReading ToReading(TelemetryPayload payload)
@@ -33,7 +33,7 @@ public sealed class AgentTelemetryReader : ITelemetryReader
 		if (!payload.Available)
 		{
 			return new TelemetryReading.Unavailable(
-				string.IsNullOrWhiteSpace(payload.Detail) ? "Телеметрия недоступна" : payload.Detail);
+				payload.Detail is null || string.IsNullOrWhiteSpace(payload.Detail.ToString()) ? Phrase.From("Телеметрия недоступна") : payload.Detail);
 		}
 
 		var snapshot = new TelemetrySnapshot

@@ -63,31 +63,31 @@ internal sealed class WindowsInstaller
 		CheckNotRunningFrom(artifact.Value, options.Repair);
 		if (WindowsHost.IsRunning(WindowsPaths.PanelService) && MaintenanceProbe.Describe(this.host.StateDirectory()) is { } busy)
 		{
-			throw new InstallFailed($"Установка не начата: панель выполняет {busy}.\nДождитесь завершения операции в панели и повторите установку.");
+			throw new InstallFailed($"Installation did not start: the panel is running {busy}.\nWait for the operation to finish in the panel and try again.");
 		}
 
 		var dotnetReady = true;
 		if (!options.Repair)
 		{
-			this.host.Step($"Среда выполнения .NET {options.DotnetChannel} для игры");
+			this.host.Step($".NET {options.DotnetChannel} runtime for the game");
 			dotnetReady = options.SkipDotnet
-				? Report("Пропущено по VS_PANEL_SKIP_DOTNET=1.", true)
+				? Report("Skipped by VS_PANEL_SKIP_DOTNET=1.", true)
 				: await InstallDotnetAsync(options.DotnetChannel).ConfigureAwait(false);
 			WarnLongPaths();
 		}
 
 		await RetireLegacyTasksAsync().ConfigureAwait(false);
 
-		this.host.Step("Остановка служб панели");
+		this.host.Step("Stopping panel services");
 		var servers = this.host.RegisteredServers() ?? 0;
 		if (WindowsHost.IsRunning(WindowsPaths.AgentService) && servers > 0)
 		{
-			this.host.Warn("демон перезапускается: работающие игровые серверы продолжат работу, но их консоль вернётся только после перезапуска сервера.");
+			this.host.Warn("the daemon is restarting: running game servers will continue, but their consoles will return only after the servers restart.");
 		}
 
 		await StopServicesAsync(options.WaitSeconds).ConfigureAwait(false);
 
-		this.host.Step(options.Repair ? $"Восстановление версии {artifact.Value.Version}" : $"Установка версии {artifact.Value.Version}");
+		this.host.Step(options.Repair ? $"Repairing version {artifact.Value.Version}" : $"Installing version {artifact.Value.Version}");
 		foreach (var directory in new[] { Paths.ProgramRoot, Paths.Releases, Paths.DataRoot, this.host.StateDirectory(), Path.Combine(this.host.StateDirectory(), "staging"), Paths.ServersDirectory, Paths.RunDirectory, Paths.TelemetryDirectory })
 		{
 			Directory.CreateDirectory(directory);
@@ -102,7 +102,7 @@ internal sealed class WindowsInstaller
 		Prune(artifact.Value.Version);
 		AddToPath();
 
-		this.host.Step("Настройки, реестр, права");
+		this.host.Step("Settings, registry and permissions");
 		SeedRegistry();
 		WriteFile(Paths.PanelConfig, Templates.KeepChosenPaths(Templates.WindowsPanelConfig(Paths.DataRoot), ReadOrNull(Paths.PanelConfig)));
 		var existed = File.Exists(Paths.PanelEnv);
@@ -114,7 +114,7 @@ internal sealed class WindowsInstaller
 		}
 
 		RestrictDataAccess();
-		this.host.Step("Доступ к панели и брандмауэр");
+		this.host.Step("Panel access and firewall");
 		var firewall = await PanelAccess.ApplyWindowsAsync(previous, PanelListener.FromEnvironment(this.host.PanelEnvironment())).ConfigureAwait(false);
 		if (firewall is { Failed: true })
 		{
@@ -129,25 +129,25 @@ internal sealed class WindowsInstaller
 			await InstallTelemetryAsync(artifact.Value).ConfigureAwait(false);
 		}
 
-		this.host.Step("Службы");
+		this.host.Step("Services");
 		RegisterServices();
 
 		// Демон нужен раньше панели: через него создаётся первый сервер.
 		if (!await this.host.StartAsync(WindowsPaths.AgentService, agentWaitSeconds).ConfigureAwait(false))
 		{
-			throw new InstallFailed("Демон не запустился — установка остановлена. Проверьте: vs-panel doctor");
+			throw new InstallFailed("Daemon failed to start; installation stopped. Run: vs-panel doctor");
 		}
 
-		this.host.Step("Инициализация состояния");
+		this.host.Step("Initializing panel state");
 		if ((await this.host.ManageAsync(["init"]).ConfigureAwait(false)).ExitCode != 0)
 		{
-			throw new InstallFailed("Состояние панели не инициализировано");
+			throw new InstallFailed("Panel state was not initialized");
 		}
 
 		var claimPending = !PanelState.HasAdministrator(this.host.StateDirectory());
 		if (!claimPending)
 		{
-			Output.WriteLine("Существующая учётная запись администратора сохранена.");
+			Output.WriteLine("The existing administrator account was preserved.");
 		}
 
 		var rootReady = await ServersRootStep.RunAsync(
@@ -159,7 +159,7 @@ internal sealed class WindowsInstaller
 			.ConfigureAwait(false);
 		var created = options.Repair || !options.CreateServer || !rootReady ? 0 : await CreateFirstServerAsync(options, dotnetReady).ConfigureAwait(false);
 
-		this.host.Step("Запуск панели");
+		this.host.Step("Starting the panel");
 		var started = await this.host.StartAsync(WindowsPaths.PanelService, options.WaitSeconds).ConfigureAwait(false);
 		WriteShortcuts();
 
@@ -173,7 +173,7 @@ internal sealed class WindowsInstaller
 				await this.host.OpenAsync(link).ConfigureAwait(false);
 			}
 
-			Output.WriteLine("\nЕсли ссылка потеряна, получите новую: vs-panel access (в командной строке администратора)");
+			Output.WriteLine("\nIf you lose the link, get a new one with vs-panel access in an Administrator command prompt.");
 		}
 		else if (started && options.OpenBrowser)
 		{
@@ -188,17 +188,17 @@ internal sealed class WindowsInstaller
 	/// <summary>Вернуть предыдущую версию: остановка, замена ссылки, запуск демона и панели.</summary>
 	public async Task<int> RollbackAsync(int waitSeconds)
 	{
-		var current = CurrentVersion() ?? throw new InstallFailed("Активная версия не найдена: панель не установлена");
+		var current = CurrentVersion() ?? throw new InstallFailed("No active version found: the panel is not installed");
 		var history = ReleaseHistory.Parse(ReadOrEmpty(Paths.ReleaseLog));
 		var previous = history.Previous(current, InstalledVersions())
-			?? throw new InstallFailed($"Откатываться некуда: кроме {current} установленных версий нет");
+			?? throw new InstallFailed($"Cannot roll back: no installed version other than {current}");
 
 		if (WindowsHost.IsRunning(WindowsPaths.PanelService) && MaintenanceProbe.Describe(this.host.StateDirectory()) is { } busy)
 		{
-			throw new InstallFailed($"Откат не начат: панель выполняет {busy}.");
+			throw new InstallFailed($"Rollback did not start: the panel is running {busy}.");
 		}
 
-		this.host.Step($"Откат {current} → {previous}");
+		this.host.Step($"Rolling back {current} → {previous}");
 		await StopServicesAsync(waitSeconds).ConfigureAwait(false);
 		Activate(previous);
 		var agent = await this.host.StartAsync(WindowsPaths.AgentService, agentWaitSeconds).ConfigureAwait(false);
@@ -231,12 +231,12 @@ internal sealed class WindowsInstaller
 		{
 			Architecture.X64 => "win-x64",
 			Architecture.Arm64 => "win-arm64",
-			_ => throw new InstallFailed($"Архитектура {RuntimeInformation.OSArchitecture} не поддерживается"),
+			_ => throw new InstallFailed($"Unsupported architecture: {RuntimeInformation.OSArchitecture}"),
 		};
 
 		if (artifact.Rid.Length > 0 && artifact.Rid != machine)
 		{
-			throw new InstallFailed($"Сборка для {artifact.Rid}, а эта машина — {machine}: bash scripts/publish.sh {machine}");
+			throw new InstallFailed($"Build target is {artifact.Rid}, but this machine is {machine}: bash scripts/publish.sh {machine}");
 		}
 	}
 
@@ -256,7 +256,7 @@ internal sealed class WindowsInstaller
 		{
 			if (CurrentVersion() == artifact.Version && running.StartsWith(Path.GetFullPath(directory) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
 			{
-				throw new InstallFailed($"Версия {artifact.Version} уже установлена, и установщик запущен из неё. Переустановите из каталога сборки (install.cmd) или восстановите: vs-panel repair");
+				throw new InstallFailed($"Version {artifact.Version} is already installed, and the installer is running from it. Reinstall from the build directory (install.cmd) or run vs-panel repair.");
 			}
 		}
 	}
@@ -266,8 +266,8 @@ internal sealed class WindowsInstaller
 		ServiceManager.Install(
 			new ServiceDefinition(
 				WindowsPaths.AgentService,
-				"Vintage Story Panel — демон",
-				"Держит игровые серверы Vintage Story и выполняет команды панели через именованный канал.",
+				"Vintage Story Panel daemon",
+				"Supervises Vintage Story game servers and executes panel commands over a named pipe.",
 				Paths.AgentCommandLine,
 				[]));
 
@@ -277,10 +277,10 @@ internal sealed class WindowsInstaller
 			new ServiceDefinition(
 				WindowsPaths.PanelService,
 				"Vintage Story Panel",
-				"Веб-панель управления серверами Vintage Story.",
+				"Web panel for managing Vintage Story servers.",
 				Paths.PanelCommandLine,
 				[WindowsPaths.AgentService]));
-		Output.WriteLine($"Службы {WindowsPaths.AgentService} и {WindowsPaths.PanelService} зарегистрированы: запуск автоматический, учётная запись LocalSystem.");
+		Output.WriteLine($"Services {WindowsPaths.AgentService} and {WindowsPaths.PanelService} registered for automatic start as LocalSystem.");
 	}
 
 	private async Task StopServicesAsync(int waitSeconds)
@@ -289,12 +289,12 @@ internal sealed class WindowsInstaller
 		// на завершение операции.
 		if (WindowsHost.Status(WindowsPaths.PanelService) is not null && !await this.host.StopAsync(WindowsPaths.PanelService, waitSeconds).ConfigureAwait(false))
 		{
-			throw new InstallFailed("Панель не остановилась — установка не начата. Повторите позже.");
+			throw new InstallFailed("Panel service did not stop; installation did not start. Try again later.");
 		}
 
 		if (WindowsHost.Status(WindowsPaths.AgentService) is not null && !await this.host.StopAsync(WindowsPaths.AgentService, agentWaitSeconds).ConfigureAwait(false))
 		{
-			throw new InstallFailed("Демон не остановился — установка не начата.");
+			throw new InstallFailed("Daemon did not stop; installation did not start.");
 		}
 	}
 
@@ -315,11 +315,11 @@ internal sealed class WindowsInstaller
 			var deleted = await Shell.RunAsync("schtasks.exe", ["/Delete", "/TN", task, "/F"]).ConfigureAwait(false);
 			if (deleted.Succeeded)
 			{
-				Output.WriteLine($"Удалена задача планировщика прежней версии: {task}");
+				Output.WriteLine($"Removed scheduled task from an older version: {task}");
 			}
 			else
 			{
-				this.host.Warn($"задача прежней версии {task} не удалена: {deleted.Reason}");
+				this.host.Warn($"scheduled task {task} from an older version was not removed: {deleted.Reason}");
 			}
 		}
 	}
@@ -360,7 +360,7 @@ internal sealed class WindowsInstaller
 			Directory.Move(staging, target);
 		}
 
-		Output.WriteLine($"Версия {artifact.Version} скопирована в {target}");
+		Output.WriteLine($"Version {artifact.Version} copied to {target}");
 	}
 
 	/// <summary>
@@ -374,7 +374,7 @@ internal sealed class WindowsInstaller
 		{
 			if (link.LinkTarget is null)
 			{
-				throw new InstallFailed($"{Paths.Current} — обычный каталог, а не ссылка на версию. Удалите его и повторите установку.");
+				throw new InstallFailed($"{Paths.Current} is a regular directory, not a version link. Remove it and retry the installation.");
 			}
 
 			link.Delete();
@@ -383,7 +383,7 @@ internal sealed class WindowsInstaller
 		Directory.CreateSymbolicLink(Paths.Current, Paths.Release(version));
 		var history = ReleaseHistory.Parse(ReadOrEmpty(Paths.ReleaseLog)).Activate(version);
 		File.WriteAllText(Paths.ReleaseLog, history.Serialize());
-		Output.WriteLine($"Активная версия: {version}");
+		Output.WriteLine($"Active version: {version}");
 	}
 
 	/// <summary>Хранятся текущая и две предыдущие версии; остальные удаляются.</summary>
@@ -395,11 +395,11 @@ internal sealed class WindowsInstaller
 			try
 			{
 				Directory.Delete(Paths.Release(obsolete), recursive: true);
-				Output.WriteLine($"Удалена старая версия {obsolete}");
+				Output.WriteLine($"Removed old version {obsolete}");
 			}
 			catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
 			{
-				this.host.Warn($"старая версия {obsolete} не удалена: {exception.Message}");
+				this.host.Warn($"old version {obsolete} was not removed: {exception.Message}");
 			}
 		}
 	}
@@ -415,7 +415,7 @@ internal sealed class WindowsInstaller
 		}
 
 		Environment.SetEnvironmentVariable("PATH", string.Join(';', [.. entries, Paths.Current]), EnvironmentVariableTarget.Machine);
-		Output.WriteLine($"Команда vs-panel добавлена в PATH ({Paths.Current}); она появится в новых окнах командной строки.");
+		Output.WriteLine($"vs-panel was added to PATH ({Paths.Current}); it will be available in new command prompt windows.");
 	}
 
 	private void SeedRegistry()
@@ -433,11 +433,11 @@ internal sealed class WindowsInstaller
 		switch (decision.Value)
 		{
 			case RegistryDecision.Keep:
-				Output.WriteLine("Существующий реестр серверов сохранён.");
+				Output.WriteLine("The existing server registry was preserved.");
 				break;
 			case RegistryDecision.MigrateFlat migrate:
 				WriteFile(Paths.Registry, migrate.Json);
-				Output.WriteLine($"Сервер main перенесён в {Paths.Registry}");
+				Output.WriteLine($"Server main was added to {Paths.Registry}");
 				break;
 			case RegistryDecision.CreateEmpty empty:
 				WriteFile(Paths.Registry, empty.Json);
@@ -471,7 +471,7 @@ internal sealed class WindowsInstaller
 		}
 
 		new DirectoryInfo(Paths.DataRoot).SetAccessControl(security);
-		Output.WriteLine($"Доступ к {Paths.DataRoot}: SYSTEM и администраторы.");
+		Output.WriteLine($"Access to {Paths.DataRoot}: SYSTEM and Administrators.");
 	}
 
 	/// <summary>
@@ -484,13 +484,13 @@ internal sealed class WindowsInstaller
 	{
 		if (artifact.NewestTelemetry is not { } archive)
 		{
-			this.host.Warn("мод телеметрии не входит в сборку — готовность серверов будет проверяться ограниченно. Соберите его и положите в telemetry\\ сборки (VS_TELEMETRY_DIST при scripts/publish.sh).");
+			this.host.Warn("the telemetry mod is not included in this build, so server readiness checks will be limited. Build the mod and place it in the build's telemetry\\ directory (VS_TELEMETRY_DIST for scripts/publish.sh).");
 			return;
 		}
 
 		var name = Path.GetFileName(archive);
 		File.Copy(archive, Path.Combine(Paths.TelemetryDirectory, name), overwrite: true);
-		Output.WriteLine($"Мод телеметрии {name} — в {Paths.TelemetryDirectory}");
+		Output.WriteLine($"Telemetry mod {name} is in {Paths.TelemetryDirectory}");
 
 		var snapshot = await new FileRegistryStore(Paths.PanelConfig).LoadAsync(CancellationToken.None).ConfigureAwait(false);
 		if (snapshot is not RegistrySnapshot.Available available)
@@ -515,13 +515,13 @@ internal sealed class WindowsInstaller
 			}
 
 			File.Copy(archive, target);
-			Output.WriteLine($"Мод телеметрии {name} установлен серверу {server.Id.Value}");
+			Output.WriteLine($"Telemetry mod {name} installed for server {server.Id.Value}");
 			updated++;
 		}
 
 		if (updated > 0)
 		{
-			Output.WriteLine("Работающие серверы подхватят мод после перезапуска — перезапустите их в панели.");
+			Output.WriteLine("Running servers will load the mod after restarting. Restart them in the panel.");
 		}
 	}
 
@@ -536,10 +536,10 @@ internal sealed class WindowsInstaller
 			return 0;
 		}
 
-		this.host.Step("Создание игрового сервера с настройками по умолчанию");
+		this.host.Step("Creating a game server with default settings");
 		if (!dotnetReady)
 		{
-			this.host.Warn("нет среды .NET — сервер не создан, создайте его в мастере установки после установки .NET");
+			this.host.Warn(".NET runtime is missing, so no server was created. Install .NET, then create the server in the setup wizard");
 			return 0;
 		}
 
@@ -556,7 +556,7 @@ internal sealed class WindowsInstaller
 
 		if ((await this.host.ManageAsync(arguments).ConfigureAwait(false)).ExitCode != 0)
 		{
-			this.host.Warn("сервер не создан автоматически — создайте его в мастере установки по ссылке ниже");
+			this.host.Warn("the server was not created automatically; create it in the setup wizard using the link below");
 			return 0;
 		}
 
@@ -579,12 +579,12 @@ internal sealed class WindowsInstaller
 			var added = await Shell.RunAsync("netsh.exe", ["advfirewall", "firewall", "add", "rule", $"name={name}", "dir=in", "action=allow", $"protocol={protocol}", $"localport={text}"]).ConfigureAwait(false);
 			if (!added.Succeeded)
 			{
-				this.host.Warn($"порт {text}/{protocol} в брандмауэре не открыт: {added.Reason}");
+				this.host.Warn($"port {text}/{protocol} was not opened in Windows Firewall: {added.Reason}");
 				return;
 			}
 		}
 
-		Output.WriteLine($"В брандмауэре Windows открыт игровой порт {text} (TCP и UDP).");
+		Output.WriteLine($"Game port {text} is open in Windows Firewall (TCP and UDP).");
 	}
 
 	/// <summary>
@@ -600,7 +600,7 @@ internal sealed class WindowsInstaller
 			&& (await Shell.RunAsync(binary, ["--list-runtimes"]).ConfigureAwait(false)).Output
 				.Split('\n').Any(line => line.StartsWith($"Microsoft.NETCore.App {major}.", StringComparison.Ordinal)))
 		{
-			Output.WriteLine($"Среда .NET {channel} уже установлена: {binary}");
+			Output.WriteLine($".NET {channel} runtime is already installed: {binary}");
 			return true;
 		}
 
@@ -619,13 +619,13 @@ internal sealed class WindowsInstaller
 				.ConfigureAwait(false);
 			if (!installed.Succeeded)
 			{
-				this.host.Warn($"установка .NET {channel} не удалась: {installed.Reason}");
+				this.host.Warn($".NET {channel} installation failed: {installed.Reason}");
 				return false;
 			}
 		}
 		catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or IOException)
 		{
-			this.host.Warn($"не удалось скачать dotnet-install.ps1 ({exception.Message}); установите среду .NET {channel} вручную: https://dotnet.microsoft.com/download");
+			this.host.Warn($"Could not download dotnet-install.ps1 ({exception.Message}); install the .NET {channel} runtime manually: https://dotnet.microsoft.com/download");
 			return false;
 		}
 		finally
@@ -633,7 +633,7 @@ internal sealed class WindowsInstaller
 			File.Delete(script);
 		}
 
-		Output.WriteLine($"Установлена среда .NET {channel} в {target}");
+		Output.WriteLine($".NET {channel} runtime installed in {target}");
 		return true;
 	}
 
@@ -643,7 +643,7 @@ internal sealed class WindowsInstaller
 		using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control\FileSystem");
 		if (key?.GetValue("LongPathsEnabled") is not 1)
 		{
-			this.host.Warn("длинные пути (больше 260 символов) в системе выключены. Включить (PowerShell от администратора):\n"
+			this.host.Warn("long paths (over 260 characters) are disabled. Enable them in an Administrator PowerShell window:\n"
 				+ "  New-ItemProperty -Path HKLM:\\SYSTEM\\CurrentControlSet\\Control\\FileSystem -Name LongPathsEnabled -Value 1 -PropertyType DWord -Force");
 		}
 	}
@@ -660,7 +660,7 @@ internal sealed class WindowsInstaller
 			}
 			catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
 			{
-				this.host.Warn($"ярлык в {folder} не создан: {exception.Message}");
+				this.host.Warn($"shortcut in {folder} was not created: {exception.Message}");
 			}
 		}
 	}
@@ -674,15 +674,15 @@ internal sealed class WindowsInstaller
 
 	private void PrintSummary(int serverPort)
 	{
-		Output.WriteLine("\nПанель установлена.");
+		Output.WriteLine("\nPanel installed.");
 		PanelAccess.Print(Output, this.host.PanelEnvironment(), PanelAccess.MachineAddresses(), tunnel: false);
-		Output.WriteLine("Ярлык «Vintage Story Panel» — в меню «Пуск» и на рабочем столе.");
+		Output.WriteLine("The Vintage Story Panel shortcut is in the Start menu and on the desktop.");
 		if (serverPort > 0)
 		{
-			Output.WriteLine($"Игровой сервер main создан и запущен, порт {serverPort.ToString(CultureInfo.InvariantCulture)}.");
+			Output.WriteLine($"Game server main was created and started on port {serverPort.ToString(CultureInfo.InvariantCulture)}.");
 		}
 
-		Output.WriteLine("Управление: vs-panel help (в командной строке администратора)");
+		Output.WriteLine("Commands: vs-panel help (in an Administrator command prompt)");
 	}
 
 	/// <summary>Запись во временный файл и переименование: читатель видит либо старое, либо новое содержимое.</summary>

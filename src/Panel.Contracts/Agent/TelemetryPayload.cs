@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Panel.SharedKernel;
 
 namespace Panel.Contracts.Agent;
 
@@ -25,7 +26,7 @@ public sealed record TelemetryPayload
 	[JsonPropertyName("available")] public bool Available { get; init; }
 	[JsonPropertyName("stale")] public bool Stale { get; init; } = true;
 	[JsonPropertyName("age_seconds")] public long? AgeSeconds { get; init; }
-	[JsonPropertyName("detail")] public string? Detail { get; init; }
+	[JsonPropertyName("detail")] public Phrase? Detail { get; init; }
 	[JsonPropertyName("generated_at")] public double? GeneratedAt { get; init; }
 	[JsonPropertyName("observed_tps")] public double? TicksPerSecond { get; init; }
 	[JsonPropertyName("players")] public IReadOnlyList<PlayerPayload> Players { get; init; } = [];

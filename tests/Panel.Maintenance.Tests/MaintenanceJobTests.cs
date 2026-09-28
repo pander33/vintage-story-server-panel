@@ -264,6 +264,6 @@ public sealed class MaintenanceRunTests
 		run.SkipMissed(100);
 
 		Assert.Equal(RunStatus.Skipped, run.Status);
-		Assert.Equal("Пропущено: панель была выключена более 6 часов", run.Detail);
+		Assert.Equal("Пропущено: панель была выключена более 6 часов", run.Detail?.ToString());
 	}
 }

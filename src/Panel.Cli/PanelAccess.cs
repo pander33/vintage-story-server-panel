@@ -30,7 +30,7 @@ internal static class PanelAccess
 		if (!status.Succeeded || !status.Output.Contains("Status: active", StringComparison.Ordinal))
 		{
 			return current.OpensFirewall
-				? new FirewallOutcome("ufw не активен — правило для порта панели не нужно. Если брандмауэр другой, откройте порт в нём.", false)
+				? new FirewallOutcome("ufw is inactive, so no panel port rule is needed. If you use another firewall, open the port there.", false)
 				: null;
 		}
 
@@ -47,7 +47,7 @@ internal static class PanelAccess
 			var added = await Shell.RunAsync("ufw", rule).ConfigureAwait(false);
 			if (!added.Succeeded)
 			{
-				return new FirewallOutcome($"порт панели {current.Port} в ufw не открыт: {added.Reason}", true);
+				return new FirewallOutcome($"panel port {current.Port} was not opened in ufw: {added.Reason}", true);
 			}
 		}
 
@@ -67,11 +67,11 @@ internal static class PanelAccess
 			var added = await Shell.RunAsync("netsh.exe", rule).ConfigureAwait(false);
 			if (!added.Succeeded)
 			{
-				return new FirewallOutcome($"порт панели {current.Port} в брандмауэре не открыт: {added.Reason}", true);
+				return new FirewallOutcome($"panel port {current.Port} was not opened in the firewall: {added.Reason}", true);
 			}
 		}
 
-		return Describe(previous, current, "брандмауэре Windows");
+		return Describe(previous, current, "Windows Firewall");
 	}
 
 	/// <summary>Снять правила панели при удалении: порт больше никто не слушает.</summary>
@@ -94,16 +94,16 @@ internal static class PanelAccess
 	{
 		if (current.OpensFirewall)
 		{
-			return new FirewallOutcome($"В {where} открыт порт панели {current.Port} (TCP): {current.FirewallDescription}.", false);
+			return new FirewallOutcome($"Panel port {current.Port} is open in {where} (TCP): {FirewallLabel(current.Firewall)}.", false);
 		}
 
 		if (current.Published && current.Firewall == FirewallScope.Off)
 		{
-			return new FirewallOutcome($"Порт панели {current.Port} в брандмауэре не открывается (PANEL_FIREWALL=off): правила ведёте вы.", false);
+			return new FirewallOutcome($"Panel port {current.Port} is not opened in the firewall (PANEL_FIREWALL=off): manage the rules yourself.", false);
 		}
 
 		return previous?.OpensFirewall == true
-			? new FirewallOutcome("Правило брандмауэра для панели снято: панель слушает только эту машину.", false)
+			? new FirewallOutcome("Panel firewall rule removed: the panel listens only on this machine.", false)
 			: null;
 	}
 
@@ -164,43 +164,50 @@ internal static class PanelAccess
 	{
 		ArgumentNullException.ThrowIfNull(output);
 		var listener = PanelListener.FromEnvironment(environment);
-		output.WriteLine($"Панель слушает {listener.Bind}:{listener.Port}.");
-		output.WriteLine($"  на этой машине: {listener.LocalUrl}");
+		output.WriteLine($"Panel listens on {listener.Bind}:{listener.Port}.");
+		output.WriteLine($"  on this machine: {listener.LocalUrl}");
 		if (!listener.Published)
 		{
 			if (tunnel)
 			{
-				output.WriteLine($"  с другого компьютера — через туннель: ssh -L {listener.Port}:127.0.0.1:{listener.Port} {Environment.GetEnvironmentVariable("SUDO_USER") ?? "user"}@{Environment.MachineName}");
+				output.WriteLine($"  from another computer, use an SSH tunnel: ssh -L {listener.Port}:127.0.0.1:{listener.Port} {Environment.GetEnvironmentVariable("SUDO_USER") ?? "user"}@{Environment.MachineName}");
 			}
 
-			output.WriteLine("  открыть доступ из сети: vs-panel repair --access lan (или internet)");
+			output.WriteLine("  allow network access: vs-panel repair --access lan (or internet)");
 			return;
 		}
 
 		var urls = listener.NetworkUrls(machine);
 		foreach (var url in urls)
 		{
-			output.WriteLine($"  из сети: {url}");
+			output.WriteLine($"  from the network: {url}");
 		}
 
 		if (urls.Count == 0)
 		{
-			output.WriteLine("  из сети: по адресу этой машины в сети (адреса интерфейсов не определены)");
+			output.WriteLine("  from the network: use this machine's network address (interface addresses unavailable)");
 		}
 
-		output.WriteLine($"  брандмауэр: {listener.FirewallDescription}");
+		output.WriteLine($"  firewall: {FirewallLabel(listener.Firewall)}");
 		if (listener.Firewall == FirewallScope.Internet)
 		{
-			output.WriteLine($"  из интернета: по внешнему адресу машины; за роутером пробросьте на неё порт {listener.Port}/tcp");
+			output.WriteLine($"  from the internet: use this machine's public address; forward port {listener.Port}/tcp if behind a router");
 		}
 
 		if (EnvironmentFile.Value(environment, "PANEL_SECURE_COOKIE", "true") is "false" or "0" or "no")
 		{
-			output.WriteLine("Внимание: панель работает по HTTP — пароль и сессия идут по сети открытым текстом.");
+			output.WriteLine("Warning: the panel uses HTTP, so passwords and sessions travel over the network in plain text.");
 			if (listener.Firewall == FirewallScope.Internet)
 			{
-				output.WriteLine("Для доступа из интернета поставьте перед панелью HTTPS-прокси и переустановите с --secure-cookie true.");
+				output.WriteLine("For internet access, put an HTTPS proxy in front of the panel and reinstall with --secure-cookie true.");
 			}
 		}
 	}
+
+	private static string FirewallLabel(FirewallScope scope) => scope switch
+	{
+		FirewallScope.Internet => "any address, including the internet",
+		FirewallScope.Off => "firewall rules are unchanged",
+		_ => "local network only",
+	};
 }

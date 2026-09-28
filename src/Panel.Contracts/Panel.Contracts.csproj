@@ -10,4 +10,18 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!-- Переводы сообщений: русский шаблон Phrase → английский текст. Русский — язык шаблонов,
+       поэтому каталог один. Здесь, а не в панели: фразы показывает и установщик. -->
+  <ItemGroup>
+    <None Remove="Resources\**" />
+    <EmbeddedResource Include="Resources\phrases-*.json" LogicalName="Panel.Contracts.Resources.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <!-- Переводы сообщений: русский шаблон Phrase → английский текст. Русский — язык шаблонов,
+       поэтому каталог один. Здесь, а не в панели: фразы показывает и установщик. -->
+  <ItemGroup>
+    <None Remove="Resources**" />
+    <EmbeddedResource Include="Resourcesphrases-*.json" LogicalName="Panel.Contracts.Resources.%(Filename)%(Extension)" />
+  </ItemGroup>
+
 </Project>

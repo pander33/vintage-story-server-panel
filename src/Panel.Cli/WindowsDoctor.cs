@@ -26,7 +26,7 @@ internal static class WindowsDoctor
 		var version = FirstLine(Path.Combine(paths.Current, Artifact.VersionFile));
 		if (version is null)
 		{
-			findings.Add(new(Severity.Problem, $"Панель не установлена: нет {Path.Combine(paths.Current, Artifact.VersionFile)}. Установите: install.cmd из каталога сборки"));
+			findings.Add(new(Severity.Problem, $"Panel is not installed: missing {Path.Combine(paths.Current, Artifact.VersionFile)}. Install with install.cmd from the build directory"));
 		}
 		else
 		{
@@ -35,25 +35,25 @@ internal static class WindowsDoctor
 				.Where(name => !File.Exists(Path.Combine(paths.Current, name)))
 				.ToList();
 			findings.Add(missing.Count == 0
-				? new(Severity.Ok, $"Активная версия {version}")
-				: new(Severity.Problem, $"В версии {version} нет {string.Join(", ", missing)}: переустановите её (install.cmd из каталога сборки)"));
+				? new(Severity.Ok, $"Active version {version}")
+				: new(Severity.Problem, $"Version {version} is missing {string.Join(", ", missing)}: reinstall with install.cmd from the build directory"));
 		}
 
 		findings.Add(Doctor.CheckPanelConfig(paths.PanelConfig));
 		findings.Add(Doctor.CheckRegistry(paths.Registry));
 		findings.Add(File.Exists(paths.PanelEnv)
-			? new(Severity.Ok, $"Файл окружения: {paths.PanelEnv}")
-			: new(Severity.Problem, $"Нет файла окружения {paths.PanelEnv}. Исправит {command} repair"));
+			? new(Severity.Ok, $"Environment file: {paths.PanelEnv}")
+			: new(Severity.Problem, $"Missing environment file {paths.PanelEnv}. Fix with {command} repair"));
 		findings.AddRange(Doctor.CheckState(stateDirectory, command));
 
 		findings.Add(Directory.Exists(paths.TelemetryDirectory) && Directory.GetFiles(paths.TelemetryDirectory, "vspaneltelemetry_*.zip").Length > 0
-			? new(Severity.Ok, $"Мод телеметрии для новых серверов: {paths.TelemetryDirectory}")
-			: new(Severity.Warning, $"Нет мода телеметрии в {paths.TelemetryDirectory}: готовность новых серверов проверяется ограниченно"));
+			? new(Severity.Ok, $"Telemetry mod for new servers: {paths.TelemetryDirectory}")
+			: new(Severity.Warning, $"No telemetry mod in {paths.TelemetryDirectory}: readiness checks for new servers are limited"));
 
 		var leftovers = paths.LegacyProgram.Where(path => File.Exists(path) || Directory.Exists(path)).ToList();
 		if (leftovers.Count > 0)
 		{
-			findings.Add(new(Severity.Warning, $"Остались файлы прежней версии панели: {string.Join(", ", leftovers)}. Новая панель их не использует; удалить можно вручную"));
+			findings.Add(new(Severity.Warning, $"Legacy panel files remain: {string.Join(", ", leftovers)}. The new panel does not use them; remove them manually"));
 		}
 
 		return findings;
@@ -69,28 +69,28 @@ internal static class WindowsDoctor
 			var config = ServiceManager.Query(name);
 			if (config is null)
 			{
-				findings.Add(new(Severity.Problem, $"Служба {name} не установлена. Исправит {command} repair"));
+				findings.Add(new(Severity.Problem, $"Service {name} is not installed. Fix with {command} repair"));
 				continue;
 			}
 
 			if (!WindowsPaths.IsServiceAccount(config.Account))
 			{
-				findings.Add(new(Severity.Problem, $"{name} работает не от LocalSystem, а от {config.Account}. Исправит {command} repair"));
+				findings.Add(new(Severity.Problem, $"{name} runs as {config.Account} instead of LocalSystem. Fix with {command} repair"));
 			}
 
 			var status = WindowsHost.Status(name);
 			findings.Add(status == ServiceControllerStatus.Running && config.AutoStart
-				? new(Severity.Ok, $"{name}: работает, запуск автоматический, учётная запись {config.Account}")
-				: new(Severity.Problem, $"{name}: {WindowsCommands.Describe(status)}{(config.AutoStart ? string.Empty : ", запуск не автоматический")}. Запустить: {command} start; причина — {command} logs"));
+				? new(Severity.Ok, $"{name}: running, automatic start, account {config.Account}")
+				: new(Severity.Problem, $"{name}: {WindowsCommands.Describe(status)}{(config.AutoStart ? string.Empty : ", startup is not automatic")}. Start with {command} start; see {command} logs for the cause"));
 			if (!string.Equals(config.CommandLine, expected, StringComparison.OrdinalIgnoreCase))
 			{
-				findings.Add(new(Severity.Problem, $"{name} запускает не активную версию: {config.CommandLine}. Исправит {command} repair"));
+				findings.Add(new(Severity.Problem, $"{name} does not launch the active version: {config.CommandLine}. Fix with {command} repair"));
 			}
 		}
 
 		findings.Add(PipeExists(WindowsPaths.AgentPipe)
-			? new(Severity.Ok, $"Канал демона \\\\.\\pipe\\{WindowsPaths.AgentPipe}")
-			: new(Severity.Problem, $"Нет канала демона \\\\.\\pipe\\{WindowsPaths.AgentPipe}: панель не может выполнять команды"));
+			? new(Severity.Ok, $"Agent pipe \\\\.\\pipe\\{WindowsPaths.AgentPipe}")
+			: new(Severity.Problem, $"Missing agent pipe \\\\.\\pipe\\{WindowsPaths.AgentPipe}: the panel cannot execute commands"));
 
 		findings.Add(CheckDataAccess(host.Paths.DataRoot));
 		findings.Add(await CheckPanelPortAsync(host).ConfigureAwait(false));
@@ -99,15 +99,15 @@ internal static class WindowsDoctor
 		{
 			if ((await Shell.RunAsync("schtasks.exe", ["/Query", "/TN", task]).ConfigureAwait(false)).Succeeded)
 			{
-				findings.Add(new(Severity.Problem, $"Осталась задача планировщика прежней версии {task}: она займёт порт панели при загрузке. Удалит {command} repair"));
+				findings.Add(new(Severity.Problem, $"Legacy scheduled task {task} remains: it will occupy the panel port at startup. Remove with {command} repair"));
 			}
 		}
 
 		var dotnet = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "dotnet", "dotnet.exe");
 		var runtimes = File.Exists(dotnet) ? await Shell.RunAsync(dotnet, ["--list-runtimes"]).ConfigureAwait(false) : null;
 		findings.Add(runtimes is { Succeeded: true } && runtimes.Output.Contains("Microsoft.NETCore.App 10.", StringComparison.Ordinal)
-			? new(Severity.Ok, "Среда .NET 10 для игры установлена")
-			: new(Severity.Warning, $"Не найдена среда .NET 10 в {Path.GetDirectoryName(dotnet)}: серверы Vintage Story 1.22 не запустятся"));
+			? new(Severity.Ok, ".NET 10 runtime for the game is installed")
+			: new(Severity.Warning, $".NET 10 runtime not found in {Path.GetDirectoryName(dotnet)}: Vintage Story 1.22 servers will not start"));
 		return findings;
 	}
 
@@ -117,7 +117,7 @@ internal static class WindowsDoctor
 	{
 		if (!Directory.Exists(dataRoot))
 		{
-			return new(Severity.Problem, $"Нет каталога данных {dataRoot}. Исправит {command} repair");
+			return new(Severity.Problem, $"Missing data directory {dataRoot}. Fix with {command} repair");
 		}
 
 		SecurityIdentifier[] broad =
@@ -133,8 +133,8 @@ internal static class WindowsDoctor
 			.Distinct(StringComparer.Ordinal)
 			.ToList();
 		return open.Count == 0
-			? new(Severity.Ok, $"Каталог данных {dataRoot} закрыт от остальных пользователей")
-			: new(Severity.Problem, $"Каталог данных {dataRoot} доступен {string.Join(", ", open)}: ключ сессий может прочитать любой пользователь машины. Исправит {command} repair");
+			? new(Severity.Ok, $"Data directory {dataRoot} is closed to other users")
+			: new(Severity.Problem, $"Data directory {dataRoot} is accessible to {string.Join(", ", open)}: any machine user could read the session key. Fix with {command} repair");
 	}
 
 	[SupportedOSPlatform("windows")]
@@ -147,11 +147,11 @@ internal static class WindowsDoctor
 		try
 		{
 			await client.ConnectAsync(uri.Host, uri.Port, timeout.Token).ConfigureAwait(false);
-			return new(Severity.Ok, $"Панель отвечает на {address}");
+			return new(Severity.Ok, $"Panel responds at {address}");
 		}
 		catch (Exception exception) when (exception is SocketException or OperationCanceledException)
 		{
-			return new(Severity.Problem, $"Панель не отвечает на {address}. Причина — {command} logs");
+			return new(Severity.Problem, $"Panel does not respond at {address}. See {command} logs for the cause");
 		}
 	}
 

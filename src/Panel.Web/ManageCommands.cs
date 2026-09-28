@@ -33,6 +33,10 @@ namespace Panel.Web;
 /// <para>
 /// При отказе текст пишется в stderr и возвращается код 1.
 /// </para>
+/// <para>
+/// Вывод — по-английски, как у всего установщика: фразы отказов и записей операции переводятся
+/// тем же каталогом, что и ответы панели (<see cref="Terminal"/>).
+/// </para>
 /// </remarks>
 public static class ManageCommands
 {
@@ -51,16 +55,16 @@ public static class ManageCommands
 	private static readonly TimeSpan progressPoll = TimeSpan.FromSeconds(2);
 
 	public const string Usage = """
-		Использование: vs-panel-web manage <команда>
-		  init             каталоги состояния, ключ сессий, перенос устаревшей раскладки состояния
-		  claim-token      одноразовая ссылка на мастер установки
-		  set-password     новый пароль учётной записи admin (читается из stdin)
-		  rotate-secret    заменить ключ сессий; все сессии завершаются
+		Usage: vs-panel-web manage <command>
+		  init             state directories, session key, migration of the legacy state layout
+		  claim-token      one-time link to the setup wizard
+		  set-password     new password for the admin account (read from stdin)
+		  rotate-secret    replace the session key; all sessions end
 		  provision [--version V] [--id main] [--name N] [--port 42420] [--world W]
 		            [--language ru] [--wait 600]
-		                   создать первый сервер с настройками мастера по умолчанию
-		  servers-root <путь>
-		                   каталог, в котором создаются новые серверы
+		                   create the first server with the wizard defaults
+		  servers-root <path>
+		                   directory where new servers are created
 		""";
 
 	public static async Task<int> RunAsync(IReadOnlyList<string> arguments, PanelOptions options, TextWriter output, TextWriter error)
@@ -99,7 +103,7 @@ public static class ManageCommands
 
 		if (!result.IsSuccess)
 		{
-			await error.WriteLineAsync(result.Failure!.Message).ConfigureAwait(false);
+			await error.WriteLineAsync(Terminal(result.Failure!.Text)).ConfigureAwait(false);
 			return 1;
 		}
 
@@ -159,7 +163,7 @@ public static class ManageCommands
 
 		if (moved.Count > 0)
 		{
-			output.WriteLine($"Состояние сервера перенесено в {target}: {string.Join(", ", moved)}");
+			output.WriteLine($"Server state moved to {target}: {string.Join(", ", moved)}");
 		}
 	}
 
@@ -204,19 +208,19 @@ public static class ManageCommands
 			return Failure.Unavailable($"Токен мастера не записан: {exception.Message}");
 		}
 
-		output.WriteLine("Откройте мастер установки и завершите настройку:");
+		output.WriteLine("Open the setup wizard to finish configuration:");
 		output.WriteLine($"  {SetupLink(options, token)}");
 		var network = NetworkSetupLinks(options, token, MachineAddresses());
 		if (network.Count > 0)
 		{
-			output.WriteLine("С другого компьютера в сети:");
+			output.WriteLine("From another computer on the network:");
 			foreach (var link in network)
 			{
 				output.WriteLine($"  {link}");
 			}
 		}
 
-		output.WriteLine("Ссылка одноразовая: после создания администратора токен удаляется.");
+		output.WriteLine("The link works once: the token is removed after the administrator is created.");
 		return Done.Ok;
 	}
 
@@ -306,7 +310,7 @@ public static class ManageCommands
 		}
 
 		RestrictToOwner(options.AccountsPath);
-		output.WriteLine("Пароль администратора сохранён");
+		output.WriteLine("Administrator password saved");
 		return Done.Ok;
 	}
 
@@ -332,7 +336,7 @@ public static class ManageCommands
 			return Failure.Unavailable($"Ключ сессий не заменён: {exception.Message}");
 		}
 
-		output.WriteLine("Ключ сессий заменён; все активные сессии завершены");
+		output.WriteLine("Session key replaced; all active sessions ended");
 		return Done.Ok;
 	}
 
@@ -426,7 +430,7 @@ public static class ManageCommands
 			return changed.Failure!;
 		}
 
-		output.WriteLine($"Каталог серверов: {changed.Value.InstancesRoot}");
+		output.WriteLine($"Servers directory: {changed.Value.InstancesRoot}");
 		return Done.Ok;
 	}
 
@@ -510,16 +514,16 @@ public static class ManageCommands
 		var report = await provision.PreflightAsync(ChosenVersion.Create(version), ct).ConfigureAwait(false);
 		foreach (var warning in Texts(report["warnings"]))
 		{
-			output.WriteLine("Предупреждение: " + warning);
+			output.WriteLine("Warning: " + warning);
 		}
 
 		if (report["ok"] is not JsonValue ok || !ok.GetValue<bool>())
 		{
-			return Failure.Unavailable("Сервер не создан:\n  " + string.Join("\n  ", Texts(report["blockers"])));
+			return Failure.Unavailable($"Сервер не создан:\n  {string.Join("\n  ", Texts(report["blockers"]))}");
 		}
 
-		output.WriteLine($"Создание сервера {spec.Value.Id.Value}: Vintage Story {version}, порт {spec.Value.Port.ToString(CultureInfo.InvariantCulture)}");
-		output.WriteLine("Скачивание пакета и первый запуск занимают несколько минут; ход — ниже, строка раз в 15 с.");
+		output.WriteLine($"Creating server {spec.Value.Id.Value}: Vintage Story {version}, port {spec.Value.Port.ToString(CultureInfo.InvariantCulture)}");
+		output.WriteLine("Downloading the package and the first start take a few minutes; progress follows, a line every 15 s.");
 		output.Flush();
 		var clock = provider.GetRequiredService<TimeProvider>();
 		var progress = new ProvisionProgress(output, clock.GetUtcNow(), () => StagedBytes(options.StagingDirectory));
@@ -546,10 +550,10 @@ public static class ManageCommands
 		if (record is null || Text(record["status"]) != "success")
 		{
 			var detail = record is null ? string.Empty : Text(record["detail"]);
-			return Failure.Unavailable("Сервер не создан: " + (detail.Length > 0 ? detail : "неизвестная ошибка"));
+			return detail.Length > 0 ? Failure.Unavailable($"Сервер не создан: {detail}") : Failure.Unavailable("Сервер не создан: неизвестная ошибка");
 		}
 
-		output.WriteLine(Text(record["detail"]) is { Length: > 0 } done ? done : "Сервер создан");
+		output.WriteLine(Text(record["detail"]) is { Length: > 0 } done ? done : "Server created");
 
 		// Служба панели читает окружение при запуске, поэтому сервер и его версия должны быть
 		// записаны до того, как установщик её запустит.
@@ -562,7 +566,7 @@ public static class ManageCommands
 				: setting.Failure;
 			if (written is not null)
 			{
-				output.WriteLine("Предупреждение: окружение панели не обновлено: " + written.Message);
+				output.WriteLine("Warning: panel environment not updated: " + Terminal(written.Text));
 			}
 		}
 
@@ -574,7 +578,7 @@ public static class ManageCommands
 	/// <summary>Пароль дважды: из терминала без эха, из перенаправленного stdin построчно.</summary>
 	private static (string First, string Second) ReadPassword(TextWriter output)
 	{
-		return (Ask("Новый пароль администратора (минимум 12 символов): "), Ask("Повторите пароль: "));
+		return (Ask("New administrator password (at least 12 characters): "), Ask("Repeat the password: "));
 
 		string Ask(string prompt)
 		{
@@ -665,8 +669,12 @@ public static class ManageCommands
 	private static IEnumerable<string> Texts(JsonNode? node) =>
 		(node as JsonArray ?? []).Select(Text).Where(text => text.Length > 0);
 
+	/// <summary>Строка или фраза (<c>$phrase</c>) из записи операции — по-английски, как весь вывод.</summary>
 	private static string Text(JsonNode? node) =>
-		node is JsonValue value && value.TryGetValue<string>(out var text) ? text : string.Empty;
+		PhraseJsonConverter.FromNode(node) is { } phrase ? Terminal(phrase) : string.Empty;
+
+	/// <summary>Фраза для терминала: установщик говорит по-английски.</summary>
+	internal static string Terminal(Phrase phrase) => PhraseCatalog.Translate(phrase, PanelLanguage.English);
 
 	/// <summary>
 	/// Сколько уже скачано: размер самого нового файла в staging. Имя пакета снаружи

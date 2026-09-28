@@ -78,7 +78,7 @@ internal sealed record InstallOptions
 		"localhost" => new Dictionary<string, string>(StringComparer.Ordinal) { ["PANEL_BIND"] = "127.0.0.1" },
 		"lan" => new Dictionary<string, string>(StringComparer.Ordinal) { ["PANEL_BIND"] = "0.0.0.0", ["PANEL_ALLOWED_HOSTS"] = "*", [PanelListener.FirewallKey] = "lan" },
 		"internet" => new Dictionary<string, string>(StringComparer.Ordinal) { ["PANEL_BIND"] = "0.0.0.0", ["PANEL_ALLOWED_HOSTS"] = "*", [PanelListener.FirewallKey] = "internet" },
-		_ => Failure.Invalid($"--access: ожидается localhost, lan или internet, получено «{access}»."),
+		_ => Failure.Invalid($"--access: expected localhost, lan or internet; got '{access}'."),
 	};
 
 	/// <summary>Значение строки <c>vs-panel.env</c>: те же правила, что у мастера установки и демона.</summary>
@@ -87,17 +87,17 @@ internal sealed record InstallOptions
 		if (key == PanelListener.FirewallKey)
 		{
 			return FirewallScopeWire.FromWire(value) is null
-				? Failure.Invalid($"--firewall: ожидается lan, internet или off, получено «{value}».")
+				? Failure.Invalid($"--firewall: expected lan, internet or off; got '{value}'.")
 				: value;
 		}
 
 		if (key == "PANEL_PORT" && !(int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var port) && port is >= 1 and <= 65535))
 		{
-			return Failure.Invalid("Порт панели должен быть от 1 до 65535.");
+			return Failure.Invalid("Panel port must be between 1 and 65535.");
 		}
 
 		return !PanelSetting.Create(key, value).IsSuccess
-			? Failure.Invalid($"Недопустимое значение {key}: «{value}».")
+			? Failure.Invalid($"Invalid value for {key}: '{value}'.")
 			: value;
 	}
 
@@ -136,7 +136,7 @@ internal sealed record InstallOptions
 		{
 			if (!int.TryParse(wait, NumberStyles.None, CultureInfo.InvariantCulture, out var seconds) || seconds < 10)
 			{
-				return Failure.Invalid("VS_PANEL_INSTALL_WAIT_SECONDS должен быть целым числом не меньше 10.");
+				return Failure.Invalid("VS_PANEL_INSTALL_WAIT_SECONDS must be an integer of at least 10.");
 			}
 
 			options = options with { WaitSeconds = seconds };
@@ -146,7 +146,7 @@ internal sealed record InstallOptions
 		{
 			if (!int.TryParse(port, NumberStyles.None, CultureInfo.InvariantCulture, out var number) || number is < 1024 or > 65535)
 			{
-				return Failure.Invalid("VS_PANEL_GAME_PORT должен быть числом от 1024 до 65535.");
+				return Failure.Invalid("VS_PANEL_GAME_PORT must be a number between 1024 and 65535.");
 			}
 
 			options = options with { GamePort = number };
@@ -169,7 +169,7 @@ internal sealed record InstallOptions
 			{
 				if (index + 1 >= arguments.Count || arguments[index + 1].Trim().Length == 0)
 				{
-					return Failure.Invalid($"{parameter.Argument}: не задано значение.");
+					return Failure.Invalid($"{parameter.Argument}: value is missing.");
 				}
 
 				explicitValues[parameter.Key] = arguments[++index].Trim();
@@ -200,7 +200,7 @@ internal sealed record InstallOptions
 					options = options with { OpenBrowser = false };
 					break;
 				default:
-					return Failure.Invalid($"Неизвестный параметр: {arguments[index]}");
+					return Failure.Invalid($"Unknown option: {arguments[index]}");
 			}
 		}
 

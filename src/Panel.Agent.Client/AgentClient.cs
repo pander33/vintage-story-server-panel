@@ -122,7 +122,7 @@ public sealed class AgentClient
 	/// </summary>
 	private static Failure Map(AgentReply reply)
 	{
-		var message = reply.Error ?? "Привилегированная служба отказала";
+		var message = reply.FailureText(Phrase.From("Привилегированная служба отказала"));
 		return reply.Code switch
 		{
 			"notfound" => Failure.NotFound(message),

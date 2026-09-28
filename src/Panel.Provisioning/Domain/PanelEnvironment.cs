@@ -192,11 +192,11 @@ public static class DiskRequirement
 	public static long For(long packageSize) => Math.Max(MinimumFreeBytes, packageSize * PackageMultiplier);
 
 	/// <summary>Препятствие, если место известно и его мало; <c>null</c>, если места хватает или оно неизвестно.</summary>
-	public static string? Blocker(long free, long needed)
+	public static Phrase? Blocker(long free, long needed)
 	{
 		const long gib = 1024L * 1024 * 1024;
 		return free > 0 && free < needed
-			? $"Недостаточно места: свободно {(free / gib).ToString(CultureInfo.InvariantCulture)} ГиБ, нужно около {(needed / gib).ToString(CultureInfo.InvariantCulture)} ГиБ."
+			? Phrase.Format($"Недостаточно места: свободно {free / gib} ГиБ, нужно около {needed / gib} ГиБ.")
 			: null;
 	}
 }

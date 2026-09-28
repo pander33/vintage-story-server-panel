@@ -71,7 +71,7 @@ public static class WorldEndpoints
 			{
 				await using var stream = file.OpenReadStream();
 				var written = await staging
-					.WriteAsync(stream, staged, options.MaxWorldUploadMegabytes, ct, $"Мир больше {options.MaxWorldUploadMegabytes} МБ")
+					.WriteAsync(stream, staged, options.MaxWorldUploadMegabytes, ct, Phrase.Format($"Мир больше {options.MaxWorldUploadMegabytes} МБ"))
 					.ConfigureAwait(false);
 
 				if (!written.IsSuccess)

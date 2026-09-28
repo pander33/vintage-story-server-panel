@@ -26,7 +26,7 @@ internal sealed class WindowsCommands
 	{
 		if (new WindowsInstaller(this.host).CurrentVersion() is { } version)
 		{
-			Output.WriteLine($"Версия панели: {version}");
+			Output.WriteLine($"Panel version: {version}");
 		}
 
 		var healthy = true;
@@ -38,7 +38,7 @@ internal sealed class WindowsCommands
 			healthy &= status == ServiceControllerStatus.Running;
 		}
 
-		Output.WriteLine($"Адрес панели: {PanelState.LocalAddress(this.host.PanelEnvironment())}");
+		Output.WriteLine($"Panel address: {PanelState.LocalAddress(this.host.PanelEnvironment())}");
 		return healthy ? 0 : 1;
 	}
 
@@ -69,12 +69,12 @@ internal sealed class WindowsCommands
 	/// </summary>
 	public int Logs()
 	{
-		Output.WriteLine("Журнал служб панели — раздел «Журнал службы панели» в панели; он же в журнале событий:");
-		Output.WriteLine("eventvwr.msc → Журналы Windows → Приложение");
-		Output.WriteLine("(источники vs-panel-agent и Panel.Web), отказы запуска служб — там же в разделе «Система».");
-		Output.WriteLine("Из PowerShell:");
+		Output.WriteLine("Panel service logs are in the panel under Panel service log and in Event Viewer:");
+		Output.WriteLine("eventvwr.msc → Windows Logs → Application");
+		Output.WriteLine("(sources vs-panel-agent and Panel.Web); service startup failures are under System.");
+		Output.WriteLine("From PowerShell:");
 		Output.WriteLine("  Get-WinEvent -LogName Application -MaxEvents 200 | Where-Object ProviderName -in 'vs-panel-agent','Panel.Web'");
-		Output.WriteLine($"Вывод игровых серверов — раздел «Журнал» панели и файлы {Path.Combine(this.host.Paths.RunDirectory, "<id>.console.log")}.");
+		Output.WriteLine($"Game server output is in the panel Log tab and in {Path.Combine(this.host.Paths.RunDirectory, "<id>.console.log")}.");
 		return 0;
 	}
 
@@ -86,8 +86,8 @@ internal sealed class WindowsCommands
 		Output.WriteLine();
 		if (this.host.SetupCompleted())
 		{
-			Output.WriteLine("Мастер установки завершён — вход обычным логином и паролем.");
-			Output.WriteLine("Забыли пароль: vs-panel password");
+			Output.WriteLine("Setup is complete — sign in with your username and password.");
+			Output.WriteLine("Forgot your password: vs-panel password");
 			if (openBrowser)
 			{
 				await this.host.OpenAsync(address).ConfigureAwait(false);
@@ -107,8 +107,8 @@ internal sealed class WindowsCommands
 
 	public async Task<int> PasswordAsync()
 	{
-		Output.WriteLine("Новый пароль будет задан учётной записи admin (если её нет, она будет создана");
-		Output.WriteLine("с ролью администратора). Все её прежние сессии будут завершены.\n");
+		Output.WriteLine("The new password will be set for the admin account (it will be created if missing");
+		Output.WriteLine("with the administrator role). All its previous sessions will be revoked.\n");
 		return await this.host.ManageAttachedAsync(["set-password"]).ConfigureAwait(false);
 	}
 
@@ -118,13 +118,13 @@ internal sealed class WindowsCommands
 		IReadOnlyList<RegisteredServer> servers = snapshot switch
 		{
 			RegistrySnapshot.Available available => available.Servers,
-			RegistrySnapshot.Unavailable unavailable => throw new InstallFailed($"Реестр серверов не прочитан: {unavailable.Detail}"),
+			RegistrySnapshot.Unavailable unavailable => throw new InstallFailed($"Could not read the server registry: {unavailable.Detail}"),
 			_ => [],
 		};
 
 		if (servers.Count == 0)
 		{
-			Output.WriteLine("Серверов в реестре нет. Создайте первый в мастере установки: vs-panel access");
+			Output.WriteLine("No servers in the registry. Create the first one in the setup wizard: vs-panel access");
 			return 0;
 		}
 
@@ -133,18 +133,18 @@ internal sealed class WindowsCommands
 			Output.WriteLine($"{server.Id.Value,-20} {server.Name}");
 		}
 
-		Output.WriteLine("\nНа Windows серверами управляет демон: запуск, остановка и журнал — в панели.");
+		Output.WriteLine("\nOn Windows the agent manages game servers: start, stop and logs are in the panel.");
 		return 0;
 	}
 
 	public static string Describe(ServiceControllerStatus? status) => status switch
 	{
-		ServiceControllerStatus.Running => "работает",
-		ServiceControllerStatus.StartPending => "запускается",
-		ServiceControllerStatus.StopPending => "останавливается",
-		ServiceControllerStatus.Stopped => "остановлена",
-		ServiceControllerStatus.Paused => "приостановлена",
-		null => "не установлена",
+		ServiceControllerStatus.Running => "running",
+		ServiceControllerStatus.StartPending => "starting",
+		ServiceControllerStatus.StopPending => "stopping",
+		ServiceControllerStatus.Stopped => "stopped",
+		ServiceControllerStatus.Paused => "paused",
+		null => "not installed",
 		_ => status.Value.ToString(),
 	};
 }

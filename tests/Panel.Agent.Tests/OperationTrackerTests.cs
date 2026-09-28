@@ -26,7 +26,7 @@ public sealed class OperationTrackerTests : IDisposable
 	[Fact]
 	public void Snapshot_reports_stages_and_current_stage()
 	{
-		using var scope = tracker.Begin("example", "backup", OperationStages.Backup);
+		using var scope = tracker.Begin("example", "backup", OperationStages.Backup, OperationStages.BackupTitle);
 		scope.Enter(OperationStages.Pack);
 
 		var snapshot = tracker.Snapshot("example");
@@ -41,7 +41,7 @@ public sealed class OperationTrackerTests : IDisposable
 	[Fact]
 	public void Stage_missing_from_the_operation_is_ignored()
 	{
-		using var scope = tracker.Begin("example", "restore-world", OperationStages.RestoreWorld);
+		using var scope = tracker.Begin("example", "restore-world", OperationStages.RestoreWorld, OperationStages.RestoreWorldTitle);
 		scope.Enter(OperationStages.Extracting);
 
 		scope.Enter(OperationStages.Pack);
@@ -52,7 +52,7 @@ public sealed class OperationTrackerTests : IDisposable
 	[Fact]
 	public void Bytes_are_counted_within_a_stage_and_reset_on_the_next()
 	{
-		using var scope = tracker.Begin("example", "backup", OperationStages.Backup);
+		using var scope = tracker.Begin("example", "backup", OperationStages.Backup, OperationStages.BackupTitle);
 		scope.Enter(OperationStages.Pack);
 		scope.Advance(50);
 		Assert.Null(tracker.Snapshot("example").DoneBytes);
@@ -73,8 +73,8 @@ public sealed class OperationTrackerTests : IDisposable
 	[Fact]
 	public void Disposing_ends_the_operation_but_never_a_newer_one()
 	{
-		var first = tracker.Begin("example", "backup", OperationStages.Backup);
-		using var second = tracker.Begin("example", "export", OperationStages.Export);
+		var first = tracker.Begin("example", "backup", OperationStages.Backup, OperationStages.BackupTitle);
+		using var second = tracker.Begin("example", "export", OperationStages.Export, OperationStages.ExportTitle);
 
 		first.Dispose();
 		Assert.Equal("export", tracker.Snapshot("example").Kind);
@@ -88,7 +88,7 @@ public sealed class OperationTrackerTests : IDisposable
 	{
 		var server = CreateServer();
 		File.WriteAllText(Path.Combine(server.WorldDirectory, "active.vcdbs"), "world");
-		using var scope = tracker.Begin("example", "export", OperationStages.Export);
+		using var scope = tracker.Begin("example", "export", OperationStages.Export, OperationStages.ExportTitle);
 
 		var result = await new BackupBackend(TimeProvider.System)
 			.ExportAsync(server, Path.Combine(directory, "transfer.tar.gz"), CancellationToken.None, scope);
@@ -103,7 +103,7 @@ public sealed class OperationTrackerTests : IDisposable
 	{
 		var path = Path.Combine(directory, "data.bin");
 		File.WriteAllBytes(path, new byte[10_000]);
-		using var scope = tracker.Begin("example", "backup", OperationStages.Backup);
+		using var scope = tracker.Begin("example", "backup", OperationStages.Backup, OperationStages.BackupTitle);
 		scope.Measure(10_000);
 
 		await using (var file = new FileStream(path, FileMode.Open, FileAccess.Read))

@@ -58,7 +58,7 @@ internal static class FolderPicker
 			dialog.GetOptions(out var options);
 			dialog.SetOptions(options | pickFolders | forceFileSystem | pathMustExist | noChangeDirectory);
 			dialog.SetTitle(title);
-			dialog.SetOkButtonLabel("Выбрать");
+			dialog.SetOkButtonLabel("Select");
 			if (StartFolder(initial) is { } start && ItemFor(start) is { } item)
 			{
 				dialog.SetFolder(item);

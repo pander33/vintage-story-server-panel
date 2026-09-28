@@ -30,7 +30,7 @@ public sealed class OperationTests
 		operation.Record(new OperationStep(StepAction.Install, StepResult.Ok) { ModId = "b", Version = null });
 		operation.Succeed(200);
 
-		Assert.Equal("Обновлено модов: 2", operation.Detail);
+		Assert.Equal("Обновлено модов: 2", operation.Detail?.ToString());
 		var steps = operation.ToJson()["steps"]!.AsArray();
 		Assert.Equal(["action", "status", "count"], steps[0]!.AsObject().Select(pair => pair.Key));
 		Assert.Equal(["action", "status", "modid", "version"], steps[2]!.AsObject().Select(pair => pair.Key));
@@ -56,7 +56,7 @@ public sealed class OperationTests
 			running.Select(pair => pair.Key));
 		Assert.Equal("0123456789abcdef0123456789abcdef", running["id"]!.GetValue<string>());
 		Assert.Equal("game", running["type"]!.GetValue<string>());
-		Assert.Equal("Обновление Vintage Story Server", running["title"]!.GetValue<string>());
+		Assert.Equal("Обновление Vintage Story Server", running["title"].Said());
 		Assert.Equal("running", running["status"]!.GetValue<string>());
 		Assert.Equal("panel-game-version", running["phase"]!.GetValue<string>());
 		Assert.Equal(["action", "status", "snapshot"], running["steps"]![1]!.AsObject().Select(pair => pair.Key));
@@ -64,7 +64,7 @@ public sealed class OperationTests
 		operation.Fail(Failure.Unavailable("Сервер не подтвердил готовность после обновления"), 150);
 		var finished = operation.ToJson();
 		Assert.Equal("failed", finished["status"]!.GetValue<string>());
-		Assert.Equal("Сервер не подтвердил готовность после обновления", finished["detail"]!.GetValue<string>());
+		Assert.Equal("Сервер не подтвердил готовность после обновления", finished["detail"].Said());
 		Assert.Equal(150, finished["finished_at"]!.GetValue<long>());
 		Assert.Equal(100, finished["ts"]!.GetValue<long>());
 	}
@@ -83,7 +83,7 @@ public sealed class OperationTests
 
 		var record = operation.ToJson();
 		Assert.Equal("preflight", record["type"]!.GetValue<string>());
-		Assert.Equal("Обновление не началось", record["title"]!.GetValue<string>());
+		Assert.Equal("Обновление не началось", record["title"].Said());
 		Assert.Empty(record["steps"]!.AsArray());
 	}
 
@@ -95,7 +95,7 @@ public sealed class OperationTests
 		var record = OperationRecovery.Interrupt(current, 500)!;
 
 		Assert.Equal("interrupted", record["status"]!.GetValue<string>());
-		Assert.Equal(OperationRecovery.InterruptedDetail, record["detail"]!.GetValue<string>());
+		Assert.Equal(OperationRecovery.InterruptedDetail, PhraseJsonConverter.FromNode(record["detail"]));
 		Assert.Equal(500, record["finished_at"]!.GetValue<long>());
 		Assert.Equal(100, record["ts"]!.GetValue<long>());
 		Assert.Equal(1, record["extra"]!.GetValue<int>());

@@ -71,7 +71,7 @@ public sealed class GameServer
 
 		if (!Console.IsAvailable)
 		{
-			return Failure.Conflict(Console.UnavailableReason ?? "Консоль недоступна");
+			return Failure.Conflict(Console.UnavailableReason ?? Phrase.From("Консоль недоступна"));
 		}
 
 		var spec = ServerCommandCatalogue.Find(request.Action);
@@ -103,7 +103,7 @@ public sealed class GameServer
 
 		if (!Console.IsAvailable)
 		{
-			return Failure.Conflict(Console.UnavailableReason ?? "Консоль недоступна");
+			return Failure.Conflict(Console.UnavailableReason ?? Phrase.From("Консоль недоступна"));
 		}
 
 		return new ConsoleDispatch(line.Text, CaptureMode.ReadBack, string.Empty, line.Text, IsRaw: true);

@@ -6,23 +6,23 @@
 (() => {
 	const {$, $$, esc, fmtBytes, fmtDuration, fmtDateTime, fmtShortTime, fmtDay, toDate, state, api, toast, fail, busy, dialog} = VS;
 
-	const PLAYSTYLES = {surviveandbuild: 'Выживание и строительство', exploration: 'Исследование', wildernesssurvival: 'Суровое выживание', homosapiens: 'Homo Sapiens', creativebuilding: 'Творчество'};
-	const LANGUAGES = {ru: 'Русский', en: 'English', de: 'Deutsch', fr: 'Français', es: 'Español', zh: '中文'};
-	const STEPS = {catalogue: 'Версия найдена в каталоге', download: 'Пакет скачан и сверен по md5', create: 'Каталоги и настройки созданы', service: 'Служба установлена', start: 'Сервер запущен', ready: 'Игра ответила телеметрией', rollback: 'Откат'};
-	const WEEKDAYS = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
+	const PLAYSTYLES = {surviveandbuild: I18N.t('overviewDynamic.o001'), exploration: I18N.t('overviewDynamic.o002'), wildernesssurvival: I18N.t('overviewDynamic.o003'), homosapiens: 'Homo Sapiens', creativebuilding: I18N.t('overviewDynamic.o004')};
+	const LANGUAGES = {ru: I18N.t('overviewDynamic.o005'), en: 'English', de: 'Deutsch', fr: 'Français', es: 'Español', zh: '中文'};
+	const STEPS = {catalogue: I18N.t('overviewDynamic.o006'), download: I18N.t('overviewDynamic.o007'), create: I18N.t('overviewDynamic.o008'), service: I18N.t('overviewDynamic.o009'), start: I18N.t('overviewDynamic.o010'), ready: I18N.t('overviewDynamic.o011'), rollback: I18N.t('overviewDynamic.o012')};
+	const WEEKDAYS = [I18N.t('overviewDynamic.o013'), I18N.t('overviewDynamic.o014'), I18N.t('overviewDynamic.o015'), I18N.t('overviewDynamic.o016'), I18N.t('overviewDynamic.o017'), I18N.t('overviewDynamic.o018'), I18N.t('overviewDynamic.o019')];
 
 	let metricsCurrent = null;
 
 	// ---------- серверы ----------
 
 	function badgeFor(item) {
-		if (item.valid === false) return `<span class="badge error">Ошибка записи</span>`;
-		if (item.busy) return `<span class="badge warn"><span class="pulse-dot warn"></span> Обслуживание</span>`;
+		if (item.valid === false) return `${I18N.t('overviewDynamic.o020')}`;
+		if (item.busy) return `${I18N.t('overviewDynamic.o021')}`;
 		const health = item.watchdog?.state;
-		if (health === 'ready') return `<span class="badge ok"><span class="pulse-dot ok"></span> Готов</span>`;
-		if (!item.active && (health === 'stopped' || !health)) return `<span class="badge off">Остановлен</span>`;
+		if (health === 'ready') return `${I18N.t('overviewDynamic.o022')}`;
+		if (!item.active && (health === 'stopped' || !health)) return `${I18N.t('overviewDynamic.o023')}`;
 		const level = VS.healthLevel(health || 'unknown');
-		return `<span class="badge ${level}"><span class="pulse-dot ${level}"></span> ${esc(VS.healthTitles[health] || (item.active ? "Работает" : "Остановлен"))}</span>`;
+		return `<span class="badge ${level}"><span class="pulse-dot ${level}"></span> ${esc(VS.healthTitles[health] || (item.active ? I18N.t('overviewDynamic.o024') : I18N.t('overviewDynamic.o025')))}</span>`;
 	}
 
 	function serverCard(item) {
@@ -30,34 +30,33 @@
 		const invalid = item.valid === false;
 		const players = item.players === null || item.players === undefined ? '—' : item.players;
 		const name = item.name || item.id;
-		return `<button type="button" class="server-card${selected ? " selected" : ""}${invalid ? " invalid" : ""}" data-server="${esc(item.id)}" aria-pressed="${selected}" ${invalid ? "disabled" : ""}>
+		return `<button type="button" class="server-card${selected ? ' selected' : ''}${invalid ? ' invalid' : ''}" data-server="${esc(item.id)}" aria-pressed="${selected}" ${invalid ? 'disabled' : ''}>
 			<span class="server-card-top"><span class="server-icon">${esc(name.slice(0, 1))}</span>${badgeFor(item)}</span>
-			<strong>${esc(name)}</strong><small class="server-id">${esc(item.id)} · ${esc(item.game_version ? `Vintage Story ${item.game_version}` : "версия неизвестна")}</small>
+			<strong>${esc(name)}</strong><small class="server-id">${esc(item.id)} · ${esc(item.game_version ? `Vintage Story ${item.game_version}` : I18N.t('overviewDynamic.o026'))}</small>
 			<span class="server-card-rule"></span>
-			<span class="server-card-stats"><span><b>${esc(players)}</b><small>игроков</small></span><span><b>${item.world_size ? esc(fmtBytes(item.world_size)) : "—"}</b><small>миры</small></span><span><b>${esc(item.port || "—")}</b><small>порт</small></span></span>
-			${invalid ? `<span class="server-card-note">${esc(item.detail || "Некорректная запись реестра")}</span>` : (item.watchdog?.detail ? `<span class="server-card-note">${esc(item.watchdog.detail)}</span>` : "")}
-			<span class="selected-label">${selected ? "ВЫБРАННЫЙ СЕРВЕР" : "ВЫБРАТЬ СЕРВЕР"} <svg><use href="#i-arrow"/></svg></span>
+			<span class="server-card-stats"><span><b>${esc(players)}${I18N.t('overviewDynamic.o027')}${item.world_size ? esc(fmtBytes(item.world_size)) : '—'}${I18N.t('overviewDynamic.o028')}${esc(item.port || '—')}${I18N.t('overviewDynamic.o029')}${invalid ? `<span class="server-card-note">${esc(item.detail || I18N.t('overviewDynamic.o030'))}</span>` : (item.watchdog?.detail ? `<span class="server-card-note">${esc(item.watchdog.detail)}</span>` : '')}
+			<span class="selected-label">${selected ? I18N.t('overviewDynamic.o031') : I18N.t('overviewDynamic.o032')} <svg><use href="#i-arrow"/></svg></span>
 		</button>`;
 	}
 
 	function renderServers() {
 		const items = state.instances;
 		$('#servers-count').textContent = String(items.length).padStart(2, '0');
-		$('#server-grid').innerHTML = items.map(serverCard).join('') || '<div class="empty">Ни одного сервера не зарегистрировано. Создайте первый.</div>';
+		$('#server-grid').innerHTML = items.map(serverCard).join('') || I18N.t('overviewDynamic.o033');
 		const warning = $('#servers-warning');
-		warning.textContent = state.instancesDetail ? `Реестр серверов недоступен: ${state.instancesDetail}` : '';
+		warning.textContent = state.instancesDetail ? `${I18N.t('overviewDynamic.o034')}${state.instancesDetail}` : '';
 		warning.classList.toggle('hidden', !state.instancesDetail);
 		renderSelected();
 	}
 
 	function renderSelected() {
 		const server = VS.currentServer();
-		$('#selected-name').textContent = server ? (server.name || server.id) : (state.current || 'Сервер не выбран');
+		$('#selected-name').textContent = server ? (server.name || server.id) : (state.current || I18N.t('overviewDynamic.o035'));
 		$('#selected-address').textContent = server?.port ? `${location.hostname}:${server.port}` : '—';
 		const locked = !server || server.id === state.panelInstance;
 		$('#server-forget').disabled = locked;
 		$('#server-delete').disabled = locked;
-		const reason = locked ? 'Сервер, к которому привязана панель, нельзя убрать или удалить' : '';
+		const reason = locked ? I18N.t('overviewDynamic.o036') : '';
 		$('#server-forget').title = reason;
 		$('#server-delete').title = reason;
 		$('#server-rename').disabled = !server;
@@ -71,48 +70,48 @@
 	$('#copy-address').addEventListener('click', async () => {
 		const text = $('#selected-address').textContent;
 		if (text === '—') return;
-		try { await navigator.clipboard.writeText(text); toast('Адрес скопирован', 'ok'); }
-		catch { toast(`Адрес: ${text}`); }
+		try { await navigator.clipboard.writeText(text); toast(I18N.t('overviewDynamic.o037'), 'ok'); }
+		catch { toast(`${I18N.t('overviewDynamic.o038')}${text}`); }
 	});
 
 	$('#server-rename').addEventListener('click', async () => {
 		const server = VS.currentServer();
 		if (!server) return;
-		const result = await dialog({eyebrow: 'НАЗВАНИЕ В ПАНЕЛИ', title: 'Переименовать сервер', text: 'Идентификатор, файлы и служба останутся прежними.', fields: [{label: 'Новое название', value: server.name || server.id}], confirm: 'Сохранить'});
+		const result = await dialog({eyebrow: I18N.t('overviewDynamic.o039'), title: I18N.t('overviewDynamic.o040'), text: I18N.t('overviewDynamic.o041'), fields: [{label: I18N.t('overviewDynamic.o042'), value: server.name || server.id}], confirm: I18N.t('overviewDynamic.o043')});
 		if (!result) return;
-		try { await api('/api/instances/rename', {method: 'POST', body: {instance: server.id, name: result.values[0].trim()}}); toast('Название изменено', 'ok'); await VS.loadInstances(); }
+		try { await api('/api/instances/rename', {method: 'POST', body: {instance: server.id, name: result.values[0].trim()}}); toast(I18N.t('overviewDynamic.o044'), 'ok'); await VS.loadInstances(); }
 		catch (error) { fail(error); }
 	});
 
 	$('#server-forget').addEventListener('click', async () => {
 		const server = VS.currentServer();
 		if (!server) return;
-		const phrase = `ЗАБЫТЬ ${server.id}`;
-		const result = await dialog({eyebrow: 'УБРАТЬ ИЗ ПАНЕЛИ', title: 'Перестать управлять сервером?', text: 'Запись исчезнет из панели. Файлы, мир, служба и резервные копии останутся на диске.', phrase, confirm: 'Убрать из панели', danger: true});
+		const phrase = I18N.t('core.phraseForget', {name: server.id});
+		const result = await dialog({eyebrow: I18N.t('overviewDynamic.o046'), title: I18N.t('overviewDynamic.o047'), text: I18N.t('overviewDynamic.o048'), phrase, confirm: I18N.t('overviewDynamic.o049'), danger: true});
 		if (!result) return;
-		try { await api('/api/instances/forget', {method: 'POST', body: {instance: server.id, confirmation: result.phrase}}); toast(`Сервер ${server.id} снят с управления`, 'ok'); location.reload(); }
+		try { await api('/api/instances/forget', {method: 'POST', body: {instance: server.id, confirmation: result.phrase}}); toast(`${I18N.t('overviewDynamic.o050')}${server.id}${I18N.t('overviewDynamic.o051')}`, 'ok'); location.reload(); }
 		catch (error) { fail(error); }
 	});
 
 	$('#server-delete').addEventListener('click', async () => {
 		const server = VS.currentServer();
 		if (!server) return;
-		const phrase = `УДАЛИТЬ ${server.id}`;
-		const result = await dialog({eyebrow: 'ОПАСНОЕ ДЕЙСТВИЕ', title: 'Удалить сервер с диска?', text: `Сервер «${server.name || server.id}» будет остановлен, его служба удалена, а каталог стёрт вместе с мирами, модами и резервными копиями. Восстановить будет нечего.`, phrase, confirm: 'Удалить с диска', danger: true});
+		const phrase = I18N.t('core.phraseDelete', {name: server.id});
+		const result = await dialog({eyebrow: I18N.t('overviewDynamic.o053'), title: I18N.t('overviewDynamic.o054'), text: `${I18N.t('overviewDynamic.o055')}${server.name || server.id}${I18N.t('overviewDynamic.o056')}`, phrase, confirm: I18N.t('overviewDynamic.o057'), danger: true});
 		if (!result) return;
-		try { await api('/api/instances/delete', {method: 'POST', body: {instance: server.id, confirmation: result.phrase}}); toast(`Сервер ${server.id} удалён`, 'ok'); location.reload(); }
+		try { await api('/api/instances/delete', {method: 'POST', body: {instance: server.id, confirmation: result.phrase}}); toast(`${I18N.t('overviewDynamic.o058')}${server.id}${I18N.t('overviewDynamic.o059')}`, 'ok'); location.reload(); }
 		catch (error) { fail(error); }
 	});
 
 	// ---------- служба ----------
 
-	const serviceLabels = {start: 'Запуск', restart: 'Перезапуск', stop: 'Остановка'};
+	const serviceLabels = {start: I18N.t('overviewDynamic.o060'), restart: I18N.t('overviewDynamic.o061'), stop: I18N.t('overviewDynamic.o062')};
 	$$('[data-service]').forEach(button => button.addEventListener('click', async () => {
 		const action = button.dataset.service;
-		if (action !== 'start' && !await VS.confirmAction(action === 'stop' ? 'Остановить сервер?' : 'Перезапустить сервер?', 'Игроки будут отключены. Панель дождётся ответа службы.', action === 'stop' ? 'Остановить' : 'Перезапустить', action === 'stop')) return;
+		if (action !== 'start' && !await VS.confirmAction(action === 'stop' ? I18N.t('overviewDynamic.o063') : I18N.t('overviewDynamic.o064'), I18N.t('overviewDynamic.o065'), action === 'stop' ? I18N.t('overviewDynamic.o066') : I18N.t('overviewDynamic.o067'), action === 'stop')) return;
 		try {
 			await busy(button, () => api('/api/service', {method: 'POST', body: {action}}));
-			toast(`${serviceLabels[action]}: команда выполнена`, 'ok');
+			toast(`${serviceLabels[action]}${I18N.t('overviewDynamic.o068')}`, 'ok');
 			setTimeout(VS.refreshStatus, 800);
 		} catch (error) { fail(error); }
 	}));
@@ -126,18 +125,18 @@
 		const health = status.health || {};
 		const healthState = health.state || 'unknown';
 		$('#selected-description').textContent = active
-			? `Работает ${fmtDuration(status.uptime)}${status.started ? ` · запущен ${status.started}` : ""}`
-			: `Служба ${status.state || "неактивна"} · ${status.substate || "—"}`;
+			? `${I18N.t('overviewDynamic.o069')}${fmtDuration(status.uptime)}${status.started ? `${I18N.t('overviewDynamic.o070')}${status.started}` : ''}`
+			: `${I18N.t('overviewDynamic.o071')}${status.state || I18N.t('overviewDynamic.o072')} · ${status.substate || '—'}`;
 
 		const banner = $('#status-banner');
 		const level = VS.healthLevel(healthState);
 		banner.classList.toggle('stopped', !active);
 		banner.classList.toggle('problem', active && level === 'error');
 		$('#status-emblem').textContent = !active ? '■' : (level === 'ok' ? '✳' : (level === 'warn' ? '◐' : '!'));
-		$('#banner-title').textContent = !active ? 'Сервер остановлен' : ({ready: 'Мир работает стабильно', starting: 'Сервер загружается', degraded: 'Ограниченная проверка', unresponsive: 'Сервер не отвечает', hung: 'Зависание подтверждено', recovering: 'Идёт восстановление', disabled: 'Наблюдение выключено'}[healthState] || 'Состояние неизвестно');
-		$('#banner-description').textContent = health.detail || (active ? 'Панель ждёт первой проверки наблюдателя.' : 'Запустите сервер, чтобы игроки могли подключиться.');
-		$('#banner-dot').className = `pulse-dot ${active ? level : "off"}`;
-		$('#banner-state').textContent = !active ? 'Остановлен' : (level === 'ok' ? 'Всё хорошо' : (VS.healthTitles[healthState] || 'Проверить'));
+		$('#banner-title').textContent = !active ? I18N.t('overviewDynamic.o073') : ({ready: I18N.t('overviewDynamic.o074'), starting: I18N.t('overviewDynamic.o075'), degraded: I18N.t('overviewDynamic.o076'), unresponsive: I18N.t('overviewDynamic.o077'), hung: I18N.t('overviewDynamic.o078'), recovering: I18N.t('overviewDynamic.o079'), disabled: I18N.t('overviewDynamic.o080')}[healthState] || I18N.t('overviewDynamic.o081'));
+		$('#banner-description').textContent = health.detail || (active ? I18N.t('overviewDynamic.o082') : I18N.t('overviewDynamic.o083'));
+		$('#banner-dot').className = `pulse-dot ${active ? level : 'off'}`;
+		$('#banner-state').textContent = !active ? I18N.t('overviewDynamic.o084') : (level === 'ok' ? I18N.t('overviewDynamic.o085') : (VS.healthTitles[healthState] || I18N.t('overviewDynamic.o086')));
 
 		$('#tech-pid').textContent = status.pid || '—';
 		$('#tech-restarts').textContent = status.restarts ?? '—';
@@ -155,12 +154,12 @@
 		$('#metric-players').textContent = available ? players.length : '—';
 		$('#metric-slots').textContent = available && data.max_players ? `/ ${data.max_players}` : '';
 		const foot = $('#metric-players-foot');
-		foot.className = `metric-foot ${available ? "good" : "warn"}`;
-		foot.textContent = available ? (players.length ? `● ${players.map(player => player.name).slice(0, 3).join(", ")}${players.length > 3 ? "…" : ""}` : '● Сервер пуст') : (data?.detail || 'Телеметрия недоступна');
+		foot.className = `metric-foot ${available ? 'good' : 'warn'}`;
+		foot.textContent = available ? (players.length ? `● ${players.map(player => player.name).slice(0, 3).join(', ')}${players.length > 3 ? '…' : ''}` : I18N.t('overviewDynamic.o087')) : (data?.detail || I18N.t('overviewDynamic.o088'));
 		const target = data?.target_tick_ms ? 1000 / Number(data.target_tick_ms) : 0;
 		$('#metric-tps').textContent = available ? Number(data.observed_tps || 0).toFixed(1) : '—';
 		$('#metric-tps-target').textContent = target ? `/ ${target.toFixed(0)}` : '';
-		$('#metric-tick').textContent = available ? `${Number(data.average_tick_gap_ms || 0).toFixed(1)} мс` : '—';
+		$('#metric-tick').textContent = available ? `${Number(data.average_tick_gap_ms || 0).toFixed(1)}${I18N.t('overviewDynamic.o089')}` : '—';
 		$('#tech-date').textContent = available && data.world ? (data.world.pretty_date || '—') : '—';
 		$('#tech-traffic').textContent = available ? `↓ ${fmtBytes(data.total_received_bytes)} · ↑ ${fmtBytes(data.total_sent_bytes)}` : '—';
 		const nav = $('#nav-players');
@@ -172,7 +171,7 @@
 	// ---------- метрики ----------
 
 	async function loadMetrics() {
-		const data = await api(`/api/metrics?hours=${encodeURIComponent($("#metrics-hours").value)}`);
+		const data = await api(`/api/metrics?hours=${encodeURIComponent($('#metrics-hours').value)}`);
 		metricsCurrent = data.current || null;
 		const current = metricsCurrent;
 		if (current) {
@@ -188,12 +187,12 @@
 			$('#tech-cpu').textContent = `${Number(current.cpu_percent || 0).toFixed(1)}%`;
 			const backup = current.last_backup;
 			const when = backup ? toDate(backup.modified) : null;
-			$('#metric-backup').textContent = when ? fmtShortTime(backup.modified) : 'Нет';
+			$('#metric-backup').textContent = when ? fmtShortTime(backup.modified) : I18N.t('overviewDynamic.o090');
 			$('#metric-backup-day').textContent = when ? fmtDay(backup.modified) : '';
 			const age = when ? (Date.now() - when.getTime()) / 3600000 : Infinity;
 			const foot = $('#metric-backup-foot');
-			foot.className = `metric-foot ${age < 30 ? "good" : "warn"}`;
-			foot.textContent = !when ? 'Копий ещё нет — создайте первую' : (age < 30 ? `● ${fmtBytes(backup.size || 0)}` : '● Копия устарела');
+			foot.className = `metric-foot ${age < 30 ? 'good' : 'warn'}`;
+			foot.textContent = !when ? I18N.t('overviewDynamic.o091') : (age < 30 ? `● ${fmtBytes(backup.size || 0)}` : I18N.t('overviewDynamic.o092'));
 		}
 		const points = data.points || [];
 		VS.lineChart($('#metrics-chart'), {
@@ -205,7 +204,7 @@
 			max: Math.max(100, ...points.map(point => Number(point.cpu_percent) || 0)),
 			unit: '%',
 			labels: VS.timeLabels(points.map(point => point.ts)),
-			empty: 'История появится после первых измерений (раз в минуту).',
+			empty: I18N.t('overviewDynamic.o093'),
 		});
 		renderHealth();
 	}
@@ -224,25 +223,25 @@
 		let score = 0, total = 0;
 		const add = (level, ...rest) => { rows.push(healthRow(level, ...rest)); total += 1; score += level === 'ok' ? 1 : (level === 'warn' ? .5 : 0); };
 		if (status) {
-			add(status.active ? 'ok' : 'warn', status.active ? '✓' : '■', 'Игровая служба', status.active ? `Процесс работает · PID ${status.pid || "—"}` : `${status.state || "—"} · ${status.substate || "—"}`, status.active ? 'В норме' : 'Остановлена');
+			add(status.active ? 'ok' : 'warn', status.active ? '✓' : '■', I18N.t('overviewDynamic.o094'), status.active ? `${I18N.t('overviewDynamic.o095')}${status.pid || '—'}` : `${status.state || '—'} · ${status.substate || '—'}`, status.active ? I18N.t('overviewDynamic.o096') : I18N.t('overviewDynamic.o097'));
 			const health = status.health?.state || 'unknown';
 			const level = VS.healthLevel(health);
-			add(level, level === 'ok' ? '✓' : '!', 'Наблюдатель', status.health?.detail || 'Проверка ожидается', VS.healthTitles[health] || health);
+			add(level, level === 'ok' ? '✓' : '!', I18N.t('overviewDynamic.o098'), status.health?.detail || I18N.t('overviewDynamic.o099'), VS.healthTitles[health] || health);
 		}
 		if (telemetry) {
 			const fresh = telemetry.available && !telemetry.stale;
-			add(fresh ? 'ok' : 'warn', fresh ? '✓' : '!', 'Телеметрия игры', fresh ? `Получена ${telemetry.age_seconds != null ? `${telemetry.age_seconds} с назад` : "только что"}` : (telemetry.detail || 'Мод телеметрии не отвечает'), fresh ? 'Свежая' : 'Нет данных');
+			add(fresh ? 'ok' : 'warn', fresh ? '✓' : '!', I18N.t('overviewDynamic.o100'), fresh ? `${I18N.t('overviewDynamic.o101')}${telemetry.age_seconds != null ? `${telemetry.age_seconds}${I18N.t('overviewDynamic.o102')}` : I18N.t('overviewDynamic.o103')}` : (telemetry.detail || I18N.t('overviewDynamic.o104')), fresh ? I18N.t('overviewDynamic.o105') : I18N.t('overviewDynamic.o106'));
 		}
 		if (metrics) {
-			add(metrics.disk_warning ? 'error' : 'ok', metrics.disk_warning ? '!' : '✓', 'Свободное место', `${fmtBytes(metrics.disk_free)}${metrics.disk_total ? ` из ${fmtBytes(metrics.disk_total)}` : ""}`, metrics.disk_warning ? 'Мало' : 'Достаточно');
+			add(metrics.disk_warning ? 'error' : 'ok', metrics.disk_warning ? '!' : '✓', I18N.t('overviewDynamic.o107'), `${fmtBytes(metrics.disk_free)}${metrics.disk_total ? `${I18N.t('overviewDynamic.o108')}${fmtBytes(metrics.disk_total)}` : ''}`, metrics.disk_warning ? I18N.t('overviewDynamic.o109') : I18N.t('overviewDynamic.o110'));
 		}
 		const problems = recentProblems.length;
-		add(problems ? 'warn' : 'ok', problems ? '!' : '✓', 'Последние события', problems ? `${problems} предупреждений и ошибок за сутки` : 'Предупреждений за сутки нет', problems ? 'Проверить' : 'Спокойно');
+		add(problems ? 'warn' : 'ok', problems ? '!' : '✓', I18N.t('overviewDynamic.o111'), problems ? `${problems}${I18N.t('overviewDynamic.o112')}` : I18N.t('overviewDynamic.o113'), problems ? I18N.t('overviewDynamic.o114') : I18N.t('overviewDynamic.o115'));
 		$('#health-list').innerHTML = rows.join('');
 		const percent = total ? Math.round(score / total * 100) : 0;
 		const chip = $('#health-chip');
 		chip.textContent = total ? `${percent} / 100` : '—';
-		chip.className = `status-chip ${percent >= 90 ? "ok" : (percent >= 60 ? "warn" : "error")}`;
+		chip.className = `status-chip ${percent >= 90 ? 'ok' : (percent >= 60 ? 'warn' : 'error')}`;
 	}
 
 	// ---------- живая лента ----------
@@ -250,19 +249,19 @@
 	// Раздел по началу вида события: подпись строки и куда ведёт щелчок. Пустой адрес — события
 	// некуда вести, строка не кликается.
 	const FEED_GROUPS = {
-		player: ['Игроки', 'players:activity'],
-		server: ['Сервер', 'logs:stream'],
-		watchdog: ['Наблюдатель', 'maintenance:watchdog'],
-		automation: ['Обслуживание', 'maintenance:schedule'],
-		update: ['Обновления', 'maintenance:updates'],
-		provision: ['Создание сервера', ''],
-		admin: ['Действие в панели', 'logs:events'],
-		config: ['Настройки сервера', 'settings:server'],
-		world: ['Настройки мира', 'settings:world'],
-		backup: ['Резервные копии', 'backups:list'],
-		disk: ['Диск', ''],
-		notification: ['Уведомления', 'settings:notifications'],
-		history: ['История', ''],
+		player: [I18N.t('overviewDynamic.o116'), 'players:activity'],
+		server: [I18N.t('overviewDynamic.o117'), 'logs:stream'],
+		watchdog: [I18N.t('overviewDynamic.o118'), 'maintenance:watchdog'],
+		automation: [I18N.t('overviewDynamic.o119'), 'maintenance:schedule'],
+		update: [I18N.t('overviewDynamic.o120'), 'maintenance:updates'],
+		provision: [I18N.t('overviewDynamic.o121'), ''],
+		admin: [I18N.t('overviewDynamic.o122'), 'logs:events'],
+		config: [I18N.t('overviewDynamic.o123'), 'settings:server'],
+		world: [I18N.t('overviewDynamic.o124'), 'settings:world'],
+		backup: [I18N.t('overviewDynamic.o125'), 'backups:list'],
+		disk: [I18N.t('overviewDynamic.o126'), ''],
+		notification: [I18N.t('overviewDynamic.o127'), 'settings:notifications'],
+		history: [I18N.t('overviewDynamic.o128'), ''],
 	};
 	const FEED_EXACT = {'server.long_tick': 'logs:performance', 'player.ping_critical': 'players:quality'};
 	const FEED_IMPORTANT = ['warning', 'error', 'critical'];
@@ -281,7 +280,7 @@
 	// Ключи уже показанных событий: новое подсвечивается, первая отрисовка — нет.
 	let feedSeen = null;
 
-	const feedGroup = kind => FEED_GROUPS[String(kind || '').split('.')[0]] || ['Панель', ''];
+	const feedGroup = kind => FEED_GROUPS[String(kind || '').split('.')[0]] || [I18N.t('overviewDynamic.o129'), ''];
 	const feedKey = item => item.id || `${item.ts}|${item.kind}|${item.title}`;
 
 	/** Подряд идущие одинаковые события — одна строка со счётчиком: десять входов одного игрока не вытесняют остальное. */
@@ -301,18 +300,18 @@
 
 	function feedTime(ts) {
 		const day = fmtDay(ts);
-		if (day === 'сегодня') return VS.fmtAgo(ts);
-		return day === 'вчера' ? `вчера, ${fmtShortTime(ts)}` : fmtDateTime(ts);
+		if (day === I18N.t('overviewDynamic.o130')) return VS.fmtAgo(ts);
+		return day === I18N.t('overviewDynamic.o131') ? `${I18N.t('overviewDynamic.o132')}${fmtShortTime(ts)}` : fmtDateTime(ts);
 	}
 
 	function feedRow(row, fresh) {
 		const [group, fallback] = feedGroup(row.kind);
 		const target = FEED_EXACT[row.kind] ?? fallback;
 		const tag = target ? 'button' : 'div';
-		const attributes = target ? ` type="button" data-goto="${esc(target)}" title="Открыть: ${esc(group)}"` : '';
+		const attributes = target ? ` type="button" data-goto="${esc(target)}${I18N.t('overviewDynamic.o133')}${esc(group)}"` : '';
 		const repeat = row.count > 1 ? ` <b class="feed-repeat">×${row.count}</b>` : '';
 		const detail = row.detail ? `<small>${esc(row.detail)}</small>` : '';
-		return `<${tag} class="feed-row${fresh ? " fresh" : ""}"${attributes}><span class="activity-dot ${esc(row.severity || "info")}"></span><span><strong>${esc(row.title || row.kind)}${repeat}</strong>${detail}<em class="feed-group">${esc(group)}</em></span><time datetime="${esc(VS.toDate(row.ts)?.toISOString() || "")}" title="${esc(fmtDateTime(row.ts))}">${esc(feedTime(row.ts))}</time></${tag}>`;
+		return `<${tag} class="feed-row${fresh ? ' fresh' : ''}"${attributes}><span class="activity-dot ${esc(row.severity || 'info')}"></span><span><strong>${esc(row.title || row.kind)}${repeat}</strong>${detail}<em class="feed-group">${esc(group)}</em></span><time datetime="${esc(VS.toDate(row.ts)?.toISOString() || '')}" title="${esc(fmtDateTime(row.ts))}">${esc(feedTime(row.ts))}</time></${tag}>`;
 	}
 
 	function renderFeed() {
@@ -326,12 +325,12 @@
 		const shown = rows.slice(0, feedExpanded ? FEED_LONG : FEED_SHORT);
 		const known = feedSeen;
 		$('#activity-list').innerHTML = shown.map(row => feedRow(row, known !== null && row.keys.some(key => !known.has(key)))).join('')
-			|| `<div class="empty">${feedEvents.length ? "Под этот фильтр событий нет." : "Событий пока нет."}</div>`;
+			|| `<div class="empty">${feedEvents.length ? I18N.t('overviewDynamic.o134') : I18N.t('overviewDynamic.o135')}</div>`;
 		feedSeen = new Set(feedEvents.map(feedKey));
 
 		const more = $('#feed-more');
 		more.hidden = rows.length <= FEED_SHORT;
-		more.textContent = feedExpanded ? 'Свернуть' : `Показать ещё ${Math.min(rows.length, FEED_LONG) - FEED_SHORT}`;
+		more.textContent = feedExpanded ? I18N.t('overviewDynamic.o136') : `${I18N.t('overviewDynamic.o137')}${Math.min(rows.length, FEED_LONG) - FEED_SHORT}`;
 	}
 
 	function takeEvents(events) {
@@ -380,19 +379,19 @@
 		const box = $('#next-maintenance');
 		const running = data.running;
 		if (running) {
-			box.innerHTML = `<div class="notice warn">Сейчас выполняется: <strong>${esc(running.name)}</strong>, начато ${esc(fmtDateTime(running.started_at))}.</div>`;
+			box.innerHTML = `${I18N.t('overviewDynamic.o138')}${esc(running.name)}${I18N.t('overviewDynamic.o139')}${esc(fmtDateTime(running.started_at))}.</div>`;
 			return;
 		}
 		const job = jobs[0];
-		if (!job) { box.innerHTML = '<div class="empty">Запланированных заданий нет. Настройте ежедневную копию и перезапуск в разделе «Обслуживание».</div>'; return; }
+		if (!job) { box.innerHTML = I18N.t('overviewDynamic.o140'); return; }
 		const when = toDate(job.next_run);
-		const steps = [job.warning_minutes?.length ? 'Предупреждение' : '', job.backup ? 'Резервная копия' : '', job.restart ? 'Перезапуск' : '', 'Проверка готовности'].filter(Boolean);
-		box.innerHTML = `<div class="next-date"><b>${when.getDate()}</b><span>${esc(when.toLocaleDateString("ru-RU", {month: "long"}))}<br><strong>${esc(WEEKDAYS[(when.getDay() + 6) % 7])}, ${esc(fmtShortTime(job.next_run))}</strong></span></div>
+		const steps = [job.warning_minutes?.length ? I18N.t('overviewDynamic.o141') : '', job.backup ? I18N.t('overviewDynamic.o142') : '', job.restart ? I18N.t('overviewDynamic.o143') : '', I18N.t('overviewDynamic.o144')].filter(Boolean);
+		box.innerHTML = `<div class="next-date"><b>${when.getDate()}</b><span>${esc(when.toLocaleDateString('ru-RU', {month: 'long'}))}<br><strong>${esc(WEEKDAYS[(when.getDay() + 6) % 7])}, ${esc(fmtShortTime(job.next_run))}</strong></span></div>
 			<div class="next-detail">${esc(job.name)} · ${steps.map(esc).join(' <span class="accent">→</span> ')}</div>
-			<div class="next-note">${job.warning_minutes?.length ? `Игроки получат предупреждение за ${esc(job.warning_minutes.join(", "))} мин.` : "Без предупреждений игрокам."}</div>`;
+			<div class="next-note">${job.warning_minutes?.length ? `${I18N.t('overviewDynamic.o145')}${esc(job.warning_minutes.join(', '))}${I18N.t('overviewDynamic.o146')}` : I18N.t('overviewDynamic.o147')}</div>`;
 	}
 
-	function stamp() { $('#overview-updated').textContent = `● Данные обновлены ${VS.fmtTime(Date.now() / 1000)}`; }
+	function stamp() { $('#overview-updated').textContent = `${I18N.t('overviewDynamic.o148')}${VS.fmtTime(Date.now() / 1000)}`; }
 
 	// ---------- создание сервера ----------
 
@@ -417,16 +416,16 @@
 		try {
 			const data = await api('/api/catalogue');
 			const stable = (data.versions || []).filter(item => item.md5 && item.channel === 'stable').slice(0, 15);
-			$('#new-version').innerHTML = stable.map(item => `<option value="${esc(item.version)}">${esc(item.version)}${item.latest ? " · последняя" : ""} · ${esc(item.size_text || "")}</option>`).join('') || '<option value="">Каталог версий пуст</option>';
-			if (data.stale) toast('Список версий взят из кэша: официальный сервер недоступен');
-		} catch (error) { $('#create-error').textContent = `Каталог версий: ${error.message}`; }
+			$('#new-version').innerHTML = stable.map(item => `<option value="${esc(item.version)}">${esc(item.version)}${item.latest ? I18N.t('overviewDynamic.o149') : ''} · ${esc(item.size_text || '')}</option>`).join('') || I18N.t('overviewDynamic.o150');
+			if (data.stale) toast(I18N.t('overviewDynamic.o151'));
+		} catch (error) { $('#create-error').textContent = `${I18N.t('overviewDynamic.o152')}${error.message}`; }
 	});
 	let serversRoot = '';
 	/** Где окажется сервер: каталог серверов и идентификатор — так же выводит путь демон. */
 	function showLocation() {
 		if (!serversRoot) return;
 		const separator = /^[A-Za-z]:\\/.test(serversRoot) ? '\\' : '/';
-		$('#create-location').textContent = `Каталог сервера: ${serversRoot}${separator}${$("#new-id").value.trim() || "…"}. Сменить каталог серверов — «Настройки» → «Панель».`;
+		$('#create-location').textContent = `${I18N.t('overviewDynamic.o153')}${serversRoot}${separator}${$('#new-id').value.trim() || '…'}${I18N.t('overviewDynamic.o154')}`;
 	}
 	$('#new-id').addEventListener('input', showLocation);
 	$$('#create-dialog [data-close]').forEach(button => button.addEventListener('click', () => $('#create-dialog').close()));
@@ -434,11 +433,11 @@
 	function renderPreflight(report) {
 		const rows = [];
 		const runtime = report.runtime || {};
-		rows.push(`<div class="notice ${runtime.dotnet ? "ok" : "error"}"><strong>.NET для игры:</strong> ${esc(runtime.dotnet || "не найден")}</div>`);
-		if (report.free !== undefined) rows.push(`<div class="notice ${report.free >= (report.required_free || 0) ? "ok" : "error"}"><strong>Место:</strong> свободно ${esc(fmtBytes(report.free))}, нужно ${esc(fmtBytes(report.required_free))}</div>`);
+		rows.push(`<div class="notice ${runtime.dotnet ? 'ok' : 'error'}${I18N.t('overviewDynamic.o155')}${esc(runtime.dotnet || I18N.t('overviewDynamic.o156'))}</div>`);
+		if (report.free !== undefined) rows.push(`<div class="notice ${report.free >= (report.required_free || 0) ? 'ok' : 'error'}${I18N.t('overviewDynamic.o157')}${esc(fmtBytes(report.free))}${I18N.t('overviewDynamic.o158')}${esc(fmtBytes(report.required_free))}</div>`);
 		(report.blockers || []).forEach(item => rows.push(`<div class="notice error">${esc(item)}</div>`));
 		(report.warnings || []).forEach(item => rows.push(`<div class="notice warn">${esc(item)}</div>`));
-		if (report.ok) rows.push('<div class="notice ok">Машина готова к созданию сервера.</div>');
+		if (report.ok) rows.push(I18N.t('overviewDynamic.o159'));
 		$('#create-preflight').innerHTML = rows.join('');
 	}
 
@@ -456,10 +455,10 @@
 				id, name: title || id, version: $('#new-version').value, port: Number($('#new-port').value),
 				server_name: $('#new-server-name').value.trim() || title || id, description: '',
 				max_players: Number($('#new-players').value), whitelist: $('#new-whitelist').checked, pvp: $('#new-pvp').checked,
-				language: $('#new-language').value, world_name: $('#new-world').value.trim() || 'Новый мир', seed: $('#new-seed').value.trim(), playstyle: $('#new-playstyle').value,
+				language: $('#new-language').value, world_name: $('#new-world').value.trim() || I18N.t('overviewDynamic.o160'), seed: $('#new-seed').value.trim(), playstyle: $('#new-playstyle').value,
 			}}));
 			$('#create-dialog').close();
-			toast('Создание сервера началось', 'ok');
+			toast(I18N.t('overviewDynamic.o161'), 'ok');
 			watchProvision();
 		} catch (error) { $('#create-error').textContent = error.message; }
 	});
@@ -475,17 +474,17 @@
 		box.classList.remove('hidden');
 		shownProvision = record.id || '';
 		$('#provision-dismiss').classList.toggle('hidden', Boolean(running));
-		$('#provision-title').textContent = record.instance ? `Сервер «${record.instance}»${record.target_version ? ` · ${record.target_version}` : ""}` : (record.title || 'Создание сервера');
-		$('#provision-detail').textContent = record.detail || (running ? 'Выполняется…' : '');
+		$('#provision-title').textContent = record.instance ? `${I18N.t('overviewDynamic.o162')}${record.instance}»${record.target_version ? ` · ${record.target_version}` : ''}` : (record.title || I18N.t('overviewDynamic.o163'));
+		$('#provision-detail').textContent = record.detail || (running ? I18N.t('overviewDynamic.o164') : '');
 		const chip = $('#provision-state');
 		const status = running ? 'running' : record.status;
-		chip.textContent = {running: 'Выполняется', success: 'Готово', failed: 'Ошибка', interrupted: 'Прервано'}[status] || status || '—';
-		chip.className = `status-chip ${status === "success" ? "ok" : (status === "running" ? "warn" : "error")}`;
+		chip.textContent = {running: I18N.t('overviewDynamic.o165'), success: I18N.t('overviewDynamic.o166'), failed: I18N.t('overviewDynamic.o167'), interrupted: I18N.t('overviewDynamic.o168')}[status] || status || '—';
+		chip.className = `status-chip ${status === 'success' ? 'ok' : (status === 'running' ? 'warn' : 'error')}`;
 		const order = ['catalogue', 'download', 'create', 'service', 'start', 'ready'];
 		$('#provision-steps').innerHTML = order.map(action => {
 			const step = (record.steps || []).find(item => item.action === action);
 			const cls = step ? (step.status === 'ok' ? 'done' : step.status) : (running && !(record.steps || []).length && action === 'catalogue' ? 'running' : '');
-			return `<li class="${esc(cls)}"><span>${esc(STEPS[action])}${step?.detail ? `<small>${esc(step.detail)}</small>` : ""}</span></li>`;
+			return `<li class="${esc(cls)}"><span>${esc(STEPS[action])}${step?.detail ? `<small>${esc(step.detail)}</small>` : ''}</span></li>`;
 		}).join('');
 	}
 

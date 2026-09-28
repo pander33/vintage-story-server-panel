@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using System.Threading.Channels;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Panel.Contracts;
 using Panel.Observability.Domain;
 using Panel.Observability.Infrastructure;
 using Panel.SharedKernel;
@@ -56,8 +57,8 @@ public sealed partial class EventBus
 		InstanceId instance,
 		string kind,
 		EventSeverity severity,
-		string title,
-		string detail = "",
+		Phrase title,
+		Phrase? detail = null,
 		string source = "panel",
 		bool notify = true,
 		string? dedupeKey = null,
@@ -97,13 +98,13 @@ public sealed partial class EventBus
 		Server(instance).Log.RecentAsync(filter, limit, clock.GetUtcNow(), ct);
 
 	/// <summary>Запись о неудачной доставке без уведомления, иначе отказ канала порождал бы новые отказы.</summary>
-	internal Task RecordDeliveryFailureAsync(InstanceId instance, string detail, CancellationToken ct)
+	internal Task RecordDeliveryFailureAsync(InstanceId instance, Phrase detail, CancellationToken ct)
 	{
 		var record = PanelEvent.Create(
 			"notification.failed",
 			EventSeverity.Error,
-			"Не удалось отправить уведомление",
-			detail.Length > 1000 ? detail[..1000] : detail,
+			Phrase.From("Не удалось отправить уведомление"),
+			detail,
 			"notifications",
 			clock.GetUtcNow());
 
@@ -145,11 +146,12 @@ public sealed partial class NotificationDispatcher : BackgroundService
 	{
 		await foreach (var (instance, record) in bus.Queue.ReadAllAsync(stoppingToken).ConfigureAwait(false))
 		{
-			var sent = await sender.SendAsync(record, bus.Settings.Current, stoppingToken).ConfigureAwait(false);
+			var settings = bus.Settings.Current;
+			var sent = await sender.SendAsync(record, settings, PhraseCatalog.Renderer(PhraseCatalog.Parse(settings.Language)), stoppingToken).ConfigureAwait(false);
 			if (!sent.IsSuccess)
 			{
 				DeliveryFailed(log, sent.Failure!.Message);
-				await bus.RecordDeliveryFailureAsync(instance, sent.Failure!.Message, stoppingToken).ConfigureAwait(false);
+				await bus.RecordDeliveryFailureAsync(instance, sent.Failure!.Text, stoppingToken).ConfigureAwait(false);
 			}
 		}
 	}

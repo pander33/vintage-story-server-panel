@@ -75,13 +75,13 @@ public static class ProvisionEndpoints
 			var spec = ServerSpec.FromProvisionRequest(body.ToAnswers(ServerRequest.ProvisionDefaults));
 			if (!spec.IsSuccess)
 			{
-				return PanelResults.Refuse(StatusCodes.Status409Conflict, spec.Failure!.Message);
+				return PanelResults.Refuse(StatusCodes.Status409Conflict, spec.Failure!.Text);
 			}
 
 			var launched = await provision.LaunchAsync(spec.Value).ConfigureAwait(false);
 			if (!launched.IsSuccess)
 			{
-				return PanelResults.Refuse(StatusCodes.Status409Conflict, launched.Failure!.Message);
+				return PanelResults.Refuse(StatusCodes.Status409Conflict, launched.Failure!.Text);
 			}
 
 			await audit.RecordAsync(http, "instance_create_started", $"{spec.Value.Id.Value} {spec.Value.Version}", ct).ConfigureAwait(false);
@@ -173,7 +173,7 @@ public static class ProvisionEndpoints
 				return PanelResults.Refuse(spec.Failure!);
 			}
 
-			var confirmed = Confirmation.Exactly($"ИМПОРТИРОВАТЬ {spec.Value.Id.Value}").Check(body.Confirmation);
+			var confirmed = Confirmation.Exactly("ИМПОРТИРОВАТЬ " + spec.Value.Id.Value, "IMPORT " + spec.Value.Id.Value).Check(body.Confirmation);
 			if (!confirmed.IsSuccess)
 			{
 				return PanelResults.Refuse(confirmed.Failure!);

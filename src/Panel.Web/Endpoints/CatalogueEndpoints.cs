@@ -224,7 +224,7 @@ public static class CatalogueEndpoints
 						{
 							["modid"] = mod.ModId,
 							["installed"] = mod.Version,
-							["error"] = release.Failure!.Message,
+							["error"] = PhraseJsonConverter.ToNode(release.Failure!.Text),
 						};
 				}).ConfigureAwait(false);
 
@@ -337,7 +337,7 @@ public static class CatalogueEndpoints
 
 	/// <summary>Отказ внешнего API: 502 с его текстом при любой причине.</summary>
 	private static IResult Upstream(Failure failure) =>
-		PanelResults.Refuse(StatusCodes.Status502BadGateway, failure.Message);
+		PanelResults.Refuse(StatusCodes.Status502BadGateway, failure.Text);
 
 	/// <summary>Логический параметр запроса по правилам FastAPI: 1, true, on, yes в любом регистре.</summary>
 	private static bool QueryFlag(string? value) =>

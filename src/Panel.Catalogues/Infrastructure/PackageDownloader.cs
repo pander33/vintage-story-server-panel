@@ -59,12 +59,12 @@ public sealed class PackageDownloader
 				.ConfigureAwait(false);
 			if (!response.IsSuccessStatusCode)
 			{
-				return Fail(destination, $"Не удалось скачать пакет сервера: HTTP Error {(int) response.StatusCode}: {response.ReasonPhrase}");
+				return Fail(destination, Phrase.Format($"Не удалось скачать пакет сервера: HTTP Error {(int) response.StatusCode}: {response.ReasonPhrase}"));
 			}
 
 			if (response.Content.Headers.ContentLength is { } declared && declared > maximum)
 			{
-				return Fail(destination, "Пакет сервера превышает лимит панели");
+				return Fail(destination, Phrase.From("Пакет сервера превышает лимит панели"));
 			}
 
 			var directory = Path.GetDirectoryName(destination);
@@ -93,7 +93,7 @@ public sealed class PackageDownloader
 
 			if (written > maximum)
 			{
-				return Fail(destination, "Пакет сервера превышает лимит панели");
+				return Fail(destination, Phrase.From("Пакет сервера превышает лимит панели"));
 			}
 
 			if (!OperatingSystem.IsWindows())
@@ -104,7 +104,7 @@ public sealed class PackageDownloader
 		catch (Exception exception) when (exception is HttpRequestException or IOException or UnauthorizedAccessException
 											  || (exception is OperationCanceledException && !ct.IsCancellationRequested))
 		{
-			return Fail(destination, $"Не удалось скачать пакет сервера: {exception.Message}");
+			return Fail(destination, Phrase.Format($"Не удалось скачать пакет сервера: {exception.Message}"));
 		}
 		catch
 		{
@@ -114,7 +114,7 @@ public sealed class PackageDownloader
 
 		if (!string.Equals(Convert.ToHexString(digest.GetHashAndReset()), expected.Hex, StringComparison.OrdinalIgnoreCase))
 		{
-			return Fail(destination, "Контрольная сумма пакета не совпала с каталогом");
+			return Fail(destination, Phrase.From("Контрольная сумма пакета не совпала с каталогом"));
 		}
 
 		return written;
@@ -128,7 +128,7 @@ public sealed class PackageDownloader
 		return await source.ReadAsync(buffer, idle.Token).ConfigureAwait(false);
 	}
 
-	private static Failure Fail(string destination, string message)
+	private static Failure Fail(string destination, Phrase message)
 	{
 		Delete(destination);
 		return Failure.Unavailable(message);

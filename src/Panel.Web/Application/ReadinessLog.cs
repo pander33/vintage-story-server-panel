@@ -31,13 +31,13 @@ public sealed class ReadinessLog
 		entries.TryGetValue(instance.Value, out var entry) ? entry.Verdict : null;
 
 	/// <summary>Почему последний автоперезапуск не выполнен: поле <c>recovery_blocked</c>.</summary>
-	public string? RecoveryBlocked(InstanceId instance) =>
+	public Phrase? RecoveryBlocked(InstanceId instance) =>
 		entries.TryGetValue(instance.Value, out var entry) ? entry.RecoveryBlocked : null;
 
 	public WatchdogSettings Settings(InstanceId instance) =>
 		entries.TryGetValue(instance.Value, out var entry) ? entry.Settings : WatchdogSettings.Default;
 
-	public void Record(InstanceId instance, ReadinessVerdict? verdict, string? recoveryBlocked) =>
+	public void Record(InstanceId instance, ReadinessVerdict? verdict, Phrase? recoveryBlocked) =>
 		entries.AddOrUpdate(
 			instance.Value,
 			_ => new Entry(verdict, recoveryBlocked, WatchdogSettings.Default),
@@ -49,5 +49,5 @@ public sealed class ReadinessLog
 			_ => new Entry(null, null, settings),
 			(_, entry) => entry with { Settings = settings });
 
-	private sealed record Entry(ReadinessVerdict? Verdict, string? RecoveryBlocked, WatchdogSettings Settings);
+	private sealed record Entry(ReadinessVerdict? Verdict, Phrase? RecoveryBlocked, WatchdogSettings Settings);
 }

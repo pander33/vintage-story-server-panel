@@ -53,7 +53,7 @@ public sealed class UpdateServiceTests : IDisposable
 		service = new UpdateService(
 			new GameVersions(new NoRegistry(), options),
 			runtime,
-			new FakePlayers(calls),
+			new Announcements(new FakePlayers(calls), new ServerLanguage("en")),
 			new FakeBackups(calls),
 			mods,
 			packages,
@@ -94,7 +94,7 @@ public sealed class UpdateServiceTests : IDisposable
 			calls);
 		var record = (await HistoryAsync())[0];
 		Assert.Equal("success", record["status"]!.GetValue<string>());
-		Assert.Equal("Пакет сервера установлен и проверен", record["detail"]!.GetValue<string>());
+		Assert.Equal("Пакет сервера установлен и проверен", record["detail"].Said());
 		Assert.Equal(launched.Value, record["id"]!.GetValue<string>());
 		Assert.Equal("server-program-old.tar.gz", record["program_snapshot"]!.GetValue<string>());
 		Assert.Equal("1.22.7", record["previous_version"]!.GetValue<string>());
@@ -118,7 +118,7 @@ public sealed class UpdateServiceTests : IDisposable
 			calls);
 		var record = (await HistoryAsync())[0];
 		Assert.Equal("failed", record["status"]!.GetValue<string>());
-		Assert.Equal("Сервер не подтвердил готовность после обновления", record["detail"]!.GetValue<string>());
+		Assert.Equal("Сервер не подтвердил готовность после обновления", record["detail"].Said());
 		Assert.Equal("rollback", Actions(record)[^1]);
 		var steps = record["steps"]!.AsArray();
 		Assert.Equal("ok", steps[steps.Count - 1]!["status"]!.GetValue<string>());
@@ -134,7 +134,7 @@ public sealed class UpdateServiceTests : IDisposable
 		await service.StopAsync(default);
 
 		Assert.Equal(["game-package-inspect"], calls);
-		Assert.Equal("В корне пакета должен быть ровно один VintagestoryServer.dll", (await HistoryAsync())[0]["detail"]!.GetValue<string>());
+		Assert.Equal("В корне пакета должен быть ровно один VintagestoryServer.dll", (await HistoryAsync())[0]["detail"].Said());
 	}
 
 	[Fact]
@@ -146,7 +146,7 @@ public sealed class UpdateServiceTests : IDisposable
 		Assert.Empty(calls);
 		var record = (await HistoryAsync())[0];
 		Assert.Equal("preflight", record["type"]!.GetValue<string>());
-		Assert.Equal("Для этого снимка нет связанной offline-копии данных; автоматический откат запрещён", record["detail"]!.GetValue<string>());
+		Assert.Equal("Для этого снимка нет связанной offline-копии данных; автоматический откат запрещён", record["detail"].Said());
 	}
 
 	[Fact]
@@ -192,7 +192,7 @@ public sealed class UpdateServiceTests : IDisposable
 		Assert.True(launched.IsSuccess);
 		Assert.Equal(["mods", "status", "backup-create-offline", "mod-install"], calls);
 		var record = (await HistoryAsync())[0];
-		Assert.Equal("Обновлено модов: 1", record["detail"]!.GetValue<string>());
+		Assert.Equal("Обновлено модов: 1", record["detail"].Said());
 		Assert.Equal(["download", "backup", "install"], Actions(record));
 		Assert.Empty(Directory.EnumerateFiles(options.StagingDirectory));
 	}
@@ -207,7 +207,7 @@ public sealed class UpdateServiceTests : IDisposable
 		await service.StopAsync(default);
 
 		Assert.Equal(["mods"], calls);
-		Assert.Equal("Обновление должно заменять уникальный уже включённый мод", (await HistoryAsync())[0]["detail"]!.GetValue<string>());
+		Assert.Equal("Обновление должно заменять уникальный уже включённый мод", (await HistoryAsync())[0]["detail"].Said());
 	}
 
 	[Fact]
@@ -219,7 +219,7 @@ public sealed class UpdateServiceTests : IDisposable
 		await service.LaunchModsAsync(main, [new ModUpdateItem("example", 7)], 900);
 		await service.StopAsync(default);
 
-		Assert.Equal("Пакетная операция допускает только совместимые релизы", (await HistoryAsync())[0]["detail"]!.GetValue<string>());
+		Assert.Equal("Пакетная операция допускает только совместимые релизы", (await HistoryAsync())[0]["detail"].Said());
 	}
 
 	/// <summary>Предрелиз ставится, если оператор отметил его сам: план предлагает его рядом со стабильным.</summary>
@@ -232,7 +232,7 @@ public sealed class UpdateServiceTests : IDisposable
 		await service.LaunchModsAsync(main, [new ModUpdateItem("example", 7)], 900);
 		await service.StopAsync(default);
 
-		Assert.Equal("Обновлено модов: 1", (await HistoryAsync())[0]["detail"]!.GetValue<string>());
+		Assert.Equal("Обновлено модов: 1", (await HistoryAsync())[0]["detail"].Said());
 	}
 
 	[Fact]
@@ -245,7 +245,7 @@ public sealed class UpdateServiceTests : IDisposable
 		await service.StopAsync(default);
 
 		Assert.Equal(["mods"], calls);
-		Assert.Equal("План содержит отсутствующие, устаревшие или непроверенные зависимости", (await HistoryAsync())[0]["detail"]!.GetValue<string>());
+		Assert.Equal("План содержит отсутствующие, устаревшие или непроверенные зависимости", (await HistoryAsync())[0]["detail"].Said());
 	}
 
 	[Fact]
@@ -284,7 +284,7 @@ public sealed class UpdateServiceTests : IDisposable
 		Assert.True(plan["allowed"]!.GetValue<bool>());
 		var warning = Assert.Single(plan["warnings"]!.AsArray())!;
 		Assert.Equal("unverified", warning["status"]!.GetValue<string>());
-		Assert.StartsWith("Проверка недоступна: ", warning["detail"]!.GetValue<string>());
+		Assert.StartsWith("Проверка недоступна: ", warning["detail"].Said());
 	}
 
 	// ----- вспомогательное ------------------------------------------------------------
@@ -356,7 +356,7 @@ public sealed class UpdateServiceTests : IDisposable
 	private sealed class NoRegistry : IRegistryStore
 	{
 		public Task<RegistrySnapshot> LoadAsync(CancellationToken ct) =>
-			Task.FromResult<RegistrySnapshot>(new RegistrySnapshot.Unavailable("нет"));
+			Task.FromResult<RegistrySnapshot>(new RegistrySnapshot.Unavailable(Phrase.From("нет")));
 	}
 
 	private sealed class FakeReadiness : IReadinessWaiter

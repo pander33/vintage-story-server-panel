@@ -108,7 +108,7 @@ public sealed class AgentTelemetrySource : ITelemetrySource
 			{
 				["available"] = false,
 				["stale"] = true,
-				["detail"] = "Ошибка чтения телеметрии",
+				["detail"] = PhraseJsonConverter.ToNode(Phrase.From("Ошибка чтения телеметрии")),
 				["players"] = new JsonArray(),
 			});
 	}

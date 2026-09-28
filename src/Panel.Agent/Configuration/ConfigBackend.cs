@@ -97,7 +97,7 @@ public sealed class ConfigBackend
 			return Result.Fail<ConfigWritePayload>(source.Failure!);
 		}
 
-		var document = await ReadObjectAsync(source.Value, "Настройки сервера должны быть JSON-объектом", ct)
+		var document = await ReadObjectAsync(source.Value, Phrase.From("Настройки сервера должны быть JSON-объектом"), ct)
 			.ConfigureAwait(false);
 		if (!document.IsSuccess)
 		{
@@ -143,7 +143,7 @@ public sealed class ConfigBackend
 			return Failure.NotFound("Резервная копия настроек не найдена");
 		}
 
-		var document = await ReadObjectAsync(source.FullName, "Резервная копия настроек должна содержать JSON-объект", ct)
+		var document = await ReadObjectAsync(source.FullName, Phrase.From("Резервная копия настроек должна содержать JSON-объект"), ct)
 			.ConfigureAwait(false);
 		if (!document.IsSuccess)
 		{
@@ -231,7 +231,7 @@ public sealed class ConfigBackend
 		}
 	}
 
-	private static async Task<Result<JsonObject>> ReadObjectAsync(string path, string notObject, CancellationToken ct)
+	private static async Task<Result<JsonObject>> ReadObjectAsync(string path, Phrase notObject, CancellationToken ct)
 	{
 		try
 		{

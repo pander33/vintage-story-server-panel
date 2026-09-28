@@ -155,32 +155,32 @@ public sealed partial class ProvisionService : IHostedService
 		var probed = await host.RuntimeProbeAsync(ct).ConfigureAwait(false);
 		var runtime = probed.IsSuccess
 			? probed.Value
-			: new RuntimeProbePayload { Detail = probed.Failure!.Message };
+			: new RuntimeProbePayload { Detail = probed.Failure!.Text };
 		report["runtime"] = JsonSerializer.SerializeToNode(runtime, PanelJson.Options);
 		if (runtime.Dotnet.Length == 0)
 		{
-			blockers.Add("Не найден dotnet. Vintage Story Server работает на .NET, установите среду выполнения.");
+			blockers.Add(PhraseJsonConverter.ToNode(Phrase.From("Не найден dotnet. Vintage Story Server работает на .NET, установите среду выполнения.")));
 		}
 		else if (runtime.Majors.Count == 0)
 		{
-			warnings.Add("dotnet найден, но список сред выполнения пуст — сервер может не запуститься.");
+			warnings.Add(PhraseJsonConverter.ToNode(Phrase.From("dotnet найден, но список сред выполнения пуст — сервер может не запуститься.")));
 		}
 
 		// ADR-07: без setpriv --genconfig пришлось бы запускать от root. На Windows setpriv не нужен:
 		// игру запускает служба-супервизор.
 		if (probed.IsSuccess && runtime.Platform != "windows" && runtime.Setpriv.Length == 0)
 		{
-			blockers.Add("Не найден setpriv (пакет util-linux). Без него панель не запускает игру: от root игра не работает никогда.");
+			blockers.Add(PhraseJsonConverter.ToNode(Phrase.From("Не найден setpriv (пакет util-linux). Без него панель не запускает игру: от root игра не работает никогда.")));
 		}
 
 		var listed = await registry.ListAsync(ct).ConfigureAwait(false);
 		var instances = listed.IsSuccess
 			? JsonSerializer.SerializeToNode(listed.Value, PanelJson.Options)!.AsObject()
-			: new JsonObject { ["instances"] = new JsonArray(), ["writable"] = false, ["detail"] = listed.Failure!.Message };
+			: new JsonObject { ["instances"] = new JsonArray(), ["writable"] = false, ["detail"] = PhraseJsonConverter.ToNode(listed.Failure!.Text) };
 		report["instances"] = instances;
 		if (!listed.IsSuccess || !listed.Value.Writable)
 		{
-			blockers.Add("Реестр серверов доступен только на чтение. Выполните scripts/install.sh, чтобы перейти на конфигурацию версии 2.");
+			blockers.Add(PhraseJsonConverter.ToNode(Phrase.From("Реестр серверов доступен только на чтение. Выполните scripts/install.sh, чтобы перейти на конфигурацию версии 2.")));
 		}
 
 		var entries = listed.IsSuccess ? listed.Value.Instances : [];
@@ -197,7 +197,7 @@ public sealed partial class ProvisionService : IHostedService
 			}
 			else
 			{
-				blockers.Add(found.Failure!.Message);
+				blockers.Add(PhraseJsonConverter.ToNode(found.Failure!.Text));
 			}
 		}
 
@@ -211,7 +211,7 @@ public sealed partial class ProvisionService : IHostedService
 			report["free"] = free;
 			if (DiskRequirement.Blocker(free, needed) is { } lacking)
 			{
-				blockers.Add(lacking);
+				blockers.Add(PhraseJsonConverter.ToNode(lacking));
 			}
 		}
 
@@ -328,7 +328,7 @@ public sealed partial class ProvisionService : IHostedService
 			var health = await WaitReadyAsync(spec.Id, ct).ConfigureAwait(false);
 			operation.NoteHealth(health);
 			var ready = Text(health["state"]) == "ready";
-			operation.Advance(new OperationStep(StepAction.Ready, ready ? StepResult.Ok : StepResult.Warning) { Detail = Text(health["detail"]) });
+			operation.Advance(new OperationStep(StepAction.Ready, ready ? StepResult.Ok : StepResult.Warning) { Detail = PhraseJsonConverter.FromNode(health["detail"]) });
 			await FinishAsync(operation, null).ConfigureAwait(false);
 		}
 		catch (Exception failure)
@@ -339,7 +339,7 @@ public sealed partial class ProvisionService : IHostedService
 				// существует, и что с ним делать, решает оператор.
 				operation.Advance(new OperationStep(StepAction.Rollback, StepResult.Skipped)
 				{
-					Detail = "Сервер уже зарегистрирован; удалите его вручную, если он не нужен",
+					Detail = Phrase.From("Сервер уже зарегистрирован; удалите его вручную, если он не нужен"),
 				});
 			}
 
@@ -392,7 +392,7 @@ public sealed partial class ProvisionService : IHostedService
 	private async Task<JsonObject> WaitReadyAsync(InstanceId instance, CancellationToken ct)
 	{
 		var deadline = clock.GetUtcNow() + ReadinessTimeout;
-		var health = new JsonObject { ["state"] = "unknown", ["detail"] = "Проверка ещё не выполнялась" };
+		var health = new JsonObject { ["state"] = "unknown", ["detail"] = PhraseJsonConverter.ToNode(Phrase.From("Проверка ещё не выполнялась")) };
 		ReadinessVerdict? previous = null;
 
 		while (clock.GetUtcNow() < deadline)
@@ -400,7 +400,7 @@ public sealed partial class ProvisionService : IHostedService
 			var status = await runtime.StatusAsync(instance, ct).ConfigureAwait(false);
 			if (!status.IsSuccess)
 			{
-				health = new JsonObject { ["state"] = "unknown", ["detail"] = status.Failure!.Message };
+				health = new JsonObject { ["state"] = "unknown", ["detail"] = PhraseJsonConverter.ToNode(status.Failure!.Text) };
 			}
 			else
 			{
@@ -417,7 +417,7 @@ public sealed partial class ProvisionService : IHostedService
 					return new JsonObject
 					{
 						["state"] = "failed",
-						["detail"] = "Служба сервера перезапускается после ошибки запуска; готовность недостижима. Проверьте журнал сервера.",
+						["detail"] = PhraseJsonConverter.ToNode(Phrase.From("Служба сервера перезапускается после ошибки запуска; готовность недостижима. Проверьте журнал сервера.")),
 					};
 				}
 			}
@@ -470,7 +470,7 @@ public sealed partial class ProvisionService : IHostedService
 				"provision." + status,
 				operation.Status == OperationStatus.Success ? EventSeverity.Info : EventSeverity.Critical,
 				operation.Title,
-				operation.Detail ?? string.Empty,
+				operation.Detail,
 				"provisioning",
 				ct: CancellationToken.None)
 			.ConfigureAwait(false);

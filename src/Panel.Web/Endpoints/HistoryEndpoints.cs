@@ -17,9 +17,6 @@ namespace Panel.Web.Endpoints;
 /// </summary>
 public static class HistoryEndpoints
 {
-	/// <summary>Фраза очистки без предмета, как у очистки копий.</summary>
-	private const string prunePhrase = "ОЧИСТИТЬ ИСТОРИЮ";
-
 	public static void MapHistory(this IEndpointRouteBuilder routes)
 	{
 		routes.MapGet("/api/history", async (
@@ -87,7 +84,7 @@ public static class HistoryEndpoints
 			}
 
 			// Фраза проверяется до обращения к демону.
-			var confirmed = Confirmation.Exactly(prunePhrase).Check(body.Confirmation);
+			var confirmed = Confirmation.Exactly("ОЧИСТИТЬ ИСТОРИЮ", "CLEAR HISTORY").Check(body.Confirmation);
 			if (!confirmed.IsSuccess)
 			{
 				return PanelResults.Refuse(confirmed.Failure!);
@@ -116,8 +113,8 @@ public static class HistoryEndpoints
 						Instance(http),
 						"history.pruned",
 						EventSeverity.Info,
-						"История очищена",
-						$"{body.Store}: удалено {removed}",
+						Phrase.From("История очищена"),
+						Phrase.Format($"{body.Store}: удалено {removed}"),
 						"recovery",
 						notify: false,
 						ct: ct)

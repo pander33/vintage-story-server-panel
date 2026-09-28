@@ -231,7 +231,7 @@ public sealed class WindowsInstallTests : IDisposable
 		var findings = WindowsDoctor.CheckFiles(Paths, Paths.StateDirectory);
 
 		Assert.DoesNotContain(findings, finding => finding.Severity == Severity.Problem);
-		Assert.Contains(findings, finding => finding.Text.Contains("Активная версия 0.2.0", StringComparison.Ordinal));
+		Assert.Contains(findings, finding => finding.Text.Contains("Active version 0.2.0", StringComparison.Ordinal));
 	}
 
 	[Fact]
@@ -265,7 +265,7 @@ public sealed class WindowsInstallTests : IDisposable
 
 		var findings = WindowsDoctor.CheckFiles(Paths, Paths.StateDirectory);
 
-		Assert.Contains(findings, finding => finding.Severity == Severity.Warning && finding.Text.Contains("прежней версии", StringComparison.Ordinal));
+		Assert.Contains(findings, finding => finding.Severity == Severity.Warning && finding.Text.Contains("Legacy", StringComparison.Ordinal));
 	}
 
 	private void Installed()

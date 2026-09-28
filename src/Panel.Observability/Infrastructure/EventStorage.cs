@@ -158,12 +158,13 @@ public sealed class NotificationSender
 		this.http = http;
 	}
 
-	public async Task<Result<Done>> SendAsync(JsonObject record, NotificationSettings settings, CancellationToken ct)
+	/// <param name="render">Текст фразы на языке уведомлений (<see cref="NotificationSettings.Language"/>).</param>
+	public async Task<Result<Done>> SendAsync(JsonObject record, NotificationSettings settings, Func<Phrase, string> render, CancellationToken ct)
 	{
 		ArgumentNullException.ThrowIfNull(record);
 		ArgumentNullException.ThrowIfNull(settings);
 
-		var deliveries = NotificationMessage.For(record, settings);
+		var deliveries = NotificationMessage.For(record, settings, render);
 		if (deliveries.Count == 0)
 		{
 			return Failure.Unavailable("Канал уведомлений не настроен");

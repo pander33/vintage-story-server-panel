@@ -1,12 +1,13 @@
 using System.Text.Json.Serialization;
+using Panel.SharedKernel;
 
 namespace Panel.Contracts.Http;
 
 /// <summary>
-/// Тело ошибки в формате FastAPI: <c>{"detail": "…"}</c>. Форма заморожена: фронтенд читает
-/// <c>detail</c> и показывает его пользователю как есть.
+/// Тело отказа: <c>{"detail": "…"}</c>. Фронтенд показывает <c>detail</c> как есть; текст
+/// переводит граница HTTP при записи ответа.
 /// </summary>
 public sealed record ErrorResponse
 {
-	[JsonPropertyName("detail")] public required string Detail { get; init; }
+	[JsonPropertyName("detail")] public required Phrase Detail { get; init; }
 }

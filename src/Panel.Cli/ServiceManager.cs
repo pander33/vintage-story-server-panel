@@ -89,7 +89,7 @@ internal static class ServiceManager
 			{
 				var error = new Win32Exception(Marshal.GetLastPInvokeError());
 				service.Dispose();
-				throw new InstallFailed($"Служба {definition.Name} не создана: {error.Message}");
+				throw new InstallFailed($"Service {definition.Name} was not created: {error.Message}");
 			}
 		}
 		else if (!ChangeServiceConfigW(
@@ -107,7 +107,7 @@ internal static class ServiceManager
 		{
 			var error = new Win32Exception(Marshal.GetLastPInvokeError());
 			service.Dispose();
-			throw new InstallFailed($"Служба {definition.Name} не изменена: {error.Message}");
+			throw new InstallFailed($"Service {definition.Name} was not updated: {error.Message}");
 		}
 
 		using (service)
@@ -124,7 +124,7 @@ internal static class ServiceManager
 		using var service = Open(manager, name, serviceAllAccess);
 		if (service is not null && !DeleteService(service))
 		{
-			throw new InstallFailed($"Служба {name} не удалена: {new Win32Exception(Marshal.GetLastPInvokeError()).Message}");
+			throw new InstallFailed($"Service {name} was not removed: {new Win32Exception(Marshal.GetLastPInvokeError()).Message}");
 		}
 	}
 
@@ -169,7 +169,7 @@ internal static class ServiceManager
 		var description = new ServiceDescription { Description = definition.Description };
 		if (!ChangeServiceConfig2W(service, configDescription, ref description))
 		{
-			throw new InstallFailed($"Описание службы {definition.Name} не записано: {new Win32Exception(Marshal.GetLastPInvokeError()).Message}");
+			throw new InstallFailed($"Description for service {definition.Name} was not saved: {new Win32Exception(Marshal.GetLastPInvokeError()).Message}");
 		}
 	}
 
@@ -199,7 +199,7 @@ internal static class ServiceManager
 			var flag = new ServiceFailureActionsFlag { OnNonCrashFailures = 1 };
 			if (!ChangeServiceConfig2W(service, configFailureActions, ref failure) || !ChangeServiceConfig2W(service, configFailureActionsFlag, ref flag))
 			{
-				throw new InstallFailed($"Перезапуск службы {name} при сбое не настроен: {new Win32Exception(Marshal.GetLastPInvokeError()).Message}");
+				throw new InstallFailed($"Service {name} restart on failure was not configured: {new Win32Exception(Marshal.GetLastPInvokeError()).Message}");
 			}
 		}
 		finally
@@ -215,7 +215,7 @@ internal static class ServiceManager
 		{
 			var error = new Win32Exception(Marshal.GetLastPInvokeError());
 			manager.Dispose();
-			throw new InstallFailed($"Диспетчер служб недоступен: {error.Message}");
+			throw new InstallFailed($"Service Control Manager unavailable: {error.Message}");
 		}
 
 		return manager;
@@ -233,7 +233,7 @@ internal static class ServiceManager
 		service.Dispose();
 		return error == serviceDoesNotExist
 			? null
-			: throw new InstallFailed($"Служба {name} не открывается: {new Win32Exception(error).Message}");
+			: throw new InstallFailed($"Service {name} could not be opened: {new Win32Exception(error).Message}");
 	}
 
 	private sealed class ServiceHandle : SafeHandleZeroOrMinusOneIsInvalid

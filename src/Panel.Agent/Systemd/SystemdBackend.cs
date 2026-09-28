@@ -6,6 +6,7 @@ using System.Text.Json;
 using Panel.Agent.Runtime;
 using Panel.Contracts.Agent;
 using Panel.Fleet.Domain;
+using Panel.SharedKernel;
 
 namespace Panel.Agent.Systemd;
 
@@ -182,8 +183,8 @@ public sealed class SystemdBackend : IServiceBackend
 						Reason = running
 							? null
 							: exists
-								? "Сервер остановлен: консоль недоступна"
-								: "Канал консоли не создан; перезапустите сервер",
+								? Phrase.From("Сервер остановлен: консоль недоступна")
+								: Phrase.From("Канал консоли не создан; перезапустите сервер"),
 					};
 				}
 
@@ -191,7 +192,7 @@ public sealed class SystemdBackend : IServiceBackend
 				{
 					if (!File.Exists(screen))
 					{
-						return new ConsoleCapabilityPayload { Transport = "screen", Reason = "GNU Screen не установлен" };
+						return new ConsoleCapabilityPayload { Transport = "screen", Reason = Phrase.From("GNU Screen не установлен") };
 					}
 
 					var probe = await RunAsync(screen, ["-S", server.ScreenSession, "-Q", "select", "."], ct)
@@ -200,7 +201,7 @@ public sealed class SystemdBackend : IServiceBackend
 					{
 						Transport = "screen",
 						Available = probe.ExitCode == 0,
-						Reason = probe.ExitCode == 0 ? null : $"Сессия screen {server.ScreenSession} не найдена",
+						Reason = probe.ExitCode == 0 ? null : Phrase.Format($"Сессия screen {server.ScreenSession} не найдена"),
 					};
 				}
 
@@ -213,7 +214,7 @@ public sealed class SystemdBackend : IServiceBackend
 					{
 						Transport = "server.sh",
 						Available = executable,
-						Reason = executable ? null : $"{server.CommandRunner} не является исполняемым",
+						Reason = executable ? null : Phrase.Format($"{server.CommandRunner} не является исполняемым"),
 					};
 				}
 
@@ -221,7 +222,7 @@ public sealed class SystemdBackend : IServiceBackend
 				return new ConsoleCapabilityPayload
 				{
 					Transport = "disabled",
-					Reason = "Передача команд отключена в реестре инстансов",
+					Reason = Phrase.From("Передача команд отключена в реестре инстансов"),
 				};
 		}
 	}

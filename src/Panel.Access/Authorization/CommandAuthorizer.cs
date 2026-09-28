@@ -38,10 +38,10 @@ public sealed class CommandAuthorizer
 	/// <summary>
 	/// Тексты отказов: с ними посимвольно сравниваются золотые фикстуры.
 	/// </summary>
-	private static string Refusal(Role role, Permission permission) => (role, permission) switch
+	private static Phrase Refusal(Role role, Permission permission) => (role, permission) switch
 	{
-		(Role.Viewer, _) => "Роль наблюдателя не разрешает изменения",
-		(Role.Operator, Permission.Administer) => "Для этого действия требуется роль администратора",
-		_ => "Недостаточно прав для этого действия",
+		(Role.Viewer, _) => Phrase.From("Роль наблюдателя не разрешает изменения"),
+		(Role.Operator, Permission.Administer) => Phrase.From("Для этого действия требуется роль администратора"),
+		_ => Phrase.From("Недостаточно прав для этого действия"),
 	};
 }

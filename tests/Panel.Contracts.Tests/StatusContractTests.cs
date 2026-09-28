@@ -20,7 +20,7 @@ public sealed class StatusContractTests
 	[Fact]
 	public void Форма_ответа_совпадает_с_панелью_1_2()
 	{
-		var json = JsonSerializer.Serialize(Response(), PanelJson.Options);
+		var json = JsonSerializer.Serialize(Response(), LocalizedJson.For(PanelLanguage.Russian));
 
 		JsonShape.AssertSameShape(Fixture("status.expected.json"), json);
 	}
@@ -28,7 +28,7 @@ public sealed class StatusContractTests
 	[Fact]
 	public void Кириллица_не_экранируется_в_escape_последовательности()
 	{
-		var json = JsonSerializer.Serialize(Response(), PanelJson.Options);
+		var json = JsonSerializer.Serialize(Response(), LocalizedJson.For(PanelLanguage.Russian));
 
 		Assert.Contains("Сервер отвечает", json, StringComparison.Ordinal);
 		Assert.DoesNotContain("\\u0421", json, StringComparison.Ordinal);
@@ -37,7 +37,7 @@ public sealed class StatusContractTests
 	[Fact]
 	public void Имена_полей_остаются_в_нижнем_регистре_с_подчёркиванием()
 	{
-		var json = JsonSerializer.Serialize(Response(), PanelJson.Options);
+		var json = JsonSerializer.Serialize(Response(), LocalizedJson.For(PanelLanguage.Russian));
 
 		Assert.Contains("\"cpu_ns\"", json, StringComparison.Ordinal);
 		Assert.Contains("\"started_at\"", json, StringComparison.Ordinal);
@@ -54,7 +54,7 @@ public sealed class StatusContractTests
 			ServiceSnapshot.Stopped with { Unit = "vintagestory.service" },
 			ReadinessVerdict.NotCheckedYet(now));
 
-		var json = JsonSerializer.Serialize(response, PanelJson.Options);
+		var json = JsonSerializer.Serialize(response, LocalizedJson.For(PanelLanguage.Russian));
 
 		JsonShape.AssertSameShape(Fixture("status.expected.json"), json);
 		Assert.Equal("unknown", response.Health.State);
@@ -64,7 +64,7 @@ public sealed class StatusContractTests
 	[Fact]
 	public void Maintenance_отсутствует_пока_сервер_свободен()
 	{
-		var json = JsonSerializer.Serialize(Response(), PanelJson.Options);
+		var json = JsonSerializer.Serialize(Response(), LocalizedJson.For(PanelLanguage.Russian));
 
 		Assert.DoesNotContain("\"maintenance\"", json, StringComparison.Ordinal);
 	}
@@ -86,7 +86,7 @@ public sealed class StatusContractTests
 
 		Assert.NotNull(response.Maintenance);
 		Assert.Equal("update", response.Maintenance!.Purpose);
-		Assert.Equal("Обновление", response.Maintenance.Title);
+		Assert.Equal("Обновление", response.Maintenance.Title.ToString());
 		Assert.Equal(now.ToUnixTimeSeconds(), response.Maintenance.StartedAt);
 	}
 

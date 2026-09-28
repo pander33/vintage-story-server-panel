@@ -1,5 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Panel.Contracts;
+using Panel.SharedKernel;
 
 namespace Panel.Cli;
 
@@ -27,7 +29,7 @@ internal static class MaintenanceProbe
 		{
 			var purpose = Text(lease["purpose"]);
 			var instance = Text(lease["instance"]);
-			return $"обслуживание ({(purpose.Length > 0 ? purpose : "операция")}{(instance.Length > 0 ? $", сервер {instance}" : string.Empty)})";
+			return $"maintenance ({(purpose.Length > 0 ? purpose : "operation")}{(instance.Length > 0 ? $", server {instance}" : string.Empty)})";
 		}
 
 		var records = new List<string> { Path.Combine(stateDirectory, "updates.json"), Path.Combine(stateDirectory, "provision.json") };
@@ -41,11 +43,11 @@ internal static class MaintenanceProbe
 		{
 			if (Read(path)?["current"] is JsonObject current)
 			{
-				var title = Text(current["title"]) is { Length: > 0 } named ? named : "операция обновления";
+				var title = Text(current["title"]) is { Length: > 0 } named ? named : "update operation";
 				var phase = Text(current["phase"]) is { Length: > 0 } stage ? stage
 					: Text(current["status"]) is { Length: > 0 } status ? status
-					: "выполняется";
-				return $"{title} (этап: {phase})";
+					: "running";
+				return $"{title} (phase: {phase})";
 			}
 		}
 
@@ -64,6 +66,7 @@ internal static class MaintenanceProbe
 		}
 	}
 
+	/// <summary>Строка или фраза (<c>$phrase</c>) — по-английски, как весь вывод установщика.</summary>
 	private static string Text(JsonNode? node) =>
-		node is JsonValue value && value.TryGetValue<string>(out var text) ? text : string.Empty;
+		PhraseJsonConverter.FromNode(node) is { } phrase ? PhraseCatalog.Translate(phrase, PanelLanguage.English) : string.Empty;
 }

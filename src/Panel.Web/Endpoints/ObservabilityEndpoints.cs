@@ -320,7 +320,7 @@ public static class ObservabilityEndpoints
 				var page = await runtime.LogsFromAsync(instance, cursor, ct).ConfigureAwait(false);
 				if (!page.IsSuccess)
 				{
-					await ServerSentEvents.SendAsync(http, StreamError(page.Failure!.Message), ct).ConfigureAwait(false);
+					await ServerSentEvents.SendAsync(http, StreamError(http, page.Failure!.Text), ct).ConfigureAwait(false);
 					await Task.Delay(TimeSpan.FromSeconds(5), ct).ConfigureAwait(false);
 				}
 				else
@@ -332,7 +332,7 @@ public static class ObservabilityEndpoints
 					foreach (var item in events)
 					{
 						var shown = hide ? item.WithLine(line => AddressMask.Scrub(line, hide: true)) : item;
-						var json = JsonSerializer.Serialize(Event(shown), PanelJson.Options);
+						var json = LocalizedJson.Serialize(Event(shown), http);
 						await ServerSentEvents.SendAsync(http, $"id: {id}\ndata: {json}\n\n", ct).ConfigureAwait(false);
 					}
 
@@ -380,7 +380,7 @@ public static class ObservabilityEndpoints
 				var page = await feed.ReadAsync(instance, 200, ct).ConfigureAwait(false);
 				if (!page.IsSuccess)
 				{
-					await ServerSentEvents.SendAsync(http, StreamError(page.Failure!.Message), ct).ConfigureAwait(false);
+					await ServerSentEvents.SendAsync(http, StreamError(http, page.Failure!.Text), ct).ConfigureAwait(false);
 					await Task.Delay(TimeSpan.FromSeconds(5), ct).ConfigureAwait(false);
 				}
 				else
@@ -410,7 +410,7 @@ public static class ObservabilityEndpoints
 
 					foreach (var item in fresh)
 					{
-						var json = JsonSerializer.Serialize(GameEventView(item), PanelJson.Options);
+						var json = LocalizedJson.Serialize(GameEventView(item), http);
 						await ServerSentEvents.SendAsync(http, ServerSentEvents.Data(json), ct).ConfigureAwait(false);
 					}
 
@@ -429,8 +429,8 @@ public static class ObservabilityEndpoints
 		}
 	}
 
-	private static string StreamError(string message) =>
-		ServerSentEvents.Data(new JsonObject { ["stream_error"] = message }.ToJsonString(PanelJson.Options));
+	private static string StreamError(HttpContext http, Phrase message) =>
+		ServerSentEvents.Data(LocalizedJson.Serialize(new JsonObject { ["stream_error"] = JsonSerializer.SerializeToNode(message, PanelJson.Options) }, http));
 
 	/// <summary>Местная метка ISO с двоеточием в смещении и сообщение: формат строки потока.</summary>
 	private static string Stamped(LogEntry entry) =>

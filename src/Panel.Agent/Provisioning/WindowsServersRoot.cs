@@ -103,13 +103,13 @@ public static class WindowsServersRoot
 	/// переименовать. Windows при форматировании даёт прошедшим проверку «Изменение» на корень,
 	/// и без этого исключения каталог серверов нельзя было бы создать ни на одном втором диске.
 	/// </param>
-	public static string? Weakness(string path, FileSystemSecurity security, bool volumeRoot)
+	public static Phrase? Weakness(string path, FileSystemSecurity security, bool volumeRoot)
 	{
 		ArgumentNullException.ThrowIfNull(security);
 
 		if (security.GetOwner(typeof(SecurityIdentifier)) is not SecurityIdentifier owner || !IsTrusted(owner))
 		{
-			return $"Владелец {path} — {Name(security.GetOwner(typeof(SecurityIdentifier)))}, а не SYSTEM или администраторы: он может подменить каталог серверов. Выберите каталог прямо в корне диска, например {path[..2]}\\vs-servers";
+			return Phrase.Format($"Владелец {path} — {Name(security.GetOwner(typeof(SecurityIdentifier)))}, а не SYSTEM или администраторы: он может подменить каталог серверов. Выберите каталог прямо в корне диска, например {path[..2]}\\vs-servers");
 		}
 
 		foreach (FileSystemAccessRule rule in security.GetAccessRules(includeExplicit: true, includeInherited: true, typeof(SecurityIdentifier)))
@@ -124,7 +124,7 @@ public static class WindowsServersRoot
 			var dangerous = dangerousRights | (volumeRoot ? 0 : (int) FileSystemRights.Delete);
 			if (((int) rule.FileSystemRights & dangerous) != 0)
 			{
-				return $"У {Name(rule.IdentityReference)} есть право удалять или менять разрешения в {path}: он может подменить каталог серверов, а игра работает от SYSTEM. Выберите каталог прямо в корне диска, например {path[..2]}\\vs-servers";
+				return Phrase.Format($"У {Name(rule.IdentityReference)} есть право удалять или менять разрешения в {path}: он может подменить каталог серверов, а игра работает от SYSTEM. Выберите каталог прямо в корне диска, например {path[..2]}\\vs-servers");
 			}
 		}
 
@@ -167,11 +167,12 @@ public static class WindowsServersRoot
 	private static bool IsTrusted(SecurityIdentifier sid) =>
 		sid == system || sid == administrators || sid == trustedInstaller;
 
-	private static string Name(IdentityReference? identity)
+	/// <summary>Имя учётной записи для фразы; неизвестная — фраза, чтобы её перевели вместе с внешней.</summary>
+	private static object Name(IdentityReference? identity)
 	{
 		if (identity is null)
 		{
-			return "неизвестная учётная запись";
+			return Phrase.From("неизвестная учётная запись");
 		}
 
 		try

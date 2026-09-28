@@ -1,4 +1,5 @@
 using Panel.Provisioning.Domain;
+using Panel.SharedKernel;
 
 namespace Panel.Provisioning.Tests;
 
@@ -110,7 +111,7 @@ public sealed class PanelEnvironmentTests
 
 		Assert.Equal(3 * gib, DiskRequirement.For(200L * 1024 * 1024));
 		Assert.Equal(8 * gib, DiskRequirement.For(2 * gib));
-		Assert.Equal("Недостаточно места: свободно 1 ГиБ, нужно около 3 ГиБ.", DiskRequirement.Blocker(gib, 3 * gib));
+		Assert.Equal("Недостаточно места: свободно 1 ГиБ, нужно около 3 ГиБ.", DiskRequirement.Blocker(gib, 3 * gib)?.ToString());
 		Assert.Null(DiskRequirement.Blocker(0, 3 * gib));
 		Assert.Null(DiskRequirement.Blocker(5 * gib, 3 * gib));
 	}

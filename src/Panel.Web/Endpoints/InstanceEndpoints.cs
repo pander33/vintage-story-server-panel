@@ -57,7 +57,7 @@ public static class InstanceEndpoints
 					Default = panelInstance.Value,
 					PanelInstance = panelInstance.Value,
 					Writable = false,
-					Detail = listing.Failure!.Message,
+					Detail = listing.Failure!.Text,
 				});
 			}
 
@@ -89,7 +89,7 @@ public static class InstanceEndpoints
 				Default = effectiveDefault,
 				PanelInstance = panelInstance.Value,
 				Writable = listing.Value.Writable,
-				Detail = string.Empty,
+				Detail = null,
 			});
 		});
 
@@ -181,7 +181,7 @@ public static class InstanceEndpoints
 				return PanelResults.Refuse(instance.Failure!);
 			}
 
-			var confirmed = Confirmation.Exactly("ЗАБЫТЬ " + body.Instance).Check(body.Confirmation);
+			var confirmed = Confirmation.Exactly("ЗАБЫТЬ " + body.Instance, "FORGET " + body.Instance).Check(body.Confirmation);
 			if (!confirmed.IsSuccess)
 			{
 				return PanelResults.Refuse(confirmed.Failure!);
@@ -284,7 +284,8 @@ public sealed record InstancesResponse
 	[JsonPropertyName("panel_instance")] public required string PanelInstance { get; init; }
 
 	[JsonPropertyName("writable")] public required bool Writable { get; init; }
-	[JsonPropertyName("detail")] public required string Detail { get; init; }
+	/// <summary>Почему перечень пуст: реестр недоступен. <c>null</c>, если реестр прочитан.</summary>
+	[JsonPropertyName("detail")] public required Phrase? Detail { get; init; }
 }
 
 public sealed record InstanceSelectRequest

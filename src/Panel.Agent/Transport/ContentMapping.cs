@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using Panel.Content.Domain;
 using Panel.Content.Ports;
 using Panel.Contracts.Content;
+using Panel.SharedKernel;
 
 namespace Panel.Agent.Transport;
 
@@ -37,7 +38,7 @@ internal static class ContentMapping
 					Side = mod.Unreadable ? null : mod.Side,
 					Dependencies = mod.Dependencies,
 					MissingDependencies = catalogue.MissingDependenciesOf(mod),
-					Error = mod.Unreadable ? "Некорректный ZIP или modinfo.json" : null,
+					Error = mod.Unreadable ? Phrase.From("Некорректный ZIP или modinfo.json") : null,
 				}),
 			],
 			Enabled = catalogue.EnabledCount,

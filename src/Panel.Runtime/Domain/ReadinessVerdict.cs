@@ -1,3 +1,5 @@
+using Panel.SharedKernel;
+
 namespace Panel.Runtime.Domain;
 
 public enum HealthState
@@ -25,8 +27,8 @@ public sealed record ReadinessVerdict
 {
 	public required HealthState State { get; init; }
 
-	/// <summary>Пояснение по-русски; показывается в интерфейсе как есть.</summary>
-	public required string Detail { get; init; }
+	/// <summary>Пояснение для интерфейса.</summary>
+	public required Phrase Detail { get; init; }
 
 	public int ConsecutiveFailures { get; init; }
 
@@ -50,7 +52,7 @@ public sealed record ReadinessVerdict
 	public static ReadinessVerdict NotCheckedYet(DateTimeOffset now) => new()
 	{
 		State = HealthState.Unknown,
-		Detail = "Проверка ещё не выполнялась",
+		Detail = Phrase.From("Проверка ещё не выполнялась"),
 		CheckedAt = now,
 	};
 }

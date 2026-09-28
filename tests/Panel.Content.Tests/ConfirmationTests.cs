@@ -27,7 +27,28 @@ public sealed class ConfirmationTests
 	/// <summary>Очистка относится к набору копий, и называть в ней нечего.</summary>
 	[Fact]
 	public void Очистка_копий() =>
-		Assert.Equal("ОЧИСТИТЬ СТАРЫЕ КОПИИ", Confirmation.Exactly("ОЧИСТИТЬ СТАРЫЕ КОПИИ").Expected);
+		Assert.Equal("CLEAR OLD BACKUPS", Confirmation.Exactly("ОЧИСТИТЬ СТАРЫЕ КОПИИ", "CLEAR OLD BACKUPS").English);
+
+	/// <summary>Человек набирает фразу на языке интерфейса, который видит.</summary>
+	[Theory]
+	[InlineData("УДАЛИТЬ world.vcdbs")]
+	[InlineData("DELETE world.vcdbs")]
+	public void Подходит_фраза_на_любом_языке_интерфейса(string typed) =>
+		Assert.True(Confirmation.ToDelete("world.vcdbs").Check(typed).IsSuccess);
+
+	/// <summary>Глагол одного языка с чужим предметом не проходит: формы сверяются целиком.</summary>
+	[Fact]
+	public void Формы_не_смешиваются() =>
+		Assert.False(Confirmation.ToDelete("world.vcdbs").Check("DELETE other.vcdbs").IsSuccess);
+
+	[Fact]
+	public void Английские_глаголы()
+	{
+		Assert.Equal("ARCHIVE w", Confirmation.ToArchive("w").English);
+		Assert.Equal("RESTORE w", Confirmation.ToRestore("w").English);
+		Assert.Equal("EXTRACT w", Confirmation.ToExtract("w").English);
+		Assert.Equal("w", Confirmation.ByNameAlone("w").English);
+	}
 
 	/// <summary>
 	/// Удаление мода — единственное подтверждение без глагола.

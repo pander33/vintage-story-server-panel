@@ -33,7 +33,7 @@ internal sealed record Artifact(string Directory, string Version, string Rid, IR
 		var root = Path.GetFullPath(directory);
 		if (!System.IO.Directory.Exists(root))
 		{
-			return Failure.NotFound($"Каталог не найден: {directory}");
+			return Failure.NotFound($"Directory not found: {directory}");
 		}
 
 		foreach (var (published, installed) in Binaries)
@@ -41,14 +41,14 @@ internal sealed record Artifact(string Directory, string Version, string Rid, IR
 			if (!File.Exists(Path.Combine(root, published + Suffix(windows))) && !File.Exists(Path.Combine(root, installed + Suffix(windows))))
 			{
 				return Failure.Invalid(
-					$"В {root} нет {published}{Suffix(windows)}: это не каталог сборки панели (bash scripts/publish.sh {(windows ? "win-x64" : "linux-x64")})");
+					$"{published}{Suffix(windows)} is missing from {root}: this is not a panel build directory (bash scripts/publish.sh {(windows ? "win-x64" : "linux-x64")})");
 			}
 		}
 
 		var version = ReadLine(Path.Combine(root, VersionFile));
 		if (!ReleaseHistory.IsVersion(version))
 		{
-			return Failure.Invalid($"В {root} нет файла {VersionFile} с версией панели");
+			return Failure.Invalid($"Panel version file {VersionFile} is missing from {root}");
 		}
 
 		var archives = System.IO.Directory.Exists(Path.Combine(root, "telemetry"))

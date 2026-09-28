@@ -56,7 +56,7 @@ public sealed class WorldSchemaOperationsTests : IDisposable
 			""");
 
 		var reply = await new WorldSchemaOperations(new WorldSchemaReader())
-			.ExecuteAsync(new AgentRequest { Op = AgentProtocol.OpWorldConfigSchema, Instance = "example", Args = [] }, server, CancellationToken.None);
+			.ExecuteAsync(new AgentRequest { Op = AgentProtocol.OpWorldConfigSchema, Instance = "example", Args = ["ru"] }, server, CancellationToken.None);
 
 		Assert.True(reply.Ok);
 		var payload = reply.Result.Deserialize<WorldSchemaPayload>(PanelJson.Options)!;
@@ -87,6 +87,46 @@ public sealed class WorldSchemaOperationsTests : IDisposable
 
 		// Перевода раздела нет — подпись сам код.
 		Assert.Equal("temporalstability", payload.Categories.Single(category => category.Id == "temporalstability").Label);
+	}
+
+	[Theory]
+	[InlineData("en")]
+	[InlineData(null)]
+	[InlineData("../ru")]
+	public async Task Английский_интерфейс_получает_английские_подписи_без_русского_запасного(string? code)
+	{
+		var server = Server();
+		var lang = Path.Combine(server.ProgramDirectory, "assets", "game", "lang");
+		Directory.CreateDirectory(lang);
+		File.WriteAllText(Path.Combine(lang, "ru.json"), """
+			{
+				"worldattribute-worldWidth": "Ширина мира",
+				"worldattribute-worldWidth-desc": "Сколько блоков",
+				"worldconfig-category-worldgen": "Генерация мира"
+			}
+			""");
+		File.WriteAllText(Path.Combine(lang, "en.json"), """
+			{
+				"worldattribute-worldWidth": "World width",
+				"worldconfig-category-worldgen": "World generation"
+			}
+			""");
+		WriteMod(server, "custom.zip", """
+			{"modid": "custom", "version": "1.0", "worldConfig": {
+				"worldConfigAttributes": [{"code": "worldWidth", "dataType": "Integer", "category": "worldgen"}]
+			}}
+			""");
+
+		var reply = await new WorldSchemaOperations(new WorldSchemaReader())
+			.ExecuteAsync(new AgentRequest { Op = AgentProtocol.OpWorldConfigSchema, Instance = "example", Args = code is null ? [] : [code] }, server, CancellationToken.None);
+
+		var payload = reply.Result.Deserialize<WorldSchemaPayload>(PanelJson.Options)!;
+		var width = Assert.Single(payload.Attributes);
+		Assert.Equal("World width", width.Label);
+
+		// Английского описания нет — пусто, а не русское.
+		Assert.Equal(string.Empty, width.Description);
+		Assert.Equal("World generation", Assert.Single(payload.Categories).Label);
 	}
 
 	[Fact]

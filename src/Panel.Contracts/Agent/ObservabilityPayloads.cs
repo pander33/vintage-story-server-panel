@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Panel.SharedKernel;
 
 namespace Panel.Contracts.Agent;
 
@@ -17,7 +18,7 @@ public sealed record GameEventPayload
 	/// Причина смерти по-русски. Это текст интерфейса, поэтому его добавляет веб-процесс, а не
 	/// демон. У прочих событий <c>null</c>.
 	/// </summary>
-	[JsonPropertyName("detail")] public string? Detail { get; init; }
+	[JsonPropertyName("detail")] public Phrase? Detail { get; init; }
 }
 
 public sealed record GameEventsPayload

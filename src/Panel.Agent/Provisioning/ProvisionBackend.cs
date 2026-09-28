@@ -899,7 +899,7 @@ public sealed class ProvisionBackend
 
 		// Мастер меняет адрес и порт по одному ключу; правило брандмауэра следует за каждым, чтобы
 		// после перезапуска панель была видна там же, где её открыли при установке.
-		string? warning = null;
+		Phrase? warning = null;
 		if (setting.Key is "PANEL_BIND" or "PANEL_PORT")
 		{
 			warning = await platform.SyncPanelFirewallAsync(

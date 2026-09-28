@@ -144,7 +144,7 @@ public sealed class ServerControlHandler
 		// превращается в «консоль недоступна» с причиной.
 		var capability = console.IsSuccess
 			? console.Value
-			: new ConsoleCapability(ConsoleTransport.Disabled, false, console.Failure!.Message);
+			: new ConsoleCapability(ConsoleTransport.Disabled, false, console.Failure!.Text);
 
 		return new GameServer(id, snapshot.Value, capability, verdict);
 	}

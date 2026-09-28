@@ -38,7 +38,7 @@ public sealed class StagingWriter
 		StagedFile staged,
 		int limitMegabytes,
 		CancellationToken ct,
-		string? tooLarge = null)
+		Phrase? tooLarge = null)
 	{
 		Directory.CreateDirectory(options.StagingDirectory);
 		var path = PathOf(staged);
@@ -57,7 +57,7 @@ public sealed class StagingWriter
 					written += read;
 					if (written > limit)
 					{
-						return Failure.TooLarge(tooLarge ?? $"Файл больше {limitMegabytes} МБ");
+						return Failure.TooLarge(tooLarge ?? Phrase.Format($"Файл больше {limitMegabytes} МБ"));
 					}
 
 					await target.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);

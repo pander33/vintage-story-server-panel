@@ -15,7 +15,7 @@ namespace Panel.Cli;
 internal sealed class Uninstaller
 {
 	/// <summary>Фраза подтверждения полного удаления.</summary>
-	public const string Confirmation = "удалить";
+	public const string Confirmation = "delete";
 
 	private readonly LinuxHost host;
 
@@ -38,19 +38,19 @@ internal sealed class Uninstaller
 					confirmed = true;
 					break;
 				default:
-					throw new InstallFailed($"Неизвестный параметр: {argument}");
+					throw new InstallFailed($"Unknown option: {argument}");
 			}
 		}
 
 		if (purge && !confirmed)
 		{
-			this.host.Output.WriteLine("Будут удалены программа /opt/vs-panel, состояние /var/lib/vs-panel (учётные записи,");
-			this.host.Output.WriteLine("аудит, история операций), настройки /etc/vs-panel.env и /etc/vs-panel.json и");
-			this.host.Output.WriteLine("пользователь vs-panel. Игровые серверы, их миры и копии останутся.");
-			this.host.Output.Write($"Для подтверждения введите: {Confirmation}\n> ");
+			this.host.Output.WriteLine("The program /opt/vs-panel, state /var/lib/vs-panel (accounts,");
+			this.host.Output.WriteLine("audit log, operation history), settings /etc/vs-panel.env and /etc/vs-panel.json,");
+			this.host.Output.WriteLine("and the vs-panel user will be removed. Game servers, worlds and backups will remain.");
+			this.host.Output.Write($"To confirm, type: {Confirmation}\n> ");
 			if (Console.ReadLine()?.Trim() != Confirmation)
 			{
-				throw new InstallFailed("Отменено.");
+				throw new InstallFailed("Cancelled.");
 			}
 		}
 
@@ -69,10 +69,10 @@ internal sealed class Uninstaller
 		if (!purge)
 		{
 			// Сама команда остаётся: через неё выполняется полное удаление.
-			this.host.Output.WriteLine("Службы панели и демона удалены.");
-			this.host.Output.WriteLine("Сохранены: программа /opt/vs-panel, состояние /var/lib/vs-panel, настройки /etc/vs-panel*.");
-			this.host.Output.WriteLine("Повторная установка вернёт панель с прежними учётными записями.");
-			this.host.Output.WriteLine("Полное удаление: sudo vs-panel uninstall --purge");
+			this.host.Output.WriteLine("Panel and agent services removed.");
+			this.host.Output.WriteLine("Preserved: program /opt/vs-panel, state /var/lib/vs-panel, settings /etc/vs-panel*.");
+			this.host.Output.WriteLine("Reinstalling will restore the panel with its previous accounts.");
+			this.host.Output.WriteLine("Full removal: sudo vs-panel uninstall --purge");
 			return 0;
 		}
 
@@ -104,11 +104,11 @@ internal sealed class Uninstaller
 		}
 
 		File.Delete(Paths.CommandLink);
-		this.host.Output.WriteLine("Панель удалена полностью.");
+		this.host.Output.WriteLine("Panel removed completely.");
 		if (servers != 0)
 		{
-			this.host.Output.WriteLine($"Реестр {Paths.Registry} и обёртка консоли сохранены: в реестре описаны игровые серверы ({servers}),");
-			this.host.Output.WriteLine("которые продолжают работать как обычные службы systemd.");
+			this.host.Output.WriteLine($"Registry {Paths.Registry} and console wrapper were preserved: the registry lists game servers ({servers}),");
+			this.host.Output.WriteLine("which continue running as regular systemd services.");
 		}
 
 		return 0;

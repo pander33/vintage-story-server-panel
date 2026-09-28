@@ -31,7 +31,13 @@ public sealed class WorldSchemaOperations : IServerOperations
 		// Слияние источников никогда не отказывает целиком: отказ одного источника уходит в
 		// Warnings, а не в Failure (см. WorldSchema.Merge).
 		var schema = reader.Read(server).Value;
-		var language = reader.ReadLanguage(server, "ru", "en");
+
+		// Язык подписей — язык интерфейса, из которого пришёл запрос. Код стал бы именем файла, поэтому
+		// разбирается в закрытый набор, а не подставляется в путь: всё, кроме «ru», — английский.
+		// Английскому запасной язык тоже английский: русская подпись в английском интерфейсе хуже кода.
+		var language = PhraseCatalog.Parse(request.Args.Count > 0 ? request.Args[0] : null) == PanelLanguage.Russian
+			? reader.ReadLanguage(server, "ru", "en")
+			: reader.ReadLanguage(server, "en", "en");
 		var payload = ToPayload(schema, language);
 		return Task.FromResult(AgentReply.Success(System.Text.Json.JsonSerializer.SerializeToNode(payload, PanelJson.Options)));
 	}

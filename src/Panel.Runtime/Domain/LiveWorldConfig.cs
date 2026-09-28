@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Panel.SharedKernel;
 
 namespace Panel.Runtime.Domain;
 
@@ -11,4 +12,4 @@ namespace Panel.Runtime.Domain;
 /// командой <c>WorldConfigCommand</c> через порт <c>ILiveWorldConfig</c>; изменяющих методов у
 /// этого типа нет.
 /// </remarks>
-public sealed record LiveWorldConfig(bool Available, JsonObject Configuration, string Detail);
+public sealed record LiveWorldConfig(bool Available, JsonObject Configuration, Phrase? Detail);

@@ -1,4 +1,7 @@
+using System.Runtime.CompilerServices;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using Panel.SharedKernel;
 
 namespace Panel.Contracts.Agent;
 
@@ -34,15 +37,32 @@ public sealed record AgentReply
 	[JsonPropertyName("code")]
 	public string? Code { get; init; }
 
+	/// <summary>Русский текст отказа: его читают журнал и вызывающий, которому перевод не нужен.</summary>
 	[JsonPropertyName("error")]
 	public string? Error { get; init; }
 
-	[JsonPropertyName("result")]
-	public System.Text.Json.Nodes.JsonNode? Result { get; init; }
+	/// <summary>
+	/// Тот же отказ как <see cref="SharedKernel.Phrase"/>: шаблон и значения. По ним граница HTTP
+	/// панели переводит текст на язык запроса.
+	/// </summary>
+	[JsonPropertyName("phrase")]
+	public Phrase? Phrase { get; init; }
 
-	public static AgentReply Success(System.Text.Json.Nodes.JsonNode? result) =>
+	[JsonPropertyName("result")]
+	public JsonNode? Result { get; init; }
+
+	public static AgentReply Success(JsonNode? result) =>
 		new() { Ok = true, Result = result };
 
-	public static AgentReply Failure(string code, string message) =>
-		new() { Ok = false, Code = code, Error = message };
+	public static AgentReply Failure(string code, string message) => Failure(code, SharedKernel.Phrase.From(message));
+
+	public static AgentReply Failure(string code, Phrase message) =>
+		new() { Ok = false, Code = code, Error = message.ToString(), Phrase = message };
+
+	[OverloadResolutionPriority(1)]
+	public static AgentReply Failure(string code, ref PhraseHandler message) => Failure(code, message.ToPhrase());
+
+	/// <summary>Отказ как <see cref="Phrase"/>; ответ без шаблона — готовым текстом.</summary>
+	public Phrase FailureText(Phrase fallback) =>
+		Phrase ?? (Error is null ? fallback : SharedKernel.Phrase.From(Error));
 }

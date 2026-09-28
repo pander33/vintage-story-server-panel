@@ -134,9 +134,10 @@ public sealed class PanelAccessTests
 
 		var text = output.ToString();
 		Assert.Contains("http://127.0.0.1:8080/", text, StringComparison.Ordinal);
-		Assert.Contains("из сети: http://192.168.1.10:8080/", text, StringComparison.Ordinal);
-		Assert.Contains("пробросьте", text, StringComparison.Ordinal);
-		Assert.Contains("открытым текстом", text, StringComparison.Ordinal);
+		Assert.Contains("from the network: http://192.168.1.10:8080/", text, StringComparison.Ordinal);
+		Assert.Contains("forward port", text, StringComparison.Ordinal);
+		Assert.Contains("plain text", text, StringComparison.Ordinal);
+		Assert.Contains("any address, including the internet", text, StringComparison.Ordinal);
 		Assert.DoesNotContain("ssh -L", text, StringComparison.Ordinal);
 	}
 

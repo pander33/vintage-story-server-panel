@@ -173,13 +173,13 @@ public static class OperationWire
 	};
 
 	/// <summary>Заголовок записи.</summary>
-	public static string TitleOf(OperationKind kind) => kind switch
+	public static Phrase TitleOf(OperationKind kind) => kind switch
 	{
-		OperationKind.Mods => "Обновление модов",
-		OperationKind.Game => "Обновление Vintage Story Server",
-		OperationKind.GameRollback => "Откат версии сервера",
-		OperationKind.ProvisionPreflight => "Сервер не создан",
-		_ => "Обновление не началось",
+		OperationKind.Mods => Phrase.From("Обновление модов"),
+		OperationKind.Game => Phrase.From("Обновление Vintage Story Server"),
+		OperationKind.GameRollback => Phrase.From("Откат версии сервера"),
+		OperationKind.ProvisionPreflight => Phrase.From("Сервер не создан"),
+		_ => Phrase.From("Обновление не началось"),
 	};
 }
 
@@ -223,7 +223,7 @@ public sealed record OperationStep(StepAction Action, StepResult Result)
 
 	public string? GameVersion { get; init; }
 
-	public string? Detail { get; init; }
+	public Phrase? Detail { get; init; }
 
 	/// <summary>Размер пакета по каталогу; шаг <c>catalogue</c> создания сервера.</summary>
 	public long? Size { get; init; }
@@ -289,7 +289,7 @@ public sealed record OperationStep(StepAction Action, StepResult Result)
 
 		if (Detail is not null)
 		{
-			step["detail"] = Detail;
+			step["detail"] = PhraseJsonConverter.ToNode(Detail);
 		}
 
 		return step;
@@ -326,8 +326,8 @@ public sealed class Operation
 
 	public OperationKind Kind { get; }
 
-	public string Title => Kind == OperationKind.Provision
-		? $"Создание сервера {Instance?.Value}"
+	public Phrase Title => Kind == OperationKind.Provision
+		? Phrase.Format($"Создание сервера {Instance?.Value}")
 		: OperationWire.TitleOf(Kind);
 
 	/// <summary>Создаваемый сервер; пока операция идёт, его нет в реестре.</summary>
@@ -349,7 +349,7 @@ public sealed class Operation
 
 	public OperationPhase? Phase { get; private set; }
 
-	public string? Detail { get; private set; }
+	public Phrase? Detail { get; private set; }
 
 	public long? FinishedAt { get; private set; }
 
@@ -451,16 +451,16 @@ public sealed class Operation
 	/// <summary>Итог при успехе; для модов с числом установленных.</summary>
 	public void Succeed(long finishedAt) => Finish(OperationStatus.Success, Kind switch
 	{
-		OperationKind.Mods => $"Обновлено модов: {steps.Count(step => step.Action == StepAction.Install)}",
-		OperationKind.Game => "Пакет сервера установлен и проверен",
+		OperationKind.Mods => Phrase.Format($"Обновлено модов: {steps.Count(step => step.Action == StepAction.Install)}"),
+		OperationKind.Game => Phrase.From("Пакет сервера установлен и проверен"),
 		OperationKind.Provision => ProvisionDetail(),
-		_ => "Восстановлены бинарники и данные до обновления",
+		_ => Phrase.From("Восстановлены бинарники и данные до обновления"),
 	}, finishedAt);
 
 	public void Fail(Failure reason, long finishedAt)
 	{
 		ArgumentNullException.ThrowIfNull(reason);
-		Finish(OperationStatus.Failed, reason.Message, finishedAt);
+		Finish(OperationStatus.Failed, reason.Text, finishedAt);
 	}
 
 	/// <summary>Панель остановилась посреди операции.</summary>
@@ -468,21 +468,21 @@ public sealed class Operation
 		Finish(OperationStatus.Interrupted, OperationRecovery.DetailFor(Family), finishedAt);
 
 	/// <summary>Если сервер готов, «отвечает»; иначе «создан, но готовность не подтверждена» с причиной.</summary>
-	private string ProvisionDetail()
+	private Phrase ProvisionDetail()
 	{
 		var state = Health?["state"] is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 		if (state == "ready")
 		{
-			return "Сервер создан, запущен и отвечает";
+			return Phrase.From("Сервер создан, запущен и отвечает");
 		}
 
-		var reason = Health?["detail"] is JsonValue detail && detail.TryGetValue<string>(out var said) && said.Length > 0
+		var reason = PhraseJsonConverter.FromNode(Health?["detail"]) is { } said && said.ToString().Length > 0
 			? said
-			: "нет данных";
-		return "Сервер создан и запущен, но готовность подтвердить не удалось: " + reason;
+			: Phrase.From("нет данных");
+		return Phrase.Format($"Сервер создан и запущен, но готовность подтвердить не удалось: {reason}");
 	}
 
-	private void Finish(OperationStatus status, string detail, long finishedAt)
+	private void Finish(OperationStatus status, Phrase detail, long finishedAt)
 	{
 		if (IsTerminal)
 		{
@@ -515,12 +515,12 @@ public sealed class Operation
 		{
 			// Порядок ключей записи создания: instance до title, target_version после.
 			record["instance"] = Instance?.Value;
-			record["title"] = Title;
+			record["title"] = PhraseJsonConverter.ToNode(Title);
 			record["target_version"] = TargetVersion;
 		}
 		else
 		{
-			record["title"] = Title;
+			record["title"] = PhraseJsonConverter.ToNode(Title);
 		}
 
 		record["started_at"] = StartedAt;
@@ -565,7 +565,7 @@ public sealed class Operation
 
 		if (FinishedAt is { } finished)
 		{
-			record["detail"] = Detail;
+			record["detail"] = Detail is null ? null : PhraseJsonConverter.ToNode(Detail);
 			record["finished_at"] = finished;
 			record["ts"] = StartedAt;
 		}
@@ -577,14 +577,14 @@ public sealed class Operation
 /// <summary>Восстановление записи, оставшейся в <c>current</c> после остановки панели.</summary>
 public static class OperationRecovery
 {
-	public const string InterruptedDetail =
-		"Панель остановилась во время операции. Проверьте сервер и резервные копии перед повтором.";
+	public static Phrase InterruptedDetail { get; } =
+		Phrase.From("Панель остановилась во время операции. Проверьте сервер и резервные копии перед повтором.");
 
 	/// <summary>Демон уже не может сам убрать недостроенное дерево.</summary>
-	public const string InterruptedProvisionDetail =
-		"Панель остановилась во время создания сервера. Проверьте каталог сервера и реестр перед повторной попыткой.";
+	public static Phrase InterruptedProvisionDetail { get; } =
+		Phrase.From("Панель остановилась во время создания сервера. Проверьте каталог сервера и реестр перед повторной попыткой.");
 
-	public static string DetailFor(OperationFamily family) =>
+	public static Phrase DetailFor(OperationFamily family) =>
 		family == OperationFamily.Provision ? InterruptedProvisionDetail : InterruptedDetail;
 
 	/// <summary>
@@ -606,7 +606,7 @@ public static class OperationRecovery
 		var started = Seconds(current["started_at"]) is { } seconds and not 0 ? seconds : now;
 
 		record["status"] = "interrupted";
-		record["detail"] = DetailFor(family);
+		record["detail"] = PhraseJsonConverter.ToNode(DetailFor(family));
 		record["finished_at"] = now;
 		record["ts"] = started;
 		return record;

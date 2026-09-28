@@ -174,14 +174,6 @@ public sealed record PanelListener
 	/// <summary>Аргументы <c>netsh</c>, снимающие правило панели, каким бы ни был порт.</summary>
 	public static IReadOnlyList<string> NetshDelete { get; } = ["advfirewall", "firewall", "delete", "rule", $"name={WindowsRuleName}"];
 
-	/// <summary>Кому открыт порт — для вывода оператору.</summary>
-	public string FirewallDescription => Firewall switch
-	{
-		FirewallScope.Internet => "любой адрес, включая интернет",
-		FirewallScope.Off => "правила брандмауэра не меняются",
-		_ => "только локальная сеть",
-	};
-
 	internal static bool IsLoopback(string bind) => bind is "127.0.0.1" or "::1" or "localhost";
 
 	private static string Host(string bind) => bind.Contains(':', StringComparison.Ordinal) ? $"[{bind}]" : bind;

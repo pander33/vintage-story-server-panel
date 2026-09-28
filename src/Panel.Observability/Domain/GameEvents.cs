@@ -26,25 +26,25 @@ public sealed record GameEvent(
 	/// Смерть приходит как <c>EnumDamageSource/EnumDamageType</c>. Переводится только источник:
 	/// он и важен владельцу сервера.
 	/// </summary>
-	private static readonly Dictionary<string, string> deathSources = new(StringComparer.Ordinal)
+	private static readonly Dictionary<string, Phrase> deathSources = new(StringComparer.Ordinal)
 	{
-		["Block"] = "блок",
-		["Player"] = "другой игрок",
-		["Entity"] = "существо",
-		["Explosion"] = "взрыв",
-		["Fall"] = "падение",
-		["Drown"] = "утопление",
-		["Void"] = "пустота",
-		["Suicide"] = "самоубийство",
-		["Internal"] = "внутренняя причина",
-		["Weather"] = "погода",
-		["Machine"] = "механизм",
-		["Revive"] = "воскрешение",
-		["Unknown"] = "неизвестно",
+		["Block"] = Phrase.From("блок"),
+		["Player"] = Phrase.From("другой игрок"),
+		["Entity"] = Phrase.From("существо"),
+		["Explosion"] = Phrase.From("взрыв"),
+		["Fall"] = Phrase.From("падение"),
+		["Drown"] = Phrase.From("утопление"),
+		["Void"] = Phrase.From("пустота"),
+		["Suicide"] = Phrase.From("самоубийство"),
+		["Internal"] = Phrase.From("внутренняя причина"),
+		["Weather"] = Phrase.From("погода"),
+		["Machine"] = Phrase.From("механизм"),
+		["Revive"] = Phrase.From("воскрешение"),
+		["Unknown"] = Phrase.From("неизвестно"),
 	};
 
 	/// <summary>Причина смерти для интерфейса; у прочих событий пусто.</summary>
-	public string? Detail
+	public Phrase? Detail
 	{
 		get
 		{
@@ -58,7 +58,7 @@ public sealed record GameEvent(
 
 			return deathSources.TryGetValue(source, out var translated)
 				? translated
-				: source.Length > 0 ? source : "неизвестно";
+				: source.Length > 0 ? Phrase.From(source) : Phrase.From("неизвестно");
 		}
 	}
 

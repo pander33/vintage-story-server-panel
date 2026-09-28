@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Panel.SharedKernel;
 
 namespace Panel.Observability.Domain;
 
@@ -6,8 +7,8 @@ namespace Panel.Observability.Domain;
 public sealed record Finding(
 	string Level,
 	string Code,
-	string Title,
-	string Detail,
+	Phrase Title,
+	Phrase Detail,
 	string? Evidence = null,
 	long? Timestamp = null);
 
@@ -36,38 +37,38 @@ public static partial class LogDiagnosis
 
 	private static readonly Rule[] startupCauses =
 	[
-		new("config-permission", PermissionDenied(), "Нет доступа к файлам сервера",
-			"Проверьте владельца и права serverconfig.json и каталога data."),
-		new("port-busy", PortBusy(), "Порт уже занят",
-			"Освободите порт или укажите другой Port в настройках сервера."),
-		new("memory", OutOfMemory(), "Недостаточно памяти",
-			"Уменьшите нагрузку или лимиты мира и проверьте доступную RAM."),
-		new("runtime", RuntimeMissing(), "Не подходит версия .NET",
-			"Установите версию .NET, требуемую этой сборкой Vintage Story."),
-		new("config-invalid", ConfigInvalid(), "Ошибка конфигурации сервера",
-			"Проверьте последнее изменение serverconfig.json или выполните откат."),
-		new("mod-startup", ModStartup(), "Ошибка мода при запуске",
-			"Отключите недавно изменённый мод и проверьте его совместимость."),
-		new("startup-crash", CrashSummary.Crash(), "Сервер завершился при запуске",
-			"Откройте журнал ниже: показана последняя найденная критическая строка."),
+		new("config-permission", PermissionDenied(), Phrase.From("Нет доступа к файлам сервера"),
+			Phrase.From("Проверьте владельца и права serverconfig.json и каталога data.")),
+		new("port-busy", PortBusy(), Phrase.From("Порт уже занят"),
+			Phrase.From("Освободите порт или укажите другой Port в настройках сервера.")),
+		new("memory", OutOfMemory(), Phrase.From("Недостаточно памяти"),
+			Phrase.From("Уменьшите нагрузку или лимиты мира и проверьте доступную RAM.")),
+		new("runtime", RuntimeMissing(), Phrase.From("Не подходит версия .NET"),
+			Phrase.From("Установите версию .NET, требуемую этой сборкой Vintage Story.")),
+		new("config-invalid", ConfigInvalid(), Phrase.From("Ошибка конфигурации сервера"),
+			Phrase.From("Проверьте последнее изменение serverconfig.json или выполните откат.")),
+		new("mod-startup", ModStartup(), Phrase.From("Ошибка мода при запуске"),
+			Phrase.From("Отключите недавно изменённый мод и проверьте его совместимость.")),
+		new("startup-crash", CrashSummary.Crash(), Phrase.From("Сервер завершился при запуске"),
+			Phrase.From("Откройте журнал ниже: показана последняя найденная критическая строка.")),
 	];
 
 	private static readonly Rule[] connectionCauses =
 	[
-		new("whitelist", NotWhitelisted(), "Игрока нет в белом списке",
-			"Добавьте игрока в whitelist либо измените WhitelistMode."),
-		new("banned", Banned(), "Игрок заблокирован",
-			"Проверьте список блокировок и снимите бан при необходимости."),
-		new("password", WrongPassword(), "Неверный пароль сервера",
-			"Проверьте пароль на клиенте или настройку Password сервера."),
-		new("authentication", AuthenticationFailed(), "Не пройдена авторизация Vintage Story",
-			"Проверьте учётную запись игрока, VerifyPlayerAuth и доступ сервера к системе авторизации."),
-		new("version", VersionMismatch(), "Несовместимая версия клиента",
-			"Версия игры и набор модов клиента должны соответствовать серверу."),
-		new("full", ServerFull(), "На сервере нет свободных мест",
-			"Увеличьте MaxClients или дождитесь свободного места."),
-		new("connection-rejected", ConnectionRejected(), "Подключение отклонено",
-			"Точная причина приведена в строке журнала."),
+		new("whitelist", NotWhitelisted(), Phrase.From("Игрока нет в белом списке"),
+			Phrase.From("Добавьте игрока в whitelist либо измените WhitelistMode.")),
+		new("banned", Banned(), Phrase.From("Игрок заблокирован"),
+			Phrase.From("Проверьте список блокировок и снимите бан при необходимости.")),
+		new("password", WrongPassword(), Phrase.From("Неверный пароль сервера"),
+			Phrase.From("Проверьте пароль на клиенте или настройку Password сервера.")),
+		new("authentication", AuthenticationFailed(), Phrase.From("Не пройдена авторизация Vintage Story"),
+			Phrase.From("Проверьте учётную запись игрока, VerifyPlayerAuth и доступ сервера к системе авторизации.")),
+		new("version", VersionMismatch(), Phrase.From("Несовместимая версия клиента"),
+			Phrase.From("Версия игры и набор модов клиента должны соответствовать серверу.")),
+		new("full", ServerFull(), Phrase.From("На сервере нет свободных мест"),
+			Phrase.From("Увеличьте MaxClients или дождитесь свободного места.")),
+		new("connection-rejected", ConnectionRejected(), Phrase.From("Подключение отклонено"),
+			Phrase.From("Точная причина приведена в строке журнала.")),
 	];
 
 	/// <param name="active">Служба активна.</param>
@@ -104,8 +105,8 @@ public static partial class LogDiagnosis
 	{
 		if (active && ready)
 		{
-			return new Finding("ok", "ready", "Сервер успешно запущен",
-				"Игровой процесс работает и передаёт актуальную телеметрию.");
+			return new Finding("ok", "ready", Phrase.From("Сервер успешно запущен"),
+				Phrase.From("Игровой процесс работает и передаёт актуальную телеметрию."));
 		}
 
 		for (var index = events.Count - 1; index >= sessionStart; index--)
@@ -118,10 +119,10 @@ public static partial class LogDiagnosis
 		}
 
 		return active
-			? new Finding("warn", "not-ready", "Сервер ещё не готов",
-				string.IsNullOrEmpty(note.Text) ? "Процесс запущен, но готовность игры не подтверждена." : note.Text)
-			: new Finding("warn", "stopped", "Игровая служба остановлена",
-				"В доступном фрагменте журнала явная причина не найдена.");
+			? new Finding("warn", "not-ready", Phrase.From("Сервер ещё не готов"),
+				note.Text is null || note.Text.ToString().Length == 0 ? Phrase.From("Процесс запущен, но готовность игры не подтверждена.") : note.Text)
+			: new Finding("warn", "stopped", Phrase.From("Игровая служба остановлена"),
+				Phrase.From("В доступном фрагменте журнала явная причина не найдена."));
 	}
 
 	private static IReadOnlyList<Finding> Connections(IReadOnlyList<LogEvent> events)
@@ -147,7 +148,7 @@ public static partial class LogDiagnosis
 	/// <summary>Последние 800 символов: причина обычно в конце строки, в начале метка и узел.</summary>
 	private static string Tail(string line) => line.Length > evidenceTail ? line[^evidenceTail..] : line;
 
-	private sealed record Rule(string Code, Regex Pattern, string Title, string Action);
+	private sealed record Rule(string Code, Regex Pattern, Phrase Title, Phrase Action);
 
 	private const RegexOptions options = RegexOptions.IgnoreCase | RegexOptions.CultureInvariant;
 
@@ -195,10 +196,9 @@ public static partial class LogDiagnosis
 }
 
 /// <summary>
-/// Пояснение наблюдателя готовности. Обёртка нужна, потому что доменные методы не принимают
-/// голый <c>string</c>.
+/// Пояснение наблюдателя готовности.
 /// </summary>
-public readonly record struct WatchdogNote(string? Text)
+public readonly record struct WatchdogNote(Phrase? Text)
 {
 	public static WatchdogNote None => new(null);
 }

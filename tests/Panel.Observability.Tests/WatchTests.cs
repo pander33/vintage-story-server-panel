@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Panel.Observability.Domain;
+using Panel.SharedKernel;
 
 namespace Panel.Observability.Tests;
 
@@ -21,7 +22,7 @@ public sealed class WatchTests
 		Assert.Equal(("server.stopped", EventSeverity.Error), (stopped.Kind, stopped.Severity));
 
 		var recovered = Assert.Single(watch.Observe(Metrics(active: true), now), IsTransition);
-		Assert.Equal(("server.recovered", "Сервер снова работает"), (recovered.Kind, recovered.Title));
+		Assert.Equal(("server.recovered", "Сервер снова работает"), (recovered.Kind, recovered.Title.ToString()));
 
 		static bool IsTransition(PanelEvent item) => item.Kind is "server.stopped" or "server.recovered";
 	}
@@ -35,7 +36,7 @@ public sealed class WatchTests
 
 		var low = Assert.Single(new ServerWatch().Observe(metrics, now), item => item.Kind == "disk.low");
 
-		Assert.Equal((EventSeverity.Critical, "Свободно 3 ГБ"), (low.Severity, low.Detail));
+		Assert.Equal((EventSeverity.Critical, "Свободно 3 ГБ"), (low.Severity, low.Detail.ToString()));
 	}
 
 	[Fact]
@@ -62,7 +63,7 @@ public sealed class WatchTests
 
 		Assert.Equal(
 			[("player.joined", "Bob"), ("player.left", "Alice")],
-			changes.Select(item => (item.Kind, item.Detail)));
+			changes.Select(item => (item.Kind, item.Detail.ToString())));
 	}
 
 	/// <summary>Если телеметрия замолчала, состояние сбрасывается без событий о выходе игроков.</summary>
@@ -90,7 +91,7 @@ public sealed class WatchTests
 			.ToList();
 
 		var alert = Assert.Single(alerts);
-		Assert.Equal("Alice: 450 мс", alert.Detail);
+		Assert.Equal("Alice: 450 мс", alert.Detail.ToString());
 		Assert.Equal("player.ping_critical:Alice", alert.NotificationKey);
 	}
 
@@ -117,7 +118,7 @@ public sealed class WatchTests
 
 		var alert = Assert.Single(new TelemetryWatch().Observe(snapshot, now));
 
-		Assert.Equal("3 длинных тиков подряд, порог 250 мс", alert.Detail);
+		Assert.Equal("3 длинных тиков подряд, порог 250 мс", alert.Detail.ToString());
 		Assert.Equal("server.long_tick", alert.NotificationKey);
 	}
 

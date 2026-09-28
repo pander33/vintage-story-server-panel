@@ -1,4 +1,5 @@
 using Panel.Observability.Domain;
+using Panel.SharedKernel;
 
 namespace Panel.Observability.Tests;
 
@@ -45,10 +46,10 @@ public sealed class LogDiagnosisTests
 	[Fact]
 	public void Запущен_но_не_готов_берёт_пояснение_наблюдателя()
 	{
-		var diagnosis = LogDiagnosis.Diagnose(true, false, new WatchdogNote("Телеметрия устарела"), Lines("Saving"));
+		var diagnosis = LogDiagnosis.Diagnose(true, false, new WatchdogNote(Phrase.From("Телеметрия устарела")), Lines("Saving"));
 
 		Assert.Equal(("warn", "not-ready", "Телеметрия устарела"),
-			(diagnosis.Startup.Level, diagnosis.Startup.Code, diagnosis.Startup.Detail));
+			(diagnosis.Startup.Level, diagnosis.Startup.Code, diagnosis.Startup.Detail.ToString()));
 	}
 
 	[Fact]

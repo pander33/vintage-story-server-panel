@@ -1,4 +1,5 @@
 using Panel.Configuration.Domain;
+using Panel.Contracts;
 using Panel.Contracts.Configuration;
 using Panel.SharedKernel;
 
@@ -36,7 +37,11 @@ public interface IServerConfigStore
 /// </summary>
 public interface IWorldSchemaStore
 {
-	Task<Result<WorldSchemaPayload>> ReadAsync(InstanceId instance, CancellationToken ct);
+	/// <summary>
+	/// Подписи — из языковых файлов игры и модов на языке <paramref name="language"/>: их переводит
+	/// игра, а не каталог панели.
+	/// </summary>
+	Task<Result<WorldSchemaPayload>> ReadAsync(InstanceId instance, PanelLanguage language, CancellationToken ct);
 }
 
 /// <summary>

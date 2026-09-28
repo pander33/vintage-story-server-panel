@@ -89,7 +89,7 @@ public static class TelemetryEndpoints
 				{
 					Commands = capability.Value.IsAvailable,
 					Transport = ConsoleCapability.ToWire(capability.Value.Transport),
-					Detail = capability.Value.UnavailableReason ?? string.Empty,
+					Detail = capability.Value.UnavailableReason ?? Phrase.From(string.Empty),
 				},
 				Telemetry = new TelemetryStateResponse
 				{
@@ -251,7 +251,7 @@ public static class TelemetryEndpoints
 			await ServerSentEvents.StreamAsync(http, interval, ct, previous =>
 			{
 				var current = monitor.CurrentTelemetry();
-				var encoded = (hide ? WithoutAddresses(current) : current).ToJsonString(PanelJson.Options);
+				var encoded = LocalizedJson.Serialize(hide ? WithoutAddresses(current) : current, http);
 
 				// Снимок отправляется, только если изменился, иначе строка поддержания связи.
 				return Task.FromResult(encoded == previous ? null : encoded);

@@ -183,13 +183,13 @@ public sealed class SupervisedBackend : IServiceBackend
 			return Task.FromResult(new ConsoleCapabilityPayload
 			{
 				Transport = "disabled",
-				Reason = "Передача команд отключена в реестре инстансов",
+				Reason = Phrase.From("Передача команд отключена в реестре инстансов"),
 			});
 		}
 
 		if (!IsRunning(State(server)))
 		{
-			return Task.FromResult(new ConsoleCapabilityPayload { Transport = Transport, Reason = "Сервер не запущен" });
+			return Task.FromResult(new ConsoleCapabilityPayload { Transport = Transport, Reason = Phrase.From("Сервер не запущен") });
 		}
 
 		if (!consoles.TryGetValue(server.Id.Value, out var input) || !input.IsConnected)
@@ -197,8 +197,8 @@ public sealed class SupervisedBackend : IServiceBackend
 			return Task.FromResult(new ConsoleCapabilityPayload
 			{
 				Transport = Transport,
-				Reason = "Служба панели была перезапущена и потеряла консоль этого сервера. "
-					+ "Команды снова заработают после его перезапуска.",
+				Reason = Phrase.From("Служба панели была перезапущена и потеряла консоль этого сервера. "
+					+ "Команды снова заработают после его перезапуска."),
 			});
 		}
 

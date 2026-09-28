@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Panel.Observability.Domain;
+using Panel.SharedKernel;
 
 namespace Panel.Observability.Tests;
 
@@ -12,9 +13,9 @@ public sealed class PanelEventTests
 	public void Событие_обрезает_тексты_до_пределов()
 	{
 		var record = PanelEvent.Create(
-			"server.stopped", EventSeverity.Error, new string('т', 200), new string('д', 3000), new string('и', 50), now).Value;
+			"server.stopped", EventSeverity.Error, Phrase.From(new string('т', 200)), Phrase.From(new string('д', 3000)), new string('и', 50), now).Value;
 
-		Assert.Equal((160, 2000, 40), (record.Title.Length, record.Detail.Length, record.Source.Length));
+		Assert.Equal((160, 2000, 40), (record.Title.ToString().Length, record.Detail.ToString().Length, record.Source.Length));
 		Assert.Equal(32, record.Id.Length);
 		Assert.Equal("error", record.ToJson()["severity"]!.GetValue<string>());
 	}
@@ -23,11 +24,11 @@ public sealed class PanelEventTests
 	[InlineData("")]
 	[InlineData("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")]
 	public void Недопустимый_вид_отвергается(string kind) =>
-		Assert.False(PanelEvent.Create(kind, EventSeverity.Info, "t", "", "panel", now).IsSuccess);
+		Assert.False(PanelEvent.Create(kind, EventSeverity.Info, Phrase.From("t"), null, "panel", now).IsSuccess);
 
 	[Fact]
 	public void Ключ_паузы_по_умолчанию_вид_события() =>
-		Assert.Equal("disk.low", PanelEvent.Create("disk.low", EventSeverity.Critical, "t", "", "m", now).Value.NotificationKey);
+		Assert.Equal("disk.low", PanelEvent.Create("disk.low", EventSeverity.Critical, Phrase.From("t"), null, "m", now).Value.NotificationKey);
 
 	[Theory]
 	[InlineData("all", "", 3)]
@@ -131,7 +132,7 @@ public sealed class PanelEventTests
 		Assert.False(gate.Admit(Ping("Alice"), true, settings));
 
 		static PanelEvent Ping(string name) => PanelEvent.Create(
-			"player.ping_critical", EventSeverity.Warning, "t", "", "telemetry", now, $"player.ping_critical:{name}").Value;
+			"player.ping_critical", EventSeverity.Warning, Phrase.From("t"), null, "telemetry", now, $"player.ping_critical:{name}").Value;
 	}
 
 	[Fact]
@@ -144,7 +145,7 @@ public sealed class PanelEventTests
 			telegramChat: "42")).Value;
 		var record = Event("disk.low", EventSeverity.Critical, now, "Свободно 3 ГБ").ToJson();
 
-		var deliveries = NotificationMessage.For(record, settings);
+		var deliveries = NotificationMessage.For(record, settings, phrase => phrase.ToString());
 
 		Assert.Equal(3, deliveries.Count);
 		Assert.Equal("disk.low", deliveries[0].Payload["kind"]!.GetValue<string>());
@@ -155,10 +156,10 @@ public sealed class PanelEventTests
 
 	[Fact]
 	public void Без_каналов_доставлять_некуда() =>
-		Assert.Empty(NotificationMessage.For(Event("x", EventSeverity.Info, now).ToJson(), NotificationSettings.Defaults));
+		Assert.Empty(NotificationMessage.For(Event("x", EventSeverity.Info, now).ToJson(), NotificationSettings.Defaults, phrase => phrase.ToString()));
 
 	private static PanelEvent Event(string kind, EventSeverity severity, DateTimeOffset at, string detail = "") =>
-		PanelEvent.Create(kind, severity, "t", detail, "test", at).Value;
+		PanelEvent.Create(kind, severity, Phrase.From("t"), Phrase.From(detail), "test", at).Value;
 
 	private static NotificationUpdate Update(
 		bool enabled = false,

@@ -154,7 +154,7 @@ public sealed class SetupServiceTests : IDisposable
 
 		public Task<RegistrySnapshot> LoadAsync(CancellationToken ct) =>
 			Task.FromResult<RegistrySnapshot>(Unavailable
-				? new RegistrySnapshot.Unavailable("нет доступа")
+				? new RegistrySnapshot.Unavailable(Phrase.From("нет доступа"))
 				: new RegistrySnapshot.Available(
 					[.. Servers.Select(id => new RegisteredServer { Id = id, Name = id.Value, Unit = $"vs-{id.Value}.service" })],
 					null,
