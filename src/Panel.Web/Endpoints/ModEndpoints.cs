@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -30,14 +32,36 @@ public static class ModEndpoints
 				return PanelResults.Refuse(allowed.Failure!);
 			}
 
-			var listed = await mods.ListAsync(Instance(http), ct).ConfigureAwait(false);
+			var listed = await ListAsync(http, mods, versions, ct).ConfigureAwait(false);
+
+			return listed.IsSuccess ? PanelResults.Json(listed.Value) : PanelResults.Refuse(listed.Failure!);
+		});
+
+		routes.MapGet("/api/mods/export.csv", async (
+			HttpContext http,
+			CommandAuthorizer authorizer,
+			IModStore mods,
+			GameVersions versions,
+			TimeProvider clock,
+			CancellationToken ct) =>
+		{
+			var allowed = PanelResults.Authorize(http, authorizer, typeof(ReadMods), requireCsrf: false);
+			if (!allowed.IsSuccess)
+			{
+				return PanelResults.Refuse(allowed.Failure!);
+			}
+
+			var listed = await ListAsync(http, mods, versions, ct).ConfigureAwait(false);
 			if (!listed.IsSuccess)
 			{
 				return PanelResults.Refuse(listed.Failure!);
 			}
 
-			var game = await versions.OfAsync(Instance(http), ct).ConfigureAwait(false);
-			return PanelResults.Json(ModDependencyReport.Annotate(listed.Value, game));
+			// Имя по местному времени панели, как у выгрузки журнала.
+			var stamp = clock.GetLocalNow().ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
+			http.Response.Headers.ContentDisposition = $"attachment; filename=\"mods-{Instance(http).Value}-{stamp}.csv\"";
+
+			return Results.Bytes(ModListCsv.Build(listed.Value, LocalizedJson.LanguageOf(http)), "text/csv; charset=utf-8");
 		});
 
 		routes.MapPost("/api/mods/upload", async (
@@ -207,6 +231,178 @@ public static class ModEndpoints
 
 		MapProfiles(routes);
 		MapConfigs(routes);
+		MapPacks(routes);
+	}
+
+	/// <summary>Сборка модов: опись модов и файлы настроек одним ZIP (findings §75).</summary>
+	private static void MapPacks(IEndpointRouteBuilder routes)
+	{
+		// Настройки модов бывают с ключами и паролями, поэтому выгрузка — право администратора, как и их чтение.
+		routes.MapGet("/api/mods/pack", async (
+			HttpContext http,
+			CommandAuthorizer authorizer,
+			IModStore mods,
+			GameVersions versions,
+			TimeProvider clock,
+			CancellationToken ct) =>
+		{
+			var allowed = PanelResults.Authorize(http, authorizer, typeof(ReadModConfigs), requireCsrf: false);
+			if (!allowed.IsSuccess)
+			{
+				return PanelResults.Refuse(allowed.Failure!);
+			}
+
+			var game = await versions.OfAsync(Instance(http), ct).ConfigureAwait(false);
+			var pack = await ModPackExchange
+				.ExportAsync(mods, Instance(http), GameVersionText.From(game.Text), clock.GetUtcNow(), ct)
+				.ConfigureAwait(false);
+			if (!pack.IsSuccess)
+			{
+				return PanelResults.Refuse(pack.Failure!);
+			}
+
+			var stamp = clock.GetLocalNow().ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
+			http.Response.Headers.ContentDisposition = $"attachment; filename=\"modpack-{Instance(http).Value}-{stamp}.zip\"";
+
+			return Results.Bytes(pack.Value, "application/zip");
+		});
+
+		// Разбор ничего не меняет, но нужен только перед применением: право то же, и во время
+		// обслуживания он так же отвечает 409.
+		routes.MapPost("/api/mods/pack/inspect", async (
+			HttpContext http,
+			CommandAuthorizer authorizer,
+			IModStore mods,
+			GameVersions versions,
+			CancellationToken ct) =>
+		{
+			var allowed = PanelResults.Authorize(http, authorizer, typeof(ChangeMods));
+			if (!allowed.IsSuccess)
+			{
+				return PanelResults.Refuse(allowed.Failure!);
+			}
+
+			var contents = await ReadPackAsync(http, ct).ConfigureAwait(false);
+			if (!contents.IsSuccess)
+			{
+				return PanelResults.Refuse(contents.Failure!);
+			}
+
+			var game = await versions.OfAsync(Instance(http), ct).ConfigureAwait(false);
+			return PanelResults.From(await ModPackExchange
+				.PlanAsync(mods, Instance(http), contents.Value, GameVersionText.From(game.Text), ct)
+				.ConfigureAwait(false));
+		});
+
+		// Сборка присылается заново, а план пересчитывается: клиент выбирает только, что применить,
+		// а какие архивы переключать, решает сервер по своему состоянию.
+		routes.MapPost("/api/mods/pack/apply", async (
+			HttpContext http,
+			CommandAuthorizer authorizer,
+			IModStore mods,
+			GameVersions versions,
+			StagingWriter staging,
+			AuditLog audit,
+			CancellationToken ct) =>
+		{
+			var allowed = PanelResults.Authorize(http, authorizer, typeof(ChangeMods));
+			if (!allowed.IsSuccess)
+			{
+				return PanelResults.Refuse(allowed.Failure!);
+			}
+
+			var configsAllowed = PanelResults.Authorize(http, authorizer, typeof(ChangeModConfigs));
+			if (!configsAllowed.IsSuccess)
+			{
+				return PanelResults.Refuse(configsAllowed.Failure!);
+			}
+
+			var contents = await ReadPackAsync(http, ct).ConfigureAwait(false);
+			if (!contents.IsSuccess)
+			{
+				return PanelResults.Refuse(contents.Failure!);
+			}
+
+			var game = await versions.OfAsync(Instance(http), ct).ConfigureAwait(false);
+			var plan = await ModPackExchange
+				.PlanAsync(mods, Instance(http), contents.Value, GameVersionText.From(game.Text), ct)
+				.ConfigureAwait(false);
+			if (!plan.IsSuccess)
+			{
+				return PanelResults.Refuse(plan.Failure!);
+			}
+
+			var form = http.Request.Form;
+			var chosen = ChosenConfigs(form["configs"].ToString());
+			if (!chosen.IsSuccess)
+			{
+				return PanelResults.Refuse(chosen.Failure!);
+			}
+
+			var configs = contents.Value.Files.Keys.Where(name => chosen.Value.Contains(name.Value)).OrderBy(name => name.Value, StringComparer.Ordinal).ToList();
+			var toggles = ModPack.Toggles(plan.Value, form["toggle"] == "true", form["disable_extra"] == "true");
+
+			var applied = await ModPackExchange
+				.ApplyAsync(mods, staging, Instance(http), contents.Value, configs, toggles, ct)
+				.ConfigureAwait(false);
+
+			if (applied.Configs.Count > 0 || applied.Toggled.Count > 0)
+			{
+				await audit.RecordAsync(http, "modpack_applied",
+					$"{contents.Value.Manifest.Server}: configs {string.Join(", ", applied.Configs)}; toggled {string.Join(", ", applied.Toggled)}", ct)
+					.ConfigureAwait(false);
+			}
+
+			return PanelResults.Json(applied);
+		});
+	}
+
+	/// <summary>Файл сборки из формы, прочитанный в память целиком: он не больше 32 МБ.</summary>
+	private static async Task<Result<ModPackContents>> ReadPackAsync(HttpContext http, CancellationToken ct)
+	{
+		var form = await UploadLimits.ReadFormAsync(http, ModPack.MaximumPackMegabytes, ct).ConfigureAwait(false);
+		if (form.TooLarge)
+		{
+			return Failure.TooLarge($"Сборка больше {ModPack.MaximumPackMegabytes} МБ");
+		}
+
+		var file = form.Form?.Files.GetFile("file");
+		if (file is null)
+		{
+			return Failure.Invalid("Нужен файл сборки модов (.zip)");
+		}
+
+		if (file.Length > ModPack.MaximumPackMegabytes * 1024L * 1024)
+		{
+			return Failure.TooLarge($"Сборка больше {ModPack.MaximumPackMegabytes} МБ");
+		}
+
+		using var buffer = new MemoryStream();
+		await using (var stream = file.OpenReadStream())
+		{
+			await stream.CopyToAsync(buffer, ct).ConfigureAwait(false);
+		}
+
+		buffer.Position = 0;
+		return ModPackExchange.Read(buffer);
+	}
+
+	/// <summary>Имена выбранных настроек: JSON-массив строк из поля формы <c>configs</c>.</summary>
+	private static Result<HashSet<string>> ChosenConfigs(string raw)
+	{
+		if (string.IsNullOrWhiteSpace(raw))
+		{
+			return new HashSet<string>(StringComparer.Ordinal);
+		}
+
+		try
+		{
+			return (JsonSerializer.Deserialize<List<string>>(raw) ?? []).ToHashSet(StringComparer.Ordinal);
+		}
+		catch (JsonException)
+		{
+			return Failure.Invalid("Список настроек сборки должен быть JSON-массивом имён");
+		}
 	}
 
 	private static void MapProfiles(IEndpointRouteBuilder routes)
@@ -414,6 +610,23 @@ public static class ModEndpoints
 		}
 
 		return PanelResults.From(result);
+	}
+
+	/// <summary>Моды от демона с оценкой зависимостей по версии игры сервера.</summary>
+	private static async Task<Result<Contracts.Content.ModsPayload>> ListAsync(
+		HttpContext http,
+		IModStore mods,
+		GameVersions versions,
+		CancellationToken ct)
+	{
+		var listed = await mods.ListAsync(Instance(http), ct).ConfigureAwait(false);
+		if (!listed.IsSuccess)
+		{
+			return listed;
+		}
+
+		var game = await versions.OfAsync(Instance(http), ct).ConfigureAwait(false);
+		return ModDependencyReport.Annotate(listed.Value, game);
 	}
 
 	private static InstanceId Instance(HttpContext http) => PanelContext.Get(http)!.Instance;

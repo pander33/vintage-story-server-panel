@@ -93,7 +93,7 @@ public sealed partial class PageEndpointsTests : IDisposable
 		string[] expected =
 		[
 			"apple-touch-icon.png", "backups.js", "catalog.js", "console-commands.js", "content.js", "core.js", "dependencies.js", "en.js", "favicon-32.png", "favicon.ico", "favicon.svg",
-			"i18n.js", "index.html", "logs.js", "maintenance.js", "overview.js", "panel.css", "players.js", "ru.js", "settings.js", "setup.html", "setup.js",
+			"i18n.js", "index.html", "logs.js", "maintenance.js", "modpack.js", "overview.js", "panel.css", "players.js", "ru.js", "settings.js", "setup.html", "setup.js",
 			"style.css", "world-schema.js",
 		];
 

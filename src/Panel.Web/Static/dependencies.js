@@ -28,6 +28,9 @@
 		return 0;
 	}
 
+	/** Версия для сравнения на равенство: без регистра и приставки «v», как у сборки на сервере. */
+	const plain = version => String(version || '').trim().replace(/^v/i, '').toLowerCase();
+
 	const newest = releases => releases.reduce((best, release) => compare(release.version, best.version) > 0 ? release : best);
 	const satisfies = (release, required) => !required || compare(release.version, required) >= 0;
 
@@ -44,6 +47,17 @@
 				row.note = I18N.t((data.releases || []).length ? 'dependencies.noReleaseForGame' : 'dependencies.noModdbReleases', {version: data.game_version});
 				return row;
 			}
+			// Сборка модов просит ровно свою версию: она берётся, если ModDB считает её совместимой с
+			// игрой сервера. Иначе — обычный выбор, но строка не отмечается сама.
+			if (issue.exact) {
+				const same = compatible.find(release => plain(release.version) === plain(issue.required));
+				if (same) {
+					row.release = same;
+					row.state = 'found';
+					if (same.prerelease) row.note = I18N.t('dependencies.prereleaseOnly');
+					return row;
+				}
+			}
 			// Стабильный, подходящий по версии, — лучший выбор; предварительный берётся, только если
 			// стабильного нужной версии нет, и сам не отмечается.
 			const stable = compatible.filter(release => !release.prerelease);
@@ -51,7 +65,9 @@
 			const pool = fitting(stable).length ? fitting(stable) : fitting(compatible).length ? fitting(compatible) : stable.length ? stable : compatible;
 			row.release = newest(pool);
 			row.state = 'found';
-			if (!satisfies(row.release, issue.required)) {
+			if (issue.exact) {
+				row.note = I18N.t('dependencies.exactUnavailable', {found: row.release.version, required: issue.required});
+			} else if (!satisfies(row.release, issue.required)) {
 				row.note = I18N.t('dependencies.versionUnavailable', {found: row.release.version, required: issue.required});
 			} else if (row.release.prerelease) {
 				row.note = I18N.t('dependencies.prereleaseOnly');
@@ -64,6 +80,7 @@
 	}
 
 	function describe(issue) {
+		if (issue.exact) return I18N.t('dependencies.packVersion', {version: issue.required || '—', installed: issue.installed || I18N.t('dependencies.none')});
 		const required = issue.required ? ` ≥ ${issue.required}` : '';
 		return issue.status === 'outdated'
 			? I18N.t('dependencies.outdated', {installed: issue.installed || '—', required})
@@ -71,7 +88,8 @@
 	}
 
 	/**
-	 * Открыть диалог. issues — [{modid, status, required, installed}]; chain — уже предложенные в этой
+	 * Открыть диалог. issues — [{modid, status, required, installed, exact}]: exact — нужна ровно версия
+	 * required (сборка модов), а не «не ниже»; chain — уже предложенные в этой
 	 * цепочке идентификаторы (защита от циклов); present — установленные моды: отключённая зависимость
 	 * считается отсутствующей, но её нужно включить, а не скачивать второй раз.
 	 * Возвращает после закрытия диалога.

@@ -136,7 +136,7 @@
 		const unique = [...new Map(issues.map(issue => [issue.modid.toLowerCase(), issue])).values()];
 		if (unique.length) await VS.dependencies.offer(unique, chain, mods.mods);
 	}
-	VS.mods = {reload: reloadAndOffer};
+	VS.mods = {reload: reloadAndOffer, load: loadMods};
 
 	$('#mods-warning').addEventListener('click', event => {
 		if (event.target.closest('#mods-fix-all')) reloadAndOffer([]).catch(fail);

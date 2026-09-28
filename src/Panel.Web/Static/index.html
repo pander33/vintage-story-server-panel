@@ -22,6 +22,7 @@
   <script src="/static/logs.js?v=0.2.0" defer></script>
   <script src="/static/dependencies.js?v=0.2.0" defer></script>
   <script src="/static/content.js?v=0.2.0" defer></script>
+  <script src="/static/modpack.js?v=0.2.0" defer></script>
   <script src="/static/catalog.js?v=0.2.0" defer></script>
   <script src="/static/backups.js?v=0.2.0" defer></script>
   <script src="/static/maintenance.js?v=0.2.0" defer></script>
@@ -326,7 +327,7 @@
 
           <section class="work-panel" data-panel="content:mods">
             <article class="surface work-card">
-              <div class="card-header"><div><h3 id="mods-title" data-i18n="content.installedMods">Installed mods</h3><p data-i18n="content.installedModsSub">Dependencies are checked against modinfo.json and the server's game version.</p></div><div class="card-header-actions"><button class="button" type="button" id="mods-check-updates"><svg><use href="#i-refresh"/></svg> <span data-i18n="content.checkUpdates">Check for updates</span></button><label class="button primary upload" data-min-role="admin"><svg><use href="#i-upload"/></svg> <span data-i18n="content.uploadZip">Upload ZIP</span><input type="file" id="mod-upload" accept=".zip,application/zip"></label></div></div>
+              <div class="card-header"><div><h3 id="mods-title" data-i18n="content.installedMods">Installed mods</h3><p data-i18n="content.installedModsSub">Dependencies are checked against modinfo.json and the server's game version.</p></div><div class="card-header-actions"><a class="button" href="/api/mods/export.csv" download><svg><use href="#i-download"/></svg> <span data-i18n="content.exportCsv">Export CSV</span></a><a class="button" href="/api/mods/pack" download data-min-role="admin" data-hide-denied><svg><use href="#i-download"/></svg> <span data-i18n="content.exportModpack">Export modpack</span></a><label class="button upload" data-min-role="admin"><svg><use href="#i-upload"/></svg> <span data-i18n="content.importModpack">Import modpack</span><input type="file" id="modpack-upload" accept=".zip,application/zip"></label><button class="button" type="button" id="mods-check-updates"><svg><use href="#i-refresh"/></svg> <span data-i18n="content.checkUpdates">Check for updates</span></button><label class="button primary upload" data-min-role="admin"><svg><use href="#i-upload"/></svg> <span data-i18n="content.uploadZip">Upload ZIP</span><input type="file" id="mod-upload" accept=".zip,application/zip"></label></div></div>
               <div class="notice warn hidden" id="mods-warning"></div>
               <div class="hidden" id="mods-updates"></div>
               <div class="data-list" id="mods-list"></div>
