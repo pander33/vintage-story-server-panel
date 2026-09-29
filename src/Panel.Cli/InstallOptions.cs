@@ -51,7 +51,7 @@ internal sealed record InstallOptions
 	/// <summary>
 	/// Строки <c>vs-panel.env</c>, которые оператор задал при установке: <c>--access</c>,
 	/// <c>--bind</c>, <c>--port</c>, <c>--allowed-hosts</c>, <c>--secure-cookie</c>,
-	/// <c>--firewall</c> или переменные <c>VS_PANEL_*</c> с теми же именами. Записываются и при
+	/// <c>--firewall</c>, <c>--trusted-proxies</c> или переменные <c>VS_PANEL_*</c> с теми же именами. Записываются и при
 	/// первой установке, и при обновлении или восстановлении; не заданные не меняются.
 	/// </summary>
 	public IReadOnlyDictionary<string, string> PanelEnvironment { get; init; } = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -64,6 +64,7 @@ internal sealed record InstallOptions
 		("--allowed-hosts", "VS_PANEL_ALLOWED_HOSTS", "PANEL_ALLOWED_HOSTS"),
 		("--secure-cookie", "VS_PANEL_SECURE_COOKIE", "PANEL_SECURE_COOKIE"),
 		("--firewall", "VS_PANEL_FIREWALL", PanelListener.FirewallKey),
+		("--trusted-proxies", "VS_PANEL_TRUSTED_PROXIES", TrustedProxies.Key),
 	];
 
 	/// <summary>
@@ -89,6 +90,13 @@ internal sealed record InstallOptions
 			return FirewallScopeWire.FromWire(value) is null
 				? Failure.Invalid($"--firewall: expected lan, internet or off; got '{value}'.")
 				: value;
+		}
+
+		// Как и PANEL_FIREWALL, ключа нет в PanelSetting: из браузера доверие не меняется.
+		if (key == TrustedProxies.Key)
+		{
+			var proxies = TrustedProxies.Parse(value);
+			return proxies.IsSuccess ? value : proxies.Failure!;
 		}
 
 		if (key == "PANEL_PORT" && !(int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var port) && port is >= 1 and <= 65535))

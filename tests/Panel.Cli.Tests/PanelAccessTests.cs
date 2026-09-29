@@ -77,9 +77,20 @@ public sealed class PanelAccessTests
 	[InlineData("--bind", "example.org")]
 	[InlineData("--allowed-hosts", "a*b")]
 	[InlineData("--secure-cookie", "yes")]
+	[InlineData("--trusted-proxies", "proxy.example.com")]
+	[InlineData("--trusted-proxies", "10.0.0.1/8")]
 	public void Неверное_значение_доступа_отвергается_до_установки(string argument, string value)
 	{
 		Assert.False(InstallOptions.Parse([argument, value], none, InstallPaths.System).IsSuccess);
+	}
+
+	[Fact]
+	public void Доверенные_прокси_пишутся_строкой_окружения()
+	{
+		var values = Parsed(["--trusted-proxies", "127.0.0.1,10.0.0.0/8"]);
+
+		Assert.Equal("127.0.0.1,10.0.0.0/8", values[TrustedProxies.Key]);
+		Assert.Equal("192.168.1.2", Parsed([], new(StringComparer.Ordinal) { ["VS_PANEL_TRUSTED_PROXIES"] = "192.168.1.2" })[TrustedProxies.Key]);
 	}
 
 	[Fact]

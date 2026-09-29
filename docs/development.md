@@ -11,7 +11,7 @@
 
 ```bash
 dotnet build
-dotnet test                         # 1606 тестов, ни одному не нужен сервер
+dotnet test                         # 1624 тестов, ни одному не нужен сервер
 ```
 
 Нужен .NET SDK 10. Стиль — `.editorconfig` во всех файлах: табы, CRLF, приватные поля
@@ -25,7 +25,7 @@ camelCase без `_`, в `.js` одинарные кавычки. Проверк
 CI (`.github/workflows/ci.yml`) на каждый push в `master` и на pull request собирает решение
 и гоняет тесты на Linux и Windows, проверяет стиль и публикует пакеты всех трёх целей —
 их можно скачать со страницы запуска в течение недели (у pull request пакеты только
-собираются). Мод телеметрии в эти пакеты не входит.
+собираются). Мод телеметрии в них входит.
 
 ### Поставка
 
@@ -42,9 +42,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\publish.ps1 win-
 ```
 
 Нужен .NET SDK 10. Если PowerShell запрещает запуск `.ps1`, используйте приведённую
-команду с `-ExecutionPolicy Bypass` и в PowerShell. Чтобы включить мод телеметрии,
-перед публикацией задайте `VS_TELEMETRY_DIST` как обычный путь Windows к каталогу с
-`vspaneltelemetry_*.zip` (например, `$env:VS_TELEMETRY_DIST = 'D:\telemetry\dist'`).
+команду с `-ExecutionPolicy Bypass` и в PowerShell.
 
 На Linux используйте Bash:
 
@@ -53,16 +51,18 @@ bash scripts/publish.sh linux-x64
 bash scripts/publish.sh linux-arm64
 ```
 
-Для Linux мод добавляется так: `VS_TELEMETRY_DIST=/path/to/dist bash scripts/publish.sh linux-x64`.
 Цели проекта: `linux-x64`, `linux-arm64`, `win-x64`. Оба сценария создают
 self-contained single-file пакет (ADR-09) в `artifacts/<цель>`: три исполняемых файла,
-`VERSION`, `RID`, `install.sh` или `install.cmd` и, если задан каталог, `telemetry/`.
+`VERSION`, `RID`, `install.sh` или `install.cmd` и `telemetry/`.
 Публикация заменяет только пакет своей цели; запуск `dotnet build` и `dotnet test`
 пакет в `artifacts` не обновляет. Перед установкой проверьте `artifacts/<цель>/VERSION`
 и время изменения исполняемых файлов.
 
-Без мода телеметрии (`VS_TELEMETRY_DIST`) панель ставится, но готовность серверов видит
-ограниченно: наблюдатель и автоперезапуск работают хуже.
+Мод телеметрии (`vspaneltelemetry_*.zip`) лежит в `telemetry/` и входит в каждый пакет;
+установщик кладёт его в моды серверов. Другой каталог с модом задаёт `VS_TELEMETRY_DIST`.
+Без мода панель ставится, но готовность серверов видит ограниченно: наблюдатель и
+автоперезапуск работают хуже. Новая версия мода — новый архив в `telemetry/` вместо
+прежнего: в пакет попадают все архивы каталога.
 
 ### Значок
 
@@ -188,6 +188,10 @@ self-contained single-file пакет (ADR-09) в `artifacts/<цель>`: три
   переставляет правило (`IProvisioningPlatform.SyncPanelFirewallAsync`); неудача
   возвращается полем `firewall_warning`, строка всё равно записывается;
 - `PANEL_FIREWALL` не входит в `PanelSetting`: из браузера охват не меняется;
+- `PANEL_TRUSTED_PROXIES` (`--trusted-proxies`) — адреса и сети обратных прокси, чьему
+  `X-Forwarded-For` верит панель (`ProxyTrust`); по умолчанию петля. Значение разбирает
+  `TrustedProxies`, один и тот же для установщика и панели; из браузера, как и
+  `PANEL_FIREWALL`, не меняется;
 - `uninstall` снимает правило панели.
 
 Каталог серверов (findings §70) проверяет и готовит демон, операцией `instances-root-set`.

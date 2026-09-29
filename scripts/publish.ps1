@@ -56,15 +56,17 @@ try {
 	$installer = $installer -replace "`r?`n", "`r`n"
 	[System.IO.File]::WriteAllText((Join-Path $staging 'install.cmd'), $installer, $utf8)
 
+	# Мод телеметрии лежит в репозитории, в telemetry/; VS_TELEMETRY_DIST подменяет каталог.
 	$telemetry = [Environment]::GetEnvironmentVariable('VS_TELEMETRY_DIST')
-	if ($telemetry) {
+	if (-not $telemetry) { $telemetry = Join-Path $root 'telemetry' }
+	if (Test-Path -LiteralPath $telemetry -PathType Container) {
 		$archives = @(Get-ChildItem -LiteralPath $telemetry -File -Filter 'vspaneltelemetry_*.zip')
 		if ($archives.Count -eq 0) { throw "В $telemetry нет vspaneltelemetry_*.zip" }
 		$destination = Join-Path $staging 'telemetry'
 		New-Item -ItemType Directory -Path $destination | Out-Null
 		foreach ($archive in $archives) { Copy-Item -LiteralPath $archive.FullName -Destination $destination }
 	} else {
-		Write-Warning 'Мод телеметрии не включён: задайте VS_TELEMETRY_DIST=<каталог с vspaneltelemetry_*.zip>'
+		Write-Warning "Мод телеметрии не включён: нет каталога $telemetry"
 	}
 
 	foreach ($name in @('Panel.Web.exe', 'Panel.Agent.exe', 'Panel.Cli.exe', 'install.cmd', 'VERSION', 'RID')) {

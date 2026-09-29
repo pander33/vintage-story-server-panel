@@ -38,8 +38,11 @@ public static class Program
 		  --bind <address>  --port <port>  --allowed-hosts <comma-separated names, * for any>
 		  --secure-cookie true|false    HTTPS-only cookies (requires an HTTPS proxy)
 		  --firewall lan|internet|off   who may reach the panel port through ufw; off: manage rules yourself
+		  --trusted-proxies <addresses and networks>
+		                               reverse proxies whose X-Forwarded-For is trusted (default 127.0.0.1,::1)
 		  Environment equivalents: VS_PANEL_ACCESS, VS_PANEL_BIND, VS_PANEL_PORT,
-		  VS_PANEL_ALLOWED_HOSTS, VS_PANEL_SECURE_COOKIE, VS_PANEL_FIREWALL.
+		  VS_PANEL_ALLOWED_HOSTS, VS_PANEL_SECURE_COOKIE, VS_PANEL_FIREWALL,
+		  VS_PANEL_TRUSTED_PROXIES.
 		  Example: sudo vs-panel repair --access internet
 
 		Panel:
@@ -88,8 +91,11 @@ public static class Program
 		  --bind <address>  --port <port>  --allowed-hosts <comma-separated names, * for any>
 		  --secure-cookie true|false    HTTPS-only cookies (requires an HTTPS proxy)
 		  --firewall lan|internet|off   who may reach the panel port through Windows Firewall; off: manage rules yourself
+		  --trusted-proxies <addresses and networks>
+		                               reverse proxies whose X-Forwarded-For is trusted (default 127.0.0.1,::1)
 		  Environment equivalents: VS_PANEL_ACCESS, VS_PANEL_BIND, VS_PANEL_PORT,
-		  VS_PANEL_ALLOWED_HOSTS, VS_PANEL_SECURE_COOKIE, VS_PANEL_FIREWALL.
+		  VS_PANEL_ALLOWED_HOSTS, VS_PANEL_SECURE_COOKIE, VS_PANEL_FIREWALL,
+		  VS_PANEL_TRUSTED_PROXIES.
 		  Example: vs-panel repair --access internet
 
 		Panel:

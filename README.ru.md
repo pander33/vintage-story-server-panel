@@ -229,10 +229,12 @@ sudo sh install.sh --access localhost     # только эта машина, в
 | `--allowed-hosts <имена>` | имена и адреса через запятую, по которым можно обращаться к панели; `*` — любые |
 | `--secure-cookie true` | вход только по HTTPS; нужен HTTPS-прокси перед панелью |
 | `--firewall lan\|internet\|off` | кому открыть порт; `off` — брандмауэр не трогать |
+| `--trusted-proxies <список>` | обратные прокси, чьему `X-Forwarded-For` панель верит, см. [HTTPS через Caddy](#https-через-caddy) |
 
 Ключи можно сочетать: `--access internet --port 9000`. Вместо ключей подойдут
 переменные `VS_PANEL_ACCESS`, `VS_PANEL_PORT`, `VS_PANEL_BIND`,
-`VS_PANEL_ALLOWED_HOSTS`, `VS_PANEL_SECURE_COOKIE`, `VS_PANEL_FIREWALL`.
+`VS_PANEL_ALLOWED_HOSTS`, `VS_PANEL_SECURE_COOKIE`, `VS_PANEL_FIREWALL`,
+`VS_PANEL_TRUSTED_PROXIES`.
 
 Чтобы поменять доступ у уже установленной панели:
 
@@ -255,7 +257,9 @@ vs-panel repair --access internet          # Windows, командная стр�
 > подобные) и включите `--secure-cookie true`. Иначе оставьте `--access lan` или
 > `--access localhost`.
 
-**HTTPS через Caddy.** [Caddy](https://caddyserver.com/) сам получает сертификат; нужно
+#### HTTPS через Caddy
+
+[Caddy](https://caddyserver.com/) сам получает сертификат; нужно
 доменное имя, указывающее на машину, и открытые порты 80 и 443. Весь
 `/etc/caddy/Caddyfile`:
 
@@ -271,9 +275,18 @@ panel.example.com {
 sudo vs-panel repair --access localhost --allowed-hosts panel.example.com --secure-cookie true
 ```
 
-Заголовок `X-Forwarded-For` панель пока не читает. За прокси любой посетитель приходит
-с `127.0.0.1`: этот адрес попадает в журнал аудита, а неудачные попытки входа с любой
-стороны закрывают вход для всех на пять минут.
+**Адреса посетителей.** За прокси панель берёт адрес посетителя из `X-Forwarded-For` —
+для журнала аудита и для ограничения неудачных попыток входа. Заголовку она верит, только
+если само соединение пришло от доверенного прокси; по умолчанию это прокси на той же
+машине (`127.0.0.1,::1`). Если прокси на другой машине — роутер, отдельный nginx, —
+назовите его адрес или сеть:
+
+```bash
+sudo vs-panel repair --trusted-proxies 127.0.0.1,::1,10.0.0.2
+```
+
+Указывайте только свои прокси, а не сети, из которых приходят посетители: любой, кто
+подключается с доверенного адреса, может вписать в заголовок какой угодно адрес.
 
 **SSH-туннель** — самый безопасный вариант: панель слушает только машину, наружу
 ничего не открыто.
@@ -301,6 +314,7 @@ ssh -L 8080:localhost:8080 server
 | `PANEL_MAX_UPLOAD_MB` | `256` | предел загрузки мода или файла |
 | `PANEL_MAX_WORLD_UPLOAD_MB` | `4096` | предел загрузки мира |
 | `PANEL_AUDIT_RETENTION_DAYS` | `90` | сколько хранить журнал аудита |
+| `PANEL_TRUSTED_PROXIES` | `127.0.0.1,::1` | обратные прокси, чьему `X-Forwarded-For` панель верит: адреса и сети вида `10.0.0.0/8` |
 
 ## Управление из терминала
 

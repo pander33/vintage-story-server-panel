@@ -225,10 +225,12 @@ Who can reach the panel is set on install, update or repair. The options are the
 | `--allowed-hosts <names>` | comma-separated names and addresses the panel may be reached by; `*` — any |
 | `--secure-cookie true` | sign-in over HTTPS only; needs an HTTPS proxy in front of the panel |
 | `--firewall lan\|internet\|off` | whom to open the port to; `off` — leave the firewall alone |
+| `--trusted-proxies <list>` | reverse proxies whose `X-Forwarded-For` is trusted, see [HTTPS with Caddy](#https-with-caddy) |
 
 Options can be combined: `--access internet --port 9000`. Instead of options you can use
 the variables `VS_PANEL_ACCESS`, `VS_PANEL_PORT`, `VS_PANEL_BIND`,
-`VS_PANEL_ALLOWED_HOSTS`, `VS_PANEL_SECURE_COOKIE`, `VS_PANEL_FIREWALL`.
+`VS_PANEL_ALLOWED_HOSTS`, `VS_PANEL_SECURE_COOKIE`, `VS_PANEL_FIREWALL`,
+`VS_PANEL_TRUSTED_PROXIES`.
 
 To change access for an installed panel:
 
@@ -251,7 +253,9 @@ needs port forwarding to the machine.
 > and the like) and enable `--secure-cookie true`. Otherwise keep `--access lan` or
 > `--access localhost`.
 
-**HTTPS with Caddy.** [Caddy](https://caddyserver.com/) gets a certificate on its own; it
+#### HTTPS with Caddy
+
+[Caddy](https://caddyserver.com/) gets a certificate on its own; it
 needs a domain name pointing at the machine and ports 80 and 443 open. The whole
 `/etc/caddy/Caddyfile`:
 
@@ -267,9 +271,18 @@ The panel then listens on the machine only and trusts the domain name:
 sudo vs-panel repair --access localhost --allowed-hosts panel.example.com --secure-cookie true
 ```
 
-The panel does not read `X-Forwarded-For` yet. Behind a proxy every visitor comes from
-`127.0.0.1`: the audit log shows that address, and failed sign-ins from anyone lock the
-sign-in form for everyone for five minutes.
+**Visitor addresses.** Behind a proxy the panel takes the visitor's address from
+`X-Forwarded-For` — for the audit log and for the limit on failed sign-ins. It believes the
+header only when the connection itself comes from a trusted proxy; by default that is a
+proxy on the same machine (`127.0.0.1,::1`). If the proxy runs on another machine — a
+router, a separate nginx — name its address or network:
+
+```bash
+sudo vs-panel repair --trusted-proxies 127.0.0.1,::1,10.0.0.2
+```
+
+List only your own proxies, never the networks your visitors come from: anyone connecting
+from a trusted address can put any address into the header.
 
 An **SSH tunnel** is the safest option: the panel listens on the machine only, nothing is
 exposed.
@@ -296,6 +309,7 @@ A manual edit does not update the firewall rule: run `vs-panel repair`.
 | `PANEL_MAX_UPLOAD_MB` | `256` | upload limit for a mod or a file |
 | `PANEL_MAX_WORLD_UPLOAD_MB` | `4096` | upload limit for a world |
 | `PANEL_AUDIT_RETENTION_DAYS` | `90` | how long to keep the audit log |
+| `PANEL_TRUSTED_PROXIES` | `127.0.0.1,::1` | reverse proxies whose `X-Forwarded-For` is trusted: addresses and networks such as `10.0.0.0/8` |
 
 ## Command line
 

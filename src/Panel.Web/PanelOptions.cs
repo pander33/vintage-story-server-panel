@@ -35,6 +35,14 @@ public sealed record PanelOptions
 	public IReadOnlyList<string> AllowedHosts { get; init; } = ["localhost", "127.0.0.1"];
 
 	/// <summary>
+	/// PANEL_TRUSTED_PROXIES: соединения от этих адресов и сетей несут адрес посетителя в
+	/// <c>X-Forwarded-For</c>. Ошибочное значение даёт умолчание — петлю, а не пустой список: так
+	/// прокси на той же машине продолжает работать, а чужим доверие не расширяется.
+	/// </summary>
+	public IReadOnlyList<System.Net.IPNetwork> TrustedProxies { get; init; } =
+		Provisioning.Domain.TrustedProxies.Parse(Provisioning.Domain.TrustedProxies.Default).Value;
+
+	/// <summary>
 	/// PANEL_SECURE_COOKIE. Выключается для установки без TLS, иначе cookie не дойдёт и панель
 	/// будет недоступна по http.
 	/// </summary>
@@ -191,6 +199,10 @@ public sealed record PanelOptions
 			.. text("PANEL_ALLOWED_HOSTS", "localhost,127.0.0.1")
 				.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries),
 		],
+
+		TrustedProxies = Provisioning.Domain.TrustedProxies.Parse(text(Provisioning.Domain.TrustedProxies.Key, Provisioning.Domain.TrustedProxies.Default)) is { IsSuccess: true } proxies
+			? proxies.Value
+			: Provisioning.Domain.TrustedProxies.Parse(Provisioning.Domain.TrustedProxies.Default).Value,
 
 		// По умолчанию включено: незащищённый режим нужно включать явно.
 		SecureCookie = text("PANEL_SECURE_COOKIE", "1") is not ("0" or "false" or "no"),

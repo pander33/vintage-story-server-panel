@@ -9,7 +9,7 @@
 #   Panel.Web, Panel.Agent, Panel.Cli   ставятся как vs-panel-web, vs-panel-agent, vs-panel
 #   VERSION, RID                        версия панели и платформа сборки
 #   install.sh | install.cmd            первый шаг: sudo sh install.sh; на Windows — install.cmd
-#   telemetry/                          мод телеметрии, если задан VS_TELEMETRY_DIST
+#   telemetry/                          мод телеметрии из telemetry/ или VS_TELEMETRY_DIST
 #
 #   bash scripts/publish.sh linux-x64
 #   bash scripts/publish.sh win-x64
@@ -53,11 +53,13 @@ case "$RID" in
     ;;
 esac
 
-if [[ -n "${VS_TELEMETRY_DIST:-}" ]]; then
+# Мод телеметрии лежит в репозитории, в telemetry/; VS_TELEMETRY_DIST подменяет каталог.
+TELEMETRY="${VS_TELEMETRY_DIST:-telemetry}"
+if [[ -d "$TELEMETRY" ]]; then
   mkdir -p "$OUT/telemetry"
-  cp -- "$VS_TELEMETRY_DIST"/vspaneltelemetry_*.zip "$OUT/telemetry/"
+  cp -- "$TELEMETRY"/vspaneltelemetry_*.zip "$OUT/telemetry/"
 else
-  echo 'Мод телеметрии не включён: задайте VS_TELEMETRY_DIST=<каталог с vspaneltelemetry_*.zip>' >&2
+  echo "Мод телеметрии не включён: нет каталога $TELEMETRY" >&2
 fi
 
 echo

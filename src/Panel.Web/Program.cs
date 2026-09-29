@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.HttpOverrides;
 using Panel.Access.Sessions;
 using Panel.Web;
 using Panel.Web.Endpoints;
@@ -47,6 +48,9 @@ builder.Services.AddHostFiltering(filtering =>
 	filtering.AllowEmptyHosts = false;
 });
 
+// PANEL_TRUSTED_PROXIES: адрес посетителя за обратным прокси.
+builder.Services.Configure<ForwardedHeadersOptions>(forwarded => ProxyTrust.Configure(forwarded, options.TrustedProxies));
+
 // Ключ сессий обязателен: без него панель не отличит свою сессию от чужой, и лучше упасть
 // при старте.
 var secret = SessionSecret.Load(options.SecretKeyPath);
@@ -63,6 +67,7 @@ var app = builder.Build();
 // Заголовки безопасности ставятся первыми: их получает любой ответ, включая отказ по Host и
 // статику.
 app.UseMiddleware<SecurityHeadersMiddleware>();
+app.UseForwardedHeaders();
 app.UseHostFiltering();
 
 // Статика раньше контекста панели: файлам фронтенда не нужны ни сессия, ни реестр.
