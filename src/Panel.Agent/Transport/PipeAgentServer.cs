@@ -43,6 +43,10 @@ public sealed class PipeAgentServer
 
 		pipeName = NameOf(pipe);
 		security = Security(allowed);
+		// Создателю нужны последующие экземпляры канала, даже если он не SYSTEM и не
+		// администратор. Клиентские --allow-sid по-прежнему получают только ReadWrite.
+		security.AddAccessRule(new PipeAccessRule(
+			WindowsIdentity.GetCurrent().User!, PipeAccessRights.FullControl, AccessControlType.Allow));
 		conversation = new AgentConversation(dispatcher);
 	}
 

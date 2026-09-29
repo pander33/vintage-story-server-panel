@@ -27,11 +27,11 @@ jobs:
   test:
     name: Build and test (${{ matrix.os }})
     # Автоматически — только Linux: минута Windows в приватном репозитории стоит две.
-    # Windows добавляется при ручном запуске.
+    # Windows добавляется при ручном запуске и выпуске релиза.
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '["ubuntu-latest", "windows-latest"]' || '["ubuntu-latest"]') }}
+        os: ${{ fromJSON((github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')) && '["ubuntu-latest", "windows-latest"]' || '["ubuntu-latest"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
@@ -40,6 +40,32 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
+
+      - name: Check release version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          [xml] $props = Get-Content Directory.Build.props
+          # PanelVersion есть только в одной PropertyGroup; [string] над всем списком склеил бы
+          # пустые значения остальных через пробел.
+          $version = @($props.Project.PropertyGroup.PanelVersion | Where-Object { $_ })[0].Trim()
+          if ("v$version" -ne $env:GITHUB_REF_NAME) {
+            throw "Tag $env:GITHUB_REF_NAME does not match PanelVersion $version"
+          }
+
+      - name: Check bootstrap syntax (Linux)
+        if: runner.os == 'Linux'
+        run: sh -n deploy/get.sh && bash -n scripts/publish.sh
+
+      - name: Check bootstrap syntax (Windows PowerShell 5.1)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Join-Path $PWD 'deploy/windows/get.ps1'), [ref] $tokens, [ref] $errors) | Out-Null
+          if ($errors.Count) { throw ($errors | Out-String) }
 
       - name: Restore
         run: dotnet restore VintageStoryPanel.slnx
@@ -89,19 +115,19 @@ jobs:
         shell: pwsh
         run: .\scripts\publish.ps1 ${{ matrix.rid }}
 
-      - uses: actions/upload-artifact@v4
-        if: github.event_name == 'workflow_dispatch'
-        with:
-          name: vs-panel-${{ matrix.rid }}
-          path: artifacts/${{ matrix.rid }}
-          if-no-files-found: error
-          retention-days: 1
-          compression-level: 9
+      - name: Check CLI version (Linux x64)
+        if: matrix.rid == 'linux-x64'
+        run: artifacts/linux-x64/Panel.Cli version
+
+      - name: Check CLI version (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: .\artifacts\win-x64\Panel.Cli.exe version
 
       # Архив релиза: внутри каталог vs-panel-<цель>. tar собирается здесь, а не в задании
       # release: артефакт Actions теряет права файлов, и install.sh перестал бы быть исполняемым.
       - name: Package (Linux)
-        if: startsWith(github.ref, 'refs/tags/v') && runner.os == 'Linux'
+        if: runner.os == 'Linux'
         run: |
           mkdir -p artifacts/release
           tar -C artifacts --owner=0 --group=0 --numeric-owner \
@@ -109,7 +135,7 @@ jobs:
             -czf artifacts/release/vs-panel-${{ matrix.rid }}.tar.gz ${{ matrix.rid }}
 
       - name: Package (Windows)
-        if: startsWith(github.ref, 'refs/tags/v') && runner.os == 'Windows'
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force artifacts/release | Out-Null
@@ -119,11 +145,17 @@ jobs:
             (Join-Path (Resolve-Path artifacts/release).Path 'vs-panel-${{ matrix.rid }}.zip'),
             [IO.Compression.CompressionLevel]::Optimal, $true)
 
-      # Архивы уже сжаты: повторное сжатие артефакта только тратит время.
-      - uses: actions/upload-artifact@v4
-        if: startsWith(github.ref, 'refs/tags/v')
+      - uses: actions/setup-python@v6
         with:
-          name: release-${{ matrix.rid }}
+          python-version: '3.x'
+
+      - name: Verify release package
+        run: python scripts/verify-release.py artifacts/release
+
+      # И ручная сборка, и релиз хранят готовые архивы: права Linux не теряются.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ startsWith(github.ref, 'refs/tags/v') && format('release-{0}', matrix.rid) || format('vs-panel-{0}', matrix.rid) }}
           path: artifacts/release
           if-no-files-found: error
           retention-days: 1
@@ -140,33 +172,44 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # vs-panel update сравнивает тег с активной версией: тег обязан совпадать с VERSION пакета.
-      - name: Check version
-        run: |
-          version="$(sed -n 's:.*<PanelVersion>\(.*\)</PanelVersion>.*:\1:p' Directory.Build.props | head -n 1)"
-          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
-            echo "Tag $GITHUB_REF_NAME does not match PanelVersion $version in Directory.Build.props" >&2
-            exit 1
-          fi
-
       - uses: actions/download-artifact@v4
         with:
           pattern: release-*
           path: dist
           merge-multiple: true
 
-      - name: Checksums
-        working-directory: dist
-        run: |
-          sha256sum vs-panel-* > SHA256SUMS
-          cat SHA256SUMS
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
 
-      # Тег с дефисом (v0.3.0-rc1) — пререлиз: releases/latest его не отдаёт, и get.sh, get.ps1
-      # и vs-panel update берут его только по явной версии.
+      - name: Verify all release packages
+        run: python scripts/verify-release.py dist --all
+
+      - name: Bootstrap scripts and checksums
+        run: |
+          cp deploy/get.sh dist/get.sh
+          cp deploy/windows/get.ps1 dist/get.ps1
+          cd dist
+          sha256sum vs-panel-* get.sh get.ps1 > SHA256SUMS
+          sha256sum --check SHA256SUMS
+
+      # Пока все вложения не загружены, черновик не попадает в releases/latest.
+      # Тег с дефисом — пререлиз, доступный только по явной версии.
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          version="${GITHUB_REF_NAME#v}"
           prerelease=
-          case "$GITHUB_REF_NAME" in *-*) prerelease=--prerelease ;; esac
-          gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --generate-notes --verify-tag $prerelease
+          case "$version" in *-*) prerelease=--prerelease ;; esac
+          notes="docs/releases/$version.md"
+          if [ -f "$notes" ]; then
+            gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --notes-file "$notes" --verify-tag --draft $prerelease
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --generate-notes --verify-tag --draft $prerelease
+          fi
+          if [ -z "$prerelease" ]; then
+            gh release edit "$GITHUB_REF_NAME" --draft=false --latest
+          else
+            gh release edit "$GITHUB_REF_NAME" --draft=false
+          fi

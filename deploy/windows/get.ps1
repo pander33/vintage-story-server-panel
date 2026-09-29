@@ -120,16 +120,23 @@
 			if (-not (Test-Path -LiteralPath $cli -PathType Leaf)) {
 				throw "Panel.Cli.exe is missing from $package"
 			}
+			if ((Get-Content -LiteralPath (Join-Path $directory 'VERSION') -Raw).Trim() -ne $tag.Substring(1)) {
+				throw "Package version does not match $tag"
+			}
+			if ((Get-Content -LiteralPath (Join-Path $directory 'RID') -Raw).Trim() -ne $rid) {
+				throw "Package target does not match $rid"
+			}
 
 			& $cli install --from $directory @installerArguments
 			if ($LASTEXITCODE -ne 0) {
-				Write-Host "The installer finished with code $LASTEXITCODE." -ForegroundColor Red
+				throw "The installer finished with code $LASTEXITCODE."
 			}
 		} finally {
 			Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
 		}
 	} catch {
 		Write-Host "vs-panel: $($_.Exception.Message)" -ForegroundColor Red
+		throw
 	} finally {
 		# A new window closes as soon as the script ends: let the reader see the result.
 		if ($elevated) {

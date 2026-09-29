@@ -177,6 +177,12 @@ internal static class ReleaseSource
 				throw new InstallFailed($"{package} from release {tag} is not a {rid} panel package");
 			}
 
+			var artifact = Artifact.Open(release.Directory, windows: rid.StartsWith("win-", StringComparison.Ordinal));
+			if (!artifact.IsSuccess || artifact.Value.Version != VersionOf(tag))
+			{
+				throw new InstallFailed($"{package} does not contain a complete panel package for version {VersionOf(tag)}");
+			}
+
 			return release;
 		}
 		catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or InvalidDataException)

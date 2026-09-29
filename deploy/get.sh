@@ -74,6 +74,10 @@ main() {
     tar -xzf "$work/$package" -C "$work" --no-same-owner
     directory=$work/vs-panel-$rid
     [ -f "$directory/install.sh" ] || fail "install.sh is missing from $package"
+    [ -r "$directory/VERSION" ] && [ "$(cat "$directory/VERSION")" = "${tag#v}" ] \
+        || fail "Package version does not match $tag"
+    [ -r "$directory/RID" ] && [ "$(cat "$directory/RID")" = "$rid" ] \
+        || fail "Package target does not match $rid"
 
     # With curl | sh standard input is this script: give the installer the terminal so that it
     # can ask where to keep game servers.
