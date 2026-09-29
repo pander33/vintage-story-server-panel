@@ -24,9 +24,7 @@ The interface is available in English and Russian.
 
 ## Quick start
 
-There are no ready-made releases yet: [build the package from source](#building-from-source)
-first, or download one from the latest successful [CI run](https://github.com/ruslan120p/vintage-story-panel-net/actions/workflows/ci.yml)
-(the *Artifacts* section; packages are kept for a week and a GitHub sign-in is required).
+There are no ready-made releases yet: [build the package from source](#building-from-source) first.
 
 **Linux** — copy the `linux-x64` (or `linux-arm64`) directory to the server and run:
 
