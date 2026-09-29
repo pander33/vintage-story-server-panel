@@ -91,47 +91,20 @@ internal sealed class Installer
 			PlaceRelease(artifact.Value);
 		}
 
+		// До переключения: если новая версия не запустит демон, вернётся прежняя вместе с её юнитами.
+		var before = options.Repair ? null : CaptureRelease(artifact.Value.Version);
 		await ActivateAsync(artifact.Value.Version).ConfigureAwait(false);
 		await PruneAsync(artifact.Value.Version).ConfigureAwait(false);
-
-		this.host.Step("vs-panel command, console wrapper and systemd units");
-		Directory.CreateDirectory(Path.GetDirectoryName(Paths.CommandLink)!);
-		DeleteRegularFile(Paths.CommandLink);
-		await LinuxHost.ReplaceLinkAsync(Paths.CommandLink, Paths.CurrentBinary("vs-panel")).ConfigureAwait(false);
-		Directory.CreateDirectory(Path.GetDirectoryName(Paths.ConsoleWrapper)!);
-		LinuxHost.WriteFile(Paths.ConsoleWrapper, Templates.ConsoleWrapper, executable);
-		RemoveLegacyPrivilege();
-
-		SeedRegistry();
-		LinuxHost.WriteFile(Paths.PanelConfig, Templates.KeepChosenPaths(Templates.PanelConfig, File.Exists(Paths.PanelConfig) ? File.ReadAllText(Paths.PanelConfig) : null), readable);
-		var existed = File.Exists(Paths.PanelEnv);
-		var previous = existed ? PanelListener.FromEnvironment(EnvironmentFile.Load(Paths.PanelEnv)) : null;
-		if (!existed || options.PanelEnvironment.Count > 0)
+		try
 		{
-			var text = existed ? File.ReadAllText(Paths.PanelEnv) : Templates.PanelEnvironment;
-			LinuxHost.WriteFile(Paths.PanelEnv, PanelAccess.Rewrite(text, options.PanelEnvironment), UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead);
-			await this.host.ChownAsync($"root:{InstallPaths.PanelUser}", Paths.PanelEnv).ConfigureAwait(false);
+			await StartDaemonAsync(options, artifact.Value, uid).ConfigureAwait(false);
 		}
-
-		this.host.Step("Panel access and firewall");
-		var firewall = await PanelAccess.ApplyUfwAsync(previous, PanelListener.FromEnvironment(EnvironmentFile.Load(Paths.PanelEnv))).ConfigureAwait(false);
-		ReportFirewall(firewall);
-
-		LinuxHost.WriteFile(Paths.AgentUnit, Templates.AgentUnit(uid), readable);
-		LinuxHost.WriteFile(Paths.PanelUnit, Templates.PanelUnit, readable);
-		if (!options.Repair)
+		catch (Exception exception) when (before is not null && exception is InstallFailed or IOException or UnauthorizedAccessException)
 		{
-			InstallTelemetry(artifact.Value, options.TelemetryModDirectory);
+			throw new InstallFailed(await RevertAsync(before).ConfigureAwait(false)
+				? $"{exception.Message}\nVersion {before.Version} was restored and is running. Details: journalctl -u {InstallPaths.AgentUnitName}"
+				: $"{exception.Message}\nVersion {before.Version} was restored, but its daemon did not start either. Details: journalctl -u {InstallPaths.AgentUnitName}");
 		}
-
-		this.host.Step("Panel daemon");
-		await this.host.ChownAsync($"{InstallPaths.PanelUser}:{InstallPaths.PanelUser}", this.host.StateDirectory(), recursive: true).ConfigureAwait(false);
-		await Require(this.host.SystemctlAsync("daemon-reload"), "systemctl daemon-reload").ConfigureAwait(false);
-		await Require(this.host.SystemctlAsync("enable", InstallPaths.AgentUnitName), "Daemon could not be enabled").ConfigureAwait(false);
-
-		// Демон нужен раньше панели: через него создаётся первый сервер. Панель с Requires= на
-		// демон systemd перезапустит вместе с ним.
-		await Require(this.host.SystemctlAsync("restart", InstallPaths.AgentUnitName), "Daemon failed to start").ConfigureAwait(false);
 
 		this.host.Step("Initializing panel state");
 		if (await this.host.ManageAsync(["init"]).ConfigureAwait(false) != 0)
@@ -180,6 +153,53 @@ internal sealed class Installer
 		}
 
 		return started ? 0 : 1;
+	}
+
+	/// <summary>
+	/// Всё от переключения <c>current</c> до запущенного демона: команда, обёртка консоли, реестр,
+	/// настройки, брандмауэр, юниты и мод телеметрии. Состояние панели здесь ещё не тронуто — его
+	/// меняет <c>manage init</c> новой версии, поэтому до него прежнюю версию можно вернуть.
+	/// </summary>
+	private async Task StartDaemonAsync(InstallOptions options, Artifact artifact, int uid)
+	{
+		this.host.Step("vs-panel command, console wrapper and systemd units");
+		Directory.CreateDirectory(Path.GetDirectoryName(Paths.CommandLink)!);
+		DeleteRegularFile(Paths.CommandLink);
+		await LinuxHost.ReplaceLinkAsync(Paths.CommandLink, Paths.CurrentBinary("vs-panel")).ConfigureAwait(false);
+		Directory.CreateDirectory(Path.GetDirectoryName(Paths.ConsoleWrapper)!);
+		LinuxHost.WriteFile(Paths.ConsoleWrapper, Templates.ConsoleWrapper, executable);
+		RemoveLegacyPrivilege();
+
+		SeedRegistry();
+		LinuxHost.WriteFile(Paths.PanelConfig, Templates.KeepChosenPaths(Templates.PanelConfig, File.Exists(Paths.PanelConfig) ? File.ReadAllText(Paths.PanelConfig) : null), readable);
+		var existed = File.Exists(Paths.PanelEnv);
+		var previous = existed ? PanelListener.FromEnvironment(EnvironmentFile.Load(Paths.PanelEnv)) : null;
+		if (!existed || options.PanelEnvironment.Count > 0)
+		{
+			var text = existed ? File.ReadAllText(Paths.PanelEnv) : Templates.PanelEnvironment;
+			LinuxHost.WriteFile(Paths.PanelEnv, PanelAccess.Rewrite(text, options.PanelEnvironment), UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead);
+			await this.host.ChownAsync($"root:{InstallPaths.PanelUser}", Paths.PanelEnv).ConfigureAwait(false);
+		}
+
+		this.host.Step("Panel access and firewall");
+		var firewall = await PanelAccess.ApplyUfwAsync(previous, PanelListener.FromEnvironment(EnvironmentFile.Load(Paths.PanelEnv))).ConfigureAwait(false);
+		ReportFirewall(firewall);
+
+		LinuxHost.WriteFile(Paths.AgentUnit, Templates.AgentUnit(uid), readable);
+		LinuxHost.WriteFile(Paths.PanelUnit, Templates.PanelUnit, readable);
+		if (!options.Repair)
+		{
+			InstallTelemetry(artifact, options.TelemetryModDirectory);
+		}
+
+		this.host.Step("Panel daemon");
+		await this.host.ChownAsync($"{InstallPaths.PanelUser}:{InstallPaths.PanelUser}", this.host.StateDirectory(), recursive: true).ConfigureAwait(false);
+		await Require(this.host.SystemctlAsync("daemon-reload"), "systemctl daemon-reload").ConfigureAwait(false);
+		await Require(this.host.SystemctlAsync("enable", InstallPaths.AgentUnitName), "Daemon could not be enabled").ConfigureAwait(false);
+
+		// Демон нужен раньше панели: через него создаётся первый сервер. Панель с Requires= на
+		// демон systemd перезапустит вместе с ним.
+		await Require(this.host.SystemctlAsync("restart", InstallPaths.AgentUnitName), "Daemon failed to start").ConfigureAwait(false);
 	}
 
 	/// <summary>Вернуть предыдущую версию: замена ссылки, затем перезапуск демона и панели.</summary>
@@ -271,6 +291,56 @@ internal sealed class Installer
 		var history = ReleaseHistory.Parse(ReadOrEmpty(Paths.ReleaseLog)).Activate(version);
 		LinuxHost.WriteFile(Paths.ReleaseLog, history.Serialize(), readable);
 		Output.WriteLine($"Active version: {version}");
+	}
+
+	/// <summary>
+	/// Что вернуть, если новая версия не запустит демон: версия, журнал версий и юниты до установки.
+	/// Юниты — потому что шаблоны меняются вместе с версией (например, <c>--socket-group</c>), и
+	/// прежний демон с новым юнитом не стартует. <see langword="null"/> — возвращать нечего: панель
+	/// ставится впервые или переустанавливается та же версия, чей каталог уже заменён.
+	/// </summary>
+	private ReleaseSnapshot? CaptureRelease(string installing) =>
+		CurrentVersion() is { } version && version != installing && Directory.Exists(Paths.Release(version))
+			? new ReleaseSnapshot(version, ReadOrNull(Paths.ReleaseLog), ReadOrNull(Paths.AgentUnit), ReadOrNull(Paths.PanelUnit))
+			: null;
+
+	/// <summary>
+	/// Вернуть версию до установки. Настройки, реестр и брандмауэр остаются новыми: их читает и
+	/// прежняя версия. Возвращает, запустился ли её демон.
+	/// </summary>
+	private async Task<bool> RevertAsync(ReleaseSnapshot before)
+	{
+		this.host.Step($"Restoring version {before.Version}");
+		await LinuxHost.ReplaceLinkAsync(Paths.Current, Paths.Release(before.Version)).ConfigureAwait(false);
+		Restore(Paths.ReleaseLog, before.ReleaseLog);
+		Restore(Paths.AgentUnit, before.AgentUnit);
+		Restore(Paths.PanelUnit, before.PanelUnit);
+		await this.host.SystemctlAsync("daemon-reload").ConfigureAwait(false);
+		if (before.AgentUnit is null || !(await this.host.SystemctlAsync("restart", InstallPaths.AgentUnitName).ConfigureAwait(false)).Succeeded)
+		{
+			return false;
+		}
+
+		// Панель остановилась вместе с демоном (Requires=); --no-block — как при обычном перезапуске.
+		if (before.PanelUnit is not null)
+		{
+			await this.host.SystemctlAsync("restart", "--no-block", InstallPaths.PanelUnitName).ConfigureAwait(false);
+		}
+
+		Output.WriteLine($"Active version: {before.Version}");
+		return true;
+	}
+
+	private static void Restore(string path, string? content)
+	{
+		if (content is null)
+		{
+			Files.Delete(path);
+		}
+		else
+		{
+			LinuxHost.WriteFile(path, content, readable);
+		}
 	}
 
 	/// <summary>Хранятся текущая и две предыдущие версии; остальные удаляются.</summary>
@@ -578,9 +648,14 @@ internal sealed class Installer
 
 	private static string ReadOrEmpty(string path) => File.Exists(path) ? File.ReadAllText(path) : string.Empty;
 
+	private static string? ReadOrNull(string path) => File.Exists(path) ? File.ReadAllText(path) : null;
+
 	private bool Report(string message, bool value)
 	{
 		Output.WriteLine(message);
 		return value;
 	}
+
+	/// <summary>Версия до установки и файлы, которые установка перезаписывает под новую.</summary>
+	private sealed record ReleaseSnapshot(string Version, string? ReleaseLog, string? AgentUnit, string? PanelUnit);
 }
