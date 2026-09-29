@@ -33,6 +33,11 @@ public sealed class WorldCreatePlaystyleTests : IDisposable
 	[Fact]
 	public async Task Стиль_мода_из_схемы_принимается_с_её_ключом_подписи()
 	{
+		if (!GameOwnership.Possible)
+		{
+			return;
+		}
+
 		var server = Server();
 		WriteMod(server, """{"modid": "m", "version": "1.0", "worldConfig": {"playstyles": [{"code": "creativebuilding", "langCode": "creativebuilding"}, {"code": "mymod-hardcore", "langCode": "mymod-hardcore-lang"}]}}""");
 
@@ -61,6 +66,11 @@ public sealed class WorldCreatePlaystyleTests : IDisposable
 	[Fact]
 	public async Task Без_схемы_принимаются_только_встроенные_стили_с_прежним_ключом()
 	{
+		if (!GameOwnership.Possible)
+		{
+			return;
+		}
+
 		var server = Server();
 
 		var builtin = await CreateAsync(server, "a.vcdbs", "exploration");

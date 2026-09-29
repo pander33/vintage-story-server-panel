@@ -148,6 +148,11 @@ public sealed class WindowsContentTests : IDisposable
 	[Fact]
 	public async Task Восстановление_копии_переносит_пути_в_настройках()
 	{
+		if (!GameOwnership.Possible)
+		{
+			return;
+		}
+
 		var root = Path.Combine(directory, "servers", "creative");
 		var server = Server("supervised") with
 		{
@@ -198,6 +203,11 @@ public sealed class WindowsContentTests : IDisposable
 	[Fact]
 	public async Task Восстановление_сохраняет_локальные_файлы_вне_пакета()
 	{
+		if (!GameOwnership.Possible)
+		{
+			return;
+		}
+
 		var root = Path.Combine(directory, "servers", "creative");
 		var server = Server("supervised") with
 		{

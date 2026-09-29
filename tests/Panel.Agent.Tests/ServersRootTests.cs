@@ -214,10 +214,14 @@ public sealed class ServersRootTests
 	}
 
 	/// <summary>Проверка на этой машине: корень каждого локального диска NTFS подходит в качестве родителя.</summary>
+	/// <remarks>
+	/// Это проверка машины, а не кода. В GitHub Actions диск <c>D:\</c> принадлежит NETWORK SERVICE,
+	/// и отказ там верный: каталог серверов на таком диске панель создать не даст.
+	/// </remarks>
 	[Fact]
 	public void Корни_локальных_дисков_проходят_проверку()
 	{
-		if (!OperatingSystem.IsWindows())
+		if (!OperatingSystem.IsWindows() || Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true")
 		{
 			return;
 		}

@@ -174,6 +174,13 @@ public sealed class WindowsInstallTests : IDisposable
 	[Fact]
 	public void Службы_запускают_активную_версию_по_закавыченному_пути()
 	{
+		// Разделитель путей — платформы, на которой собран путь, а установщик для Windows
+		// работает только на Windows.
+		if (!OperatingSystem.IsWindows())
+		{
+			return;
+		}
+
 		var paths = new WindowsPaths(@"C:\Program Files\vs-panel", @"C:\ProgramData\vs-panel");
 
 		Assert.Equal(@"""C:\Program Files\vs-panel\current\vs-panel-web.exe""", paths.PanelCommandLine);
