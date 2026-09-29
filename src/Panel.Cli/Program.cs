@@ -23,9 +23,11 @@ public static class Program
 		  rollback                     restore the previous version
 		  repair                       rewrite units, console wrapper, permissions and active-version links
 		  doctor                       check the installation without changing it
-		  uninstall [--purge] [--yes]
+		  uninstall [--purge [--servers]] [--yes]
 		                               remove panel services; --purge also removes the program,
-		                               state, settings and the vs-panel user
+		                               state, settings and the vs-panel user, and asks whether to
+		                               delete game servers created by the panel; --servers deletes
+		                               them without asking, --yes alone keeps them
 		  version                      this command's version and the active panel version
 
 		Panel access options for install, update and repair; omitted options keep their values:
@@ -58,7 +60,7 @@ public static class Program
 		VS_PANEL_SERVERS_DIR is equivalent to --servers-dir. Without it, the first terminal
 		installation prompts for a server directory. Change it later under Settings → Panel.
 
-		Uninstalling the panel does not affect game servers.
+		Uninstalling the panel keeps game servers unless you delete them with --purge.
 		""";
 
 	public const string WindowsUsage = """
@@ -154,6 +156,12 @@ public static class Program
 		catch (InstallFailed failure)
 		{
 			await Console.Error.WriteLineAsync(failure.Message).ConfigureAwait(false);
+			return 1;
+		}
+		catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+		{
+			// Файловая система отказала посреди команды: оператору нужна причина, а не трасса стека.
+			await Console.Error.WriteLineAsync($"vs-panel {command} failed: {exception.Message}").ConfigureAwait(false);
 			return 1;
 		}
 	}

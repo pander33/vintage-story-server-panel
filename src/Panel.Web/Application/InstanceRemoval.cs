@@ -1,5 +1,8 @@
 using Panel.Contracts.Agent;
+using Panel.Fleet.Domain;
 using Panel.Fleet.Ports;
+using Panel.Provisioning.Domain;
+using Panel.Provisioning.Ports;
 using Panel.SharedKernel;
 
 namespace Panel.Web.Application;
@@ -18,40 +21,47 @@ namespace Panel.Web.Application;
 /// стёртое. Если демон вернул ошибку, на стороне панели ничего не меняется: сервер и его
 /// история остаются.
 /// </para>
+/// <para>
+/// Сервер <c>PANEL_INSTANCE</c> удаляется так же, но сначала панель переходит на другой: к нему
+/// она обращается и без реестра. Переход идёт до удаления, потому что он безвреден и при отказе
+/// демона — новый сервер по умолчанию тоже зарегистрирован.
+/// </para>
 /// </remarks>
 public sealed class InstanceRemoval
 {
-	/// <summary>Сервер PANEL_INSTANCE панель использует и без реестра.</summary>
-	public static Phrase PanelInstanceRefusal { get; } = Phrase.From(
-		"Это сервер, выбранный панелью по умолчанию (PANEL_INSTANCE). " +
-		"Его нельзя удалить: панель продолжит обращаться к нему и без реестра. " +
-		"Смените PANEL_INSTANCE в настройках панели и перезапустите её.");
-
 	public static Phrase BusyRefusal { get; } = Phrase.From("Дождитесь завершения обслуживания или обновления этого сервера");
 
 	private readonly IRegistryAdministration registry;
+	private readonly IProvisioningHost host;
 	private readonly MaintenanceCoordinator coordinator;
 	private readonly ServerMonitors monitors;
+	private readonly PanelInstance panelInstance;
 	private readonly PanelOptions options;
 
 	public InstanceRemoval(
 		IRegistryAdministration registry,
+		IProvisioningHost host,
 		MaintenanceCoordinator coordinator,
 		ServerMonitors monitors,
+		PanelInstance panelInstance,
 		PanelOptions options)
 	{
 		ArgumentNullException.ThrowIfNull(registry);
+		ArgumentNullException.ThrowIfNull(host);
 		ArgumentNullException.ThrowIfNull(coordinator);
 		ArgumentNullException.ThrowIfNull(monitors);
+		ArgumentNullException.ThrowIfNull(panelInstance);
 		ArgumentNullException.ThrowIfNull(options);
 
 		this.registry = registry;
+		this.host = host;
 		this.coordinator = coordinator;
 		this.monitors = monitors;
+		this.panelInstance = panelInstance;
 		this.options = options;
 	}
 
-	/// <summary>Проверки по порядку: фраза, PANEL_INSTANCE, занятость, и только потом демон.</summary>
+	/// <summary>Проверки по порядку: фраза, занятость, переход с PANEL_INSTANCE, и только потом демон.</summary>
 	public async Task<Result<InstanceDeletedPayload>> DeleteAsync(
 		InstanceId instance,
 		string? confirmation,
@@ -63,14 +73,15 @@ public sealed class InstanceRemoval
 			return confirmed.Failure!;
 		}
 
-		if (instance.Value == options.DefaultInstance)
-		{
-			return Failure.Invalid(PanelInstanceRefusal);
-		}
-
 		if (coordinator.IsBusy(instance))
 		{
 			return Failure.Conflict(BusyRefusal);
+		}
+
+		var moved = await LeaveAsync(instance, ct).ConfigureAwait(false);
+		if (!moved.IsSuccess)
+		{
+			return moved.Failure!;
 		}
 
 		var deleted = await registry.DeleteAsync(instance, ct).ConfigureAwait(false);
@@ -82,6 +93,54 @@ public sealed class InstanceRemoval
 		monitors.Release(instance);
 		ForgetState(instance);
 		return deleted;
+	}
+
+	/// <summary>
+	/// Если <paramref name="instance"/> — сервер панели по умолчанию, перевести <c>PANEL_INSTANCE</c>
+	/// на другой зарегистрированный сервер: умолчание реестра, иначе первый по имени. Нужен и
+	/// перед «забыть».
+	/// </summary>
+	public async Task<Result<Done>> LeaveAsync(InstanceId instance, CancellationToken ct)
+	{
+		if (!panelInstance.Is(instance))
+		{
+			return Done.Ok;
+		}
+
+		var listing = await registry.ListAsync(ct).ConfigureAwait(false);
+		if (!listing.IsSuccess)
+		{
+			return listing.Failure!;
+		}
+
+		var registered = listing.Value.Instances
+			.Where(entry => entry.Valid)
+			.Select(entry => InstanceId.Create(entry.Id))
+			.Where(id => id.IsSuccess)
+			.Select(id => id.Value)
+			.ToList();
+		var removable = RegistryRules.CanRemove(registered, instance);
+		if (!removable.IsSuccess)
+		{
+			return removable.Failure!;
+		}
+
+		var declared = InstanceId.Create(listing.Value.Default);
+		var successor = RegistryRules.DefaultAfterRemoving(registered, declared.IsSuccess ? declared.Value : null, instance);
+		var setting = PanelSetting.Create("PANEL_INSTANCE", successor.Value);
+		if (!setting.IsSuccess)
+		{
+			return setting.Failure!;
+		}
+
+		var written = await host.SetPanelEnvironmentAsync(setting.Value, ct).ConfigureAwait(false);
+		if (!written.IsSuccess)
+		{
+			return Failure.Unavailable($"Сервер по умолчанию не переключён на {successor.Value}: {written.Failure!.Text}");
+		}
+
+		panelInstance.MoveTo(successor);
+		return Done.Ok;
 	}
 
 	/// <summary>

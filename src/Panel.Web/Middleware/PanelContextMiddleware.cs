@@ -3,6 +3,7 @@ using Panel.Access.Sessions;
 using Panel.Fleet.Domain;
 using Panel.Fleet.Ports;
 using Panel.SharedKernel;
+using Panel.Web.Application;
 
 namespace Panel.Web.Middleware;
 
@@ -29,7 +30,7 @@ public sealed class PanelContextMiddleware
 
 	public PanelContextMiddleware(RequestDelegate next) => this.next = next;
 
-	public async Task InvokeAsync(HttpContext http, SessionGuard sessions, PanelOptions options, IRegistryStore registry)
+	public async Task InvokeAsync(HttpContext http, SessionGuard sessions, PanelInstance panelInstance, IRegistryStore registry)
 	{
 		var identity = await sessions
 			.AuthenticateAsync(http.Request.Cookies[SessionCookie], http.RequestAborted)
@@ -48,7 +49,7 @@ public sealed class PanelContextMiddleware
 		var instance = RegistryRules.Resolve(
 			snapshot,
 			candidate.IsSuccess && !candidate.Value.IsRegistry ? candidate.Value : null,
-			InstanceId.Parse(options.DefaultInstance));
+			panelInstance.Id);
 
 		PanelContext.Set(http, new PanelContext(identity.IsSuccess ? identity.Value : null, instance));
 		await next(http).ConfigureAwait(false);

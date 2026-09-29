@@ -107,7 +107,14 @@ public static class GameFiles
 	/// в uid через <c>getpwnam_r</c>, структура которого зависит от libc. Аргументы передаются
 	/// списком, без оболочки.
 	/// </remarks>
-	public static async Task<Result<Done>> ChangeOwnerAsync(string path, string user, CancellationToken ct)
+	public static Task<Result<Done>> ChangeOwnerAsync(string path, string user, CancellationToken ct) =>
+		ChownAsync($"{user}:{user}", path, ct);
+
+	/// <summary>Сменить только группу файла, владелец остаётся прежним.</summary>
+	public static Task<Result<Done>> ChangeGroupAsync(string path, string group, CancellationToken ct) =>
+		ChownAsync($":{group}", path, ct);
+
+	private static async Task<Result<Done>> ChownAsync(string owner, string path, CancellationToken ct)
 	{
 		if (OperatingSystem.IsWindows())
 		{
@@ -119,7 +126,7 @@ public static class GameFiles
 			RedirectStandardError = true,
 			UseShellExecute = false,
 		};
-		start.ArgumentList.Add($"{user}:{user}");
+		start.ArgumentList.Add(owner);
 		start.ArgumentList.Add(path);
 
 		using var process = Process.Start(start);

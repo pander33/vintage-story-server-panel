@@ -34,7 +34,7 @@ public static class InstanceEndpoints
 			ServerMonitors monitors,
 			GetServerStatusHandler status,
 			MaintenanceCoordinator coordinator,
-			PanelOptions options,
+			PanelInstance panel,
 			CancellationToken ct) =>
 		{
 			// Перечень доступен не только администратору: оператор и наблюдатель должны видеть, какой
@@ -45,7 +45,7 @@ public static class InstanceEndpoints
 				return PanelResults.Refuse(allowed.Failure!);
 			}
 
-			var panelInstance = InstanceId.Parse(options.DefaultInstance);
+			var panelInstance = panel.Id;
 			var listing = await registry.ListAsync(ct).ConfigureAwait(false);
 			if (!listing.IsSuccess)
 			{
@@ -55,7 +55,6 @@ public static class InstanceEndpoints
 					Instances = [],
 					Current = PanelContext.Get(http)!.Instance.Value,
 					Default = panelInstance.Value,
-					PanelInstance = panelInstance.Value,
 					Writable = false,
 					Detail = listing.Failure!.Text,
 				});
@@ -87,7 +86,6 @@ public static class InstanceEndpoints
 				Instances = items,
 				Current = PanelContext.Get(http)!.Instance.Value,
 				Default = effectiveDefault,
-				PanelInstance = panelInstance.Value,
 				Writable = listing.Value.Writable,
 				Detail = null,
 			});
@@ -165,7 +163,7 @@ public static class InstanceEndpoints
 			CommandAuthorizer authorizer,
 			IRegistryAdministration registry,
 			MaintenanceCoordinator coordinator,
-			PanelOptions options,
+			InstanceRemoval removal,
 			AuditLog audit,
 			CancellationToken ct) =>
 		{
@@ -187,20 +185,18 @@ public static class InstanceEndpoints
 				return PanelResults.Refuse(confirmed.Failure!);
 			}
 
-			// Сервер PANEL_INSTANCE панель использует и без реестра: если его убрать, сэмплеры будут
-			// обращаться к демону по имени, которого он уже не знает.
-			if (instance.Value.Value == options.DefaultInstance)
-			{
-				return PanelResults.Refuse(StatusCodes.Status400BadRequest,
-					"Это сервер, выбранный панелью по умолчанию (PANEL_INSTANCE). " +
-					"Его нельзя забыть: панель продолжит обращаться к нему и без реестра. " +
-					"Смените PANEL_INSTANCE в настройках панели и перезапустите её.");
-			}
-
 			// Занятость проверяет сам маршрут: речь о забываемом сервере, а не о выбранном.
 			if (coordinator.IsBusy(instance.Value))
 			{
 				return PanelResults.Refuse(StatusCodes.Status409Conflict, InstanceRemoval.BusyRefusal);
+			}
+
+			// Сервер PANEL_INSTANCE панель использует и без реестра: сначала она переходит на другой,
+			// иначе обращалась бы к демону по имени, которого он уже не знает.
+			var moved = await removal.LeaveAsync(instance.Value, ct).ConfigureAwait(false);
+			if (!moved.IsSuccess)
+			{
+				return PanelResults.Refuse(moved.Failure!);
 			}
 
 			var forgotten = await registry.ForgetAsync(instance.Value, ct).ConfigureAwait(false);
@@ -279,10 +275,6 @@ public sealed record InstancesResponse
 	[JsonPropertyName("instances")] public required IReadOnlyList<JsonObject> Instances { get; init; }
 	[JsonPropertyName("current")] public required string Current { get; init; }
 	[JsonPropertyName("default")] public required string Default { get; init; }
-
-	/// <summary><c>PANEL_INSTANCE</c>: сервер, который нельзя ни «забыть», ни удалить.</summary>
-	[JsonPropertyName("panel_instance")] public required string PanelInstance { get; init; }
-
 	[JsonPropertyName("writable")] public required bool Writable { get; init; }
 	/// <summary>Почему перечень пуст: реестр недоступен. <c>null</c>, если реестр прочитан.</summary>
 	[JsonPropertyName("detail")] public required Phrase? Detail { get; init; }

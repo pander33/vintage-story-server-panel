@@ -4,17 +4,22 @@ Documentation=https://github.com/ruslan120p/vintage-story-panel-net
 After=network.target
 
 [Service]
-Type=exec
+# Демон сообщает готовность, когда сокет открыт группе панели: systemctl restart
+# в установщике и After= у панели ждут именно этого, а не exec.
+Type=notify
 # Демон обязан быть root: он управляет юнитом игры и читает игровые каталоги.
 # Доверие ограничивается не правами процесса, а проверкой пира на сокете:
 # uid вызывающего сверяется через SO_PEERCRED и должен совпасть с --allow-uid.
+# Сокет создаёт root: --socket-group отдаёт его группе панели (0660 root:vs-panel), иначе
+# connect от vs-panel получает Permission denied. Каталог 0755, чтобы панель в него прошла.
 User=root
 ExecStart=/opt/vs-panel/current/vs-panel-agent serve \
   --socket /run/vs-panel/agent.sock \
+  --socket-group vs-panel \
   --panel-config /etc/vs-panel.json \
   --allow-uid @PANEL_UID@
 RuntimeDirectory=vs-panel
-RuntimeDirectoryMode=0750
+RuntimeDirectoryMode=0755
 Restart=always
 RestartSec=2
 

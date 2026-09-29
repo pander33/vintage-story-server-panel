@@ -52,6 +52,7 @@ public sealed partial class ProvisionService : IHostedService
 	private readonly ReadinessPolicy policy;
 	private readonly EventBus events;
 	private readonly PanelOptions options;
+	private readonly PanelInstance panelInstance;
 	private readonly TimeProvider clock;
 	private readonly ILogger<ProvisionService> log;
 	private readonly OperationStore store;
@@ -72,6 +73,7 @@ public sealed partial class ProvisionService : IHostedService
 		ReadinessPolicy policy,
 		EventBus events,
 		PanelOptions options,
+		PanelInstance panelInstance,
 		TimeProvider clock,
 		ILogger<ProvisionService> log)
 	{
@@ -86,6 +88,7 @@ public sealed partial class ProvisionService : IHostedService
 		this.policy = policy;
 		this.events = events;
 		this.options = options;
+		this.panelInstance = panelInstance;
 		this.clock = clock;
 		this.log = log;
 		store = new OperationStore(options.ProvisionStatePath, options.ProvisionHistoryPath, OperationFamily.Provision);
@@ -458,7 +461,7 @@ public sealed partial class ProvisionService : IHostedService
 		}
 
 		// События создания идут на шину сервера по умолчанию.
-		var target = InstanceId.Create(options.DefaultInstance);
+		var target = InstanceId.Create(panelInstance.Value);
 		if (!target.IsSuccess)
 		{
 			return;

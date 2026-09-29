@@ -160,7 +160,7 @@ public static partial class SetupEndpoints
 				["ok"] = true,
 				["published"] = access.Value.Published,
 				["restart_required"] = true,
-				["url"] = access.Value.Url,
+				["url"] = PanelAddress.After(access.Value.Bind, access.Value.Port.ToString(CultureInfo.InvariantCulture), http.Request.Host.HasValue ? http.Request.Host.Host : null),
 				["firewall_warning"] = firewallWarning is null ? null : PhraseJsonConverter.ToNode(firewallWarning),
 			});
 		});
@@ -477,7 +477,7 @@ public static partial class SetupEndpoints
 			}
 
 			await audit.RecordAsync(http, "setup_finished", "without_server", ct).ConfigureAwait(false);
-			return await RestartAsync(host, body, null, PanelUrl(guarded.Journey!, options), ct).ConfigureAwait(false);
+			return await RestartAsync(host, body, null, PanelUrl(http, guarded.Journey!, options), ct).ConfigureAwait(false);
 		}
 
 		var draft = guarded.Journey!.Draft(SetupStep.Server);
@@ -510,7 +510,7 @@ public static partial class SetupEndpoints
 			GameVersionNotWritten(logs.CreateLogger("Panel.Web.Setup"), versionWritten.Failure!.Message);
 		}
 
-		var url = PanelUrl(guarded.Journey, options);
+		var url = PanelUrl(http, guarded.Journey, options);
 
 		var finished = await setup
 			.ChangeAsync(journey => journey.Finish(instance.Value, registered, clock.GetUtcNow().ToUnixTimeSeconds()), ct)
@@ -525,14 +525,14 @@ public static partial class SetupEndpoints
 	}
 
 	/// <summary>Адрес панели после перезапуска: из ответа шага «Доступ», иначе текущий.</summary>
-	private static string PanelUrl(SetupJourney journey, PanelOptions options)
+	private static string PanelUrl(HttpContext http, SetupJourney journey, PanelOptions options)
 	{
 		var accessDraft = journey.Draft(SetupStep.Access);
 		var bind = accessDraft["PANEL_BIND"] is JsonValue b && b.TryGetValue<string>(out var bindText) ? bindText : options.Bind;
 		var port = accessDraft["PANEL_PORT"] is JsonValue p && p.TryGetValue<string>(out var portText)
 			? portText
 			: options.Port.ToString(CultureInfo.InvariantCulture);
-		return $"http://{bind}:{port}/";
+		return PanelAddress.After(bind, port, http.Request.Host.HasValue ? http.Request.Host.Host : null);
 	}
 
 	/// <summary>Мастер уже закрыт на диске: перезапуск панели и ответ о нём. Без сервера <c>instance</c> пуст.</summary>

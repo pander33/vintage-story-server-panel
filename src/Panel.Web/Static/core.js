@@ -56,7 +56,7 @@ const VS = (() => {
 
 	// ---------- состояние ----------
 
-	const state = {csrf: '', user: '', role: 'viewer', page: 'overview', instances: [], current: '', panelInstance: '', status: null, telemetry: null};
+	const state = {csrf: '', user: '', role: 'viewer', page: 'overview', instances: [], current: '', status: null, telemetry: null};
 	const rank = {viewer: 0, operator: 1, admin: 2};
 	const roleTitles = {viewer: I18N.t('role.viewer'), operator: I18N.t('role.operator'), admin: I18N.t('role.admin')};
 	const can = role => (rank[state.role] ?? 0) >= (rank[role] ?? 99);
@@ -571,7 +571,6 @@ const VS = (() => {
 		const data = await api('/api/instances');
 		state.instances = data.instances || [];
 		state.current = data.current || '';
-		state.panelInstance = data.panel_instance || '';
 		state.instancesDetail = data.detail || '';
 		const current = currentServer();
 		$$('.current-server-id').forEach(element => { element.textContent = current ? (current.name || current.id) : (state.current || '—'); });

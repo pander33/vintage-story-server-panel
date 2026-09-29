@@ -1328,7 +1328,7 @@
 		'o033': '<div class="empty">No servers are registered. Create the first one.</div>',
 		'o034': 'Server registry unavailable: ',
 		'o035': 'No server selected',
-		'o036': 'The server bound to the panel cannot be forgotten or deleted',
+		'o036': 'The only server cannot be forgotten or deleted',
 		'o037': 'Address copied',
 		'o038': 'Address: ',
 		'o039': 'PANEL NAME',

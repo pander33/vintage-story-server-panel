@@ -80,6 +80,7 @@ public sealed class ProvisionServiceTests : IDisposable
 			new ReadinessPolicy(),
 			new EventBus(options, TimeProvider.System, new NotificationSettingsFile(Path.Combine(state, "notifications.json")), NullLogger<EventBus>.Instance),
 			options,
+			new PanelInstance(options),
 			TimeProvider.System,
 			NullLogger<ProvisionService>.Instance)
 		{

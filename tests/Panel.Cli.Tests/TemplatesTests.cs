@@ -65,6 +65,20 @@ public sealed class TemplatesTests
 		Assert.DoesNotContain(Templates.UidPlaceholder, unit, StringComparison.Ordinal);
 	}
 
+	/// <summary>
+	/// Сокет создаёт root: без группы панели connect от vs-panel получал Permission denied, а с
+	/// <c>Type=exec</c> установщик обращался к демону раньше, чем сокет появлялся.
+	/// </summary>
+	[Fact]
+	public void Сокет_демона_открыт_панели_к_моменту_готовности()
+	{
+		var unit = Templates.AgentUnit(997);
+
+		Assert.Contains("--socket-group vs-panel", unit, StringComparison.Ordinal);
+		Assert.Contains("Type=notify", unit, StringComparison.Ordinal);
+		Assert.Contains("RuntimeDirectoryMode=0755", unit, StringComparison.Ordinal);
+	}
+
 	/// <summary>Панели sudo не нужен: юнит ужесточён, в окружении нет пути к привилегированному помощнику.</summary>
 	[Fact]
 	public void Панель_без_sudo_и_привилегированного_помощника()

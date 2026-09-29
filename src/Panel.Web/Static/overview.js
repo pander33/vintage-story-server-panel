@@ -53,7 +53,7 @@
 		const server = VS.currentServer();
 		$('#selected-name').textContent = server ? (server.name || server.id) : (state.current || I18N.t('overviewDynamic.o035'));
 		$('#selected-address').textContent = server?.port ? `${location.hostname}:${server.port}` : '—';
-		const locked = !server || server.id === state.panelInstance;
+		const locked = !server || state.instances.length < 2;
 		$('#server-forget').disabled = locked;
 		$('#server-delete').disabled = locked;
 		const reason = locked ? I18N.t('overviewDynamic.o036') : '';

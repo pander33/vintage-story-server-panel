@@ -125,6 +125,7 @@ public static class PanelServices
 		services.AddSingleton<TransferPlans>();
 		services.AddSingleton<ProvisionService>();
 		services.AddSingleton<SetupService>();
+		services.AddSingleton<PanelInstance>();
 		services.AddSingleton<InstanceRemoval>();
 		services.AddSingleton<DiagnosticsHandler>();
 

@@ -32,7 +32,7 @@ public static class Program
 			Console.Error.WriteLine(
 				"""
                 Использование:
-                  vs-panel-agent serve --socket <путь> --panel-config <путь> --allow-uid <uid> [--allow-uid <uid>…]
+                  vs-panel-agent serve --socket <путь> [--socket-group <группа>] --panel-config <путь> --allow-uid <uid> [--allow-uid <uid>…]
                   vs-panel-agent serve --pipe <имя> --panel-config <путь> [--allow-sid <SID|учётная запись>…]   Windows
                   vs-panel-agent probe-peer --socket <путь>          спайк SO_PEERCRED: сторона демона
                   vs-panel-agent probe-peer-client --socket <путь>   спайк SO_PEERCRED: сторона клиента
@@ -89,11 +89,17 @@ public static class Program
 		}
 
 		var dispatcher = Compose(options.PanelConfig, new SystemdBackend(), new SystemdProvisioning(configuration.RunDirectory));
-		var server = new AgentServer(options.Socket, new PeerPolicy(options.AllowedUids), dispatcher);
+		var server = new AgentServer(options.Socket, options.SocketGroup, new PeerPolicy(options.AllowedUids), dispatcher);
 
 		Console.WriteLine(
 			$"vs-panel-agent слушает {options.Socket}; разрешённые uid: {string.Join(", ", options.AllowedUids)}");
-		await server.RunAsync(ct).ConfigureAwait(false);
+		var served = await server.RunAsync(ct).ConfigureAwait(false);
+		if (!served.IsSuccess)
+		{
+			Console.Error.WriteLine(served.Failure!.Message);
+			return 1;
+		}
+
 		return 0;
 	}
 
@@ -290,6 +296,9 @@ internal sealed record AgentOptions
 
 	public string? Socket { get; init; }
 
+	/// <summary>Группа, которой отдаются каталог и сокет: без неё панель не пройдёт в <c>/run/vs-panel</c>.</summary>
+	public string? SocketGroup { get; init; }
+
 	/// <summary>Имя именованного канала Windows, с префиксом <c>\\.\pipe\</c> или без.</summary>
 	public string? Pipe { get; init; }
 
@@ -326,6 +335,7 @@ internal sealed record AgentOptions
 		}
 
 		string? socket = null;
+		string? socketGroup = null;
 		string? pipe = null;
 		var panelConfig = DefaultPanelConfig;
 		var uids = new List<uint>();
@@ -337,6 +347,9 @@ internal sealed record AgentOptions
 			{
 				case "--socket":
 					socket = args[index + 1];
+					break;
+				case "--socket-group":
+					socketGroup = args[index + 1];
 					break;
 				case "--pipe":
 					pipe = args[index + 1];
@@ -370,6 +383,7 @@ internal sealed record AgentOptions
 		{
 			Mode = mode.Value,
 			Socket = socket,
+			SocketGroup = socketGroup,
 			Pipe = pipe,
 			PanelConfig = panelConfig,
 			AllowedUids = uids,

@@ -505,6 +505,7 @@ public static class ManageCommands
 			provider.GetRequiredService<ReadinessPolicy>(),
 			provider.GetRequiredService<EventBus>(),
 			options,
+			new PanelInstance(options),
 			provider.GetRequiredService<TimeProvider>(),
 			provider.GetRequiredService<ILogger<ProvisionService>>())
 		{

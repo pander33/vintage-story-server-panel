@@ -72,7 +72,7 @@ internal sealed class WindowsUninstaller
 
 		foreach (var folder in WindowsInstaller.ShortcutFolders())
 		{
-			File.Delete(Path.Combine(folder, WindowsInstaller.ShortcutName));
+			Files.Delete(Path.Combine(folder, WindowsInstaller.ShortcutName));
 		}
 
 		var servers = this.host.RegisteredServers() ?? 1;
@@ -101,11 +101,11 @@ internal sealed class WindowsUninstaller
 			}
 		}
 
-		File.Delete(Paths.PanelEnv);
-		File.Delete(Paths.PanelConfig);
+		Files.Delete(Paths.PanelEnv);
+		Files.Delete(Paths.PanelConfig);
 		if (servers == 0)
 		{
-			File.Delete(Paths.Registry);
+			Files.Delete(Paths.Registry);
 		}
 
 		// Запущенный vs-panel.exe лежит в каталоге программы, и Windows не даст его удалить.
