@@ -48,7 +48,7 @@ internal static class Doctor
 			var missing = Artifact.Binaries.Where(binary => !File.Exists(Path.Combine(paths.Current, binary.Installed))).Select(binary => binary.Installed).ToList();
 			findings.Add(missing.Count == 0
 				? new(Severity.Ok, $"Active version {version}")
-				: new(Severity.Problem, $"Version {version} is missing {string.Join(", ", missing)}: reinstall it (sudo vs-panel update --from <build directory>)"));
+				: new(Severity.Problem, $"Version {version} is missing {string.Join(", ", missing)}: reinstall it (sudo vs-panel update --version {version})"));
 		}
 
 		findings.Add(CheckPanelConfig(paths.PanelConfig));

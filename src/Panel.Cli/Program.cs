@@ -17,9 +17,13 @@ public static class Program
 		Usage: sudo vs-panel <command>
 
 		Installation:
-		  install --from <directory>   install the panel from a build directory (usually via sh install.sh)
+		  install [--from <directory> | --version <version>]
 		          [--no-server] [--skip-dotnet] [--skip-packages] [--servers-dir <directory>]
-		  update --from <directory>    install a new version; retain the previous two for rollback
+		                               install the panel from a build directory or a GitHub release
+		                               (default: the latest release)
+		  update [--from <directory> | --version <version>]
+		                               install a new version (default: the latest release);
+		                               retain the previous two for rollback
 		  rollback                     restore the previous version
 		  repair                       rewrite units, console wrapper, permissions and active-version links
 		  doctor                       check the installation without changing it
@@ -60,8 +64,9 @@ public static class Program
 		Installation variables (also used by install.sh): VS_PANEL_CREATE_SERVER=0,
 		VS_PANEL_GAME_VERSION, VS_PANEL_GAME_PORT, VS_PANEL_INSTALL_WAIT_SECONDS,
 		VS_PANEL_DOTNET_CHANNEL, VS_PANEL_SKIP_DOTNET=1, VS_TELEMETRY_MOD_DIR;
-		VS_PANEL_SERVERS_DIR is equivalent to --servers-dir. Without it, the first terminal
-		installation prompts for a server directory. Change it later under Settings → Panel.
+		VS_PANEL_VERSION is equivalent to --version; VS_PANEL_SERVERS_DIR to --servers-dir.
+		Without it, the first terminal installation prompts for a server directory. Change it
+		later under Settings → Panel.
 
 		Uninstalling the panel keeps game servers unless you delete them with --purge.
 		""";
@@ -70,11 +75,15 @@ public static class Program
 		Usage: vs-panel <command>   (in an Administrator command prompt)
 
 		Installation:
-		  install --from <directory>   install the panel from a build directory (usually via install.cmd)
+		  install [--from <directory> | --version <version>]
 		          [--no-server] [--skip-dotnet] [--no-browser] [--servers-dir <directory>]
-		                               --servers-dir selects where game servers are created; the first
-		                               installation prompts for it if omitted; change it later in the panel
-		  update --from <directory>    install a new version; retain the previous two for rollback
+		                               install the panel from a build directory or a GitHub release
+		                               (default: the latest release); --servers-dir selects where game
+		                               servers are created; the first installation prompts for it if
+		                               omitted; change it later in the panel
+		  update [--from <directory> | --version <version>]
+		                               install a new version (default: the latest release);
+		                               retain the previous two for rollback
 		  rollback                     restore the previous version
 		  repair                       re-register services, permissions and the active-version link
 		  doctor                       check the installation without changing it
@@ -111,7 +120,8 @@ public static class Program
 		ProgramData\vs-panel.
 
 		Installation variables: VS_PANEL_CREATE_SERVER=0, VS_PANEL_GAME_VERSION, VS_PANEL_GAME_PORT,
-		VS_PANEL_INSTALL_WAIT_SECONDS, VS_PANEL_DOTNET_CHANNEL, VS_PANEL_SKIP_DOTNET=1.
+		VS_PANEL_INSTALL_WAIT_SECONDS, VS_PANEL_DOTNET_CHANNEL, VS_PANEL_SKIP_DOTNET=1,
+		VS_PANEL_VERSION (equivalent to --version).
 
 		Uninstalling the panel does not affect game servers.
 		""";
@@ -198,12 +208,9 @@ public static class Program
 		{
 			case "install" or "update":
 				var options = Require(InstallOptions.Parse(rest, environment, paths));
-				if (options.From.Length == 0)
-				{
-					throw new InstallFailed($"Specify the build directory: sudo vs-panel {command} --from <directory>");
-				}
-
-				return await installer.InstallAsync(options).ConfigureAwait(false);
+				return options.From.Length > 0
+					? await installer.InstallAsync(options).ConfigureAwait(false)
+					: await FromReleaseAsync(command, options, installer.CurrentVersion(), windows: false, Path.Combine(paths.ProgramRoot, "downloads"), installer.InstallAsync).ConfigureAwait(false);
 			case "repair":
 				var repair = Require(InstallOptions.Parse(rest, environment, paths)) with { From = paths.Current, Repair = true };
 				return await installer.InstallAsync(repair).ConfigureAwait(false);
@@ -264,12 +271,9 @@ public static class Program
 		{
 			case "install" or "update":
 				var options = Require(InstallOptions.ParseWindows(rest, environment));
-				if (options.From.Length == 0)
-				{
-					throw new InstallFailed($"Specify the build directory: vs-panel {command} --from <directory>");
-				}
-
-				return await installer.InstallAsync(options).ConfigureAwait(false);
+				return options.From.Length > 0
+					? await installer.InstallAsync(options).ConfigureAwait(false)
+					: await FromReleaseAsync(command, options, installer.CurrentVersion(), windows: true, Path.Combine(paths.ProgramRoot, "downloads"), installer.InstallAsync).ConfigureAwait(false);
 			case "repair":
 				var repair = Require(InstallOptions.ParseWindows(rest, environment)) with { From = paths.Current, Repair = true };
 				return await installer.InstallAsync(repair).ConfigureAwait(false);
@@ -301,6 +305,51 @@ public static class Program
 				await Console.Error.WriteLineAsync(WindowsUsage).ConfigureAwait(false);
 				return 2;
 		}
+	}
+
+	/// <summary>
+	/// <c>install|update</c> без <c>--from</c>: пакет релиза GitHub, заданного <c>--version</c> или
+	/// последнего. Последний релиз не ставится поверх более новой версии (пререлиза или своей
+	/// сборки): состояние новой версии прежняя читать не обязана. <c>update</c> до уже активной
+	/// версии ничего не делает; явный <c>--version</c> переустанавливает её на Linux.
+	/// </summary>
+	private static async Task<int> FromReleaseAsync(
+		string command,
+		InstallOptions options,
+		string? current,
+		bool windows,
+		string downloads,
+		Func<InstallOptions, Task<int>> install)
+	{
+		var rid = ReleaseSource.Rid(windows, System.Runtime.InteropServices.RuntimeInformation.OSArchitecture)
+			?? throw new InstallFailed($"No panel package for {System.Runtime.InteropServices.RuntimeInformation.OSArchitecture}; build one and use --from <directory>");
+		var tag = options.Release.Length > 0 ? options.Release : await ReleaseSource.LatestTagAsync().ConfigureAwait(false);
+		var version = ReleaseSource.VersionOf(tag);
+		if (options.Release.Length == 0 && current is not null)
+		{
+			var order = ReleaseSource.CompareVersions(version, current);
+			if (order < 0)
+			{
+				Console.WriteLine($"vs-panel {current} is newer than the latest release {version} and was kept. To install {version} anyway: vs-panel {command} --version {version}");
+				return 0;
+			}
+
+			if (order == 0 && command == "update")
+			{
+				Console.WriteLine($"vs-panel {current} is the latest release and is already installed.");
+				return 0;
+			}
+		}
+
+		// Установщик Windows не заменяет каталог версии, из которого сам запущен (CheckNotRunningFrom),
+		// а vs-panel в PATH — это current. Отказ до загрузки, а не после.
+		if (windows && version == current)
+		{
+			throw new InstallFailed($"vs-panel {version} is already installed, and this command runs from it. Reinstall it with get.ps1 or install.cmd from a build directory, or repair it with: vs-panel repair");
+		}
+
+		using var release = await ReleaseSource.DownloadAsync(tag, rid, downloads, Console.Out).ConfigureAwait(false);
+		return await install(options with { From = release.Directory }).ConfigureAwait(false);
 	}
 
 	private static T Require<T>(Result<T> result) =>

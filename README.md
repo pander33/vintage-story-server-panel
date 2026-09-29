@@ -24,15 +24,19 @@ The interface is available in English and Russian.
 
 ## Quick start
 
-There are no ready-made releases yet: [build the package from source](#building-from-source) first.
-
-**Linux** — copy the `linux-x64` (or `linux-arm64`) directory to the server and run:
+**Linux** — one command on the server:
 
 ```bash
-cd linux-x64 && sudo sh install.sh
+curl -fsSL https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/deploy/get.sh | sudo sh
 ```
 
-**Windows** — copy the `win-x64` directory to the machine and double-click `install.cmd`.
+**Windows** — one command in PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/deploy/windows/get.ps1 | iex
+```
+
+The command downloads the latest release package for this machine and runs the installer.
 
 The installer prints a one-time link to the [setup wizard](#setup-wizard): create the
 administrator account there, and the panel is ready. Details — in [Installation](#installation).
@@ -121,20 +125,19 @@ runtime for the game itself; the panel does not need a separate .NET installatio
 
 ## Installation
 
-You get a ready installation directory: `linux-x64`, `linux-arm64` or `win-x64`. If you
-build the project yourself, [publish the package](docs/development.md#поставка) first:
-a plain `dotnet build` does not update `artifacts`. Run the installer from the published
-directory, not from `bin/Debug`.
+Installation is one command: it takes the latest [release](https://github.com/ruslan120p/vintage-story-panel-net/releases)
+package for this machine (`linux-x64`, `linux-arm64` or `win-x64`), verifies it against the
+release `SHA256SUMS` and runs the installer from it. The `VS_PANEL_VERSION` variable selects
+a specific release, for example `VS_PANEL_VERSION=0.3.0`. If you build the project yourself,
+run the installer from the [published package](#from-a-build-directory).
 
 ### Linux
 
-Copy the directory to the server and run the installer:
-
 ```bash
-scp -r linux-x64 server:vs-panel
-ssh server
-cd vs-panel && sudo sh install.sh
+curl -fsSL https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/deploy/get.sh | sudo sh
 ```
+
+It needs `curl` or `wget`, `tar` and `sha256sum` — Debian and Ubuntu have them out of the box.
 
 The installer asks where to keep game servers (Enter — `/srv/vs-panel`). Then it creates
 the services and the first server, opens the panel port to the local network and prints a
@@ -144,19 +147,31 @@ To skip the questions:
 - `--servers-dir <directory>` — where to keep servers;
 - `VS_PANEL_CREATE_SERVER=0` — do not create the first server, create it in the wizard.
 
-Who can reach the panel is set here as well — see [Panel access](#panel-access):
+Installer options go after `sh -s --`. Who can reach the panel is set here as well — see
+[Panel access](#panel-access):
 
 ```bash
-sudo sh install.sh --access internet      # open to the internet as well
-sudo sh install.sh --access localhost     # this machine only, sign in over an SSH tunnel
+curl -fsSL …/deploy/get.sh | sudo sh -s -- --access internet    # open to the internet as well
+curl -fsSL …/deploy/get.sh | sudo sh -s -- --access localhost   # this machine only, sign in over an SSH tunnel
+curl -fsSL …/deploy/get.sh | sudo VS_PANEL_VERSION=0.3.0 sh     # a specific release
 ```
 
 ### Windows
 
-Copy the `win-x64` directory to the machine and double-click `install.cmd` in it. It asks
-for administrator rights. To publish from source on Windows, use PowerShell or CMD as
-described in the [developer notes](docs/development.md#поставка); `install.cmd` only
-installs a ready package.
+In PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/deploy/windows/get.ps1 | iex
+```
+
+If PowerShell is not running as administrator, the command asks for the rights and
+continues in a new window. Installer options are passed like this:
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/deploy/windows/get.ps1))) --access internet
+```
+
+A specific release — `$env:VS_PANEL_VERSION = '0.3.0'` before the command.
 
 On first installation a folder picker opens for game servers. "Cancel" keeps
 `C:\ProgramData\vs-panel\servers`. A folder right at the root of a drive is best, for
@@ -171,7 +186,7 @@ The installer:
 - puts a "Vintage Story Panel" shortcut in the Start menu and on the desktop;
 - opens the setup wizard in the browser.
 
-`install.cmd` options (from an administrator command prompt in the installation directory):
+Installer options (the same for `get.ps1` and `install.cmd`):
 
 | Option | Effect |
 |---|---|
@@ -185,6 +200,13 @@ The installer:
 > does not create users, does not ask for a password and does not change the security
 > policy. Access to `C:\ProgramData\vs-panel` and to the servers folder stays with the
 > system and administrators only.
+
+### From a build directory
+
+Without access to GitHub, or with your own build, run the installer from the package
+directory: [publish it](docs/development.md#поставка) (`dotnet build` does not update
+`artifacts`) or unpack a release archive, copy it to the machine and run `sudo sh install.sh`
+in it on Linux or `install.cmd` on Windows. The options are the same.
 
 ### Setup wizard
 
@@ -321,7 +343,7 @@ After installing on Windows open a new window: the `vs-panel` command appears th
 | `vs-panel password` | a new password for the `admin` account, if it is forgotten |
 | `vs-panel start`, `stop`, `restart` | start, stop, restart the panel |
 | `vs-panel doctor` | check the installation without changing anything |
-| `vs-panel update --from <directory>` | install a new version |
+| `vs-panel update` | install the latest release; `--version <version>` — a specific one, `--from <directory>` — from a build directory |
 | `vs-panel rollback` | return to the previous version |
 | `vs-panel repair` | restore services and file permissions; with `--access` — change panel access |
 | `vs-panel logs` | service log |
@@ -331,18 +353,16 @@ After installing on Windows open a new window: the `vs-panel` command appears th
 
 ### Updating
 
-Publish a fresh package (or get a ready installation directory), copy it to the machine
-and run:
-
 ```bash
-sudo vs-panel update --from ./linux-x64
+sudo vs-panel update                     # the latest release
+sudo vs-panel update --version 0.3.0     # a specific release
+sudo vs-panel update --from ./linux-x64  # your own package from a build directory
 ```
 
-On Windows — in PowerShell as administrator:
-
-```powershell
-vs-panel update --from 'D:\path\to\win-x64'
-```
+On Windows — the same commands in PowerShell as administrator, without `sudo`. If the
+latest release or a newer version is already installed, `update` does nothing. The
+installation command from [above](#installation) also updates an installed panel; on Windows
+it is the way to reinstall the same version. Windows on ARM has no package yet.
 
 Accounts, servers, worlds and settings are kept. The two previous versions are stored;
 `vs-panel rollback` returns to the latest of them. After an interface update, reload the
@@ -440,7 +460,8 @@ bash scripts/publish.sh linux-x64      # or linux-arm64
 ```
 
 The package lands in `artifacts/<target>` — that is the directory the installer runs
-from. Style follows `.editorconfig`; check it with
+from. A release is published by the tag `v<version>`, matching `PanelVersion` in
+`Directory.Build.props`. Style follows `.editorconfig`; check it with
 `dotnet format whitespace --verify-no-changes`. How the code is organised, the rules the
 tests enforce and how the installer works — in [docs/development.md](docs/development.md)
 (in Russian).

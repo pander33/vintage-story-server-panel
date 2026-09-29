@@ -12,6 +12,12 @@ internal sealed record InstallOptions
 	/// <summary>Каталог сборки; для <c>repair</c> — активная версия.</summary>
 	public string From { get; init; } = string.Empty;
 
+	/// <summary>
+	/// <c>--version</c> или <c>VS_PANEL_VERSION</c>: тег релиза GitHub (<c>v0.3.0</c>), который
+	/// скачать вместо <see cref="From"/>. Пусто — последний релиз.
+	/// </summary>
+	public string Release { get; init; } = string.Empty;
+
 	/// <summary>Переустановка без копирования версии, без пакетов и без создания сервера.</summary>
 	public bool Repair { get; init; }
 
@@ -137,6 +143,7 @@ internal sealed record InstallOptions
 			SkipDotnet = Env("VS_PANEL_SKIP_DOTNET") == "1",
 			SkipPackages = Env("VS_PANEL_SKIP_PACKAGES") == "1",
 			ServersDirectory = Env("VS_PANEL_SERVERS_DIR"),
+			Release = Env("VS_PANEL_VERSION"),
 			TelemetryModDirectory = Env("VS_TELEMETRY_MOD_DIR") is { Length: > 0 } mods ? mods : legacyMods,
 		};
 
@@ -170,6 +177,7 @@ internal sealed record InstallOptions
 			}
 		}
 
+		var releaseArgument = false;
 		for (var index = 0; index < arguments.Count; index++)
 		{
 			var parameter = Array.Find(accessParameters, item => item.Argument == arguments[index]);
@@ -192,6 +200,10 @@ internal sealed record InstallOptions
 				case "--from" when index + 1 < arguments.Count:
 					options = options with { From = arguments[++index] };
 					break;
+				case "--version" when index + 1 < arguments.Count:
+					options = options with { Release = arguments[++index].Trim() };
+					releaseArgument = true;
+					break;
 				case "--servers-dir" when index + 1 < arguments.Count && arguments[index + 1].Trim().Length > 0:
 					options = options with { ServersDirectory = arguments[++index].Trim() };
 					break;
@@ -210,6 +222,28 @@ internal sealed record InstallOptions
 				default:
 					return Failure.Invalid($"Unknown option: {arguments[index]}");
 			}
+		}
+
+		// VS_PANEL_VERSION выбирает релиз для get.sh и get.ps1, и они же запускают установщик
+		// с --from из скачанного пакета: переменная к этому моменту своё дело сделала.
+		if (options.From.Length > 0 && !releaseArgument)
+		{
+			options = options with { Release = string.Empty };
+		}
+
+		if (options.Release.Length > 0)
+		{
+			if (options.From.Length > 0)
+			{
+				return Failure.Invalid("--from and --version are mutually exclusive: install either a build directory or a release.");
+			}
+
+			if (ReleaseSource.Tag(options.Release) is not { } tag)
+			{
+				return Failure.Invalid($"--version: expected a release version such as 0.3.0; got '{options.Release}'.");
+			}
+
+			options = options with { Release = tag };
 		}
 
 		var environmentValues = new Dictionary<string, string>(StringComparer.Ordinal);

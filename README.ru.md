@@ -26,15 +26,19 @@
 
 ## Быстрый старт
 
-Готовых релизов пока нет: сначала [соберите пакет из исходников](#сборка-из-исходников).
-
-**Linux** — скопируйте каталог `linux-x64` (или `linux-arm64`) на сервер и выполните:
+**Linux** — одна команда на сервере:
 
 ```bash
-cd linux-x64 && sudo sh install.sh
+curl -fsSL https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/deploy/get.sh | sudo sh
 ```
 
-**Windows** — скопируйте каталог `win-x64` на машину и дважды щёлкните `install.cmd`.
+**Windows** — одна команда в PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/deploy/windows/get.ps1 | iex
+```
+
+Команда скачивает пакет последнего релиза для этой машины и запускает установщик.
 
 Установщик выведет одноразовую ссылку на [мастер установки](#мастер-установки): создайте
 в нём учётную запись администратора, и панель готова. Подробности — в [Установке](#установка).
@@ -125,20 +129,19 @@ cd linux-x64 && sudo sh install.sh
 
 ## Установка
 
-Вы получаете готовый каталог установки: `linux-x64`, `linux-arm64` или `win-x64`.
-Если собираете проект сами, сначала [опубликуйте пакет](docs/development.md#поставка):
-обычная сборка (`dotnet build`) не обновляет `artifacts`. Запускайте установщик из
-опубликованного каталога, а не из `bin/Debug`.
+Установка — одна команда: она берёт пакет последнего [релиза](https://github.com/ruslan120p/vintage-story-panel-net/releases)
+для этой машины (`linux-x64`, `linux-arm64` или `win-x64`), сверяет его с `SHA256SUMS`
+релиза и запускает установщик из него. Определённый релиз задаёт переменная
+`VS_PANEL_VERSION`, например `VS_PANEL_VERSION=0.3.0`. Если собираете проект сами,
+установщик запускается из [опубликованного пакета](#из-каталога-сборки).
 
 ### Linux
 
-Скопируйте каталог на сервер и запустите установщик:
-
 ```bash
-scp -r linux-x64 server:vs-panel
-ssh server
-cd vs-panel && sudo sh install.sh
+curl -fsSL https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/deploy/get.sh | sudo sh
 ```
+
+Нужны `curl` или `wget`, `tar` и `sha256sum` — в Debian и Ubuntu они есть сразу.
 
 Установщик спросит, где хранить игровые серверы (Enter — `/srv/vs-panel`). Затем он
 создаёт службы и первый сервер, открывает порт панели для локальной сети и печатает
@@ -148,19 +151,31 @@ cd vs-panel && sudo sh install.sh
 - `--servers-dir <каталог>` — где хранить серверы;
 - `VS_PANEL_CREATE_SERVER=0` — не создавать первый сервер, создать его в мастере.
 
-Кому видна панель, задаётся тут же — см. [Доступ к панели](#доступ-к-панели):
+Ключи установщика передаются после `sh -s --`. Кому видна панель, задаётся тут же — см.
+[Доступ к панели](#доступ-к-панели):
 
 ```bash
-sudo sh install.sh --access internet      # открыть и для интернета
-sudo sh install.sh --access localhost     # только эта машина, вход через SSH-туннель
+curl -fsSL …/deploy/get.sh | sudo sh -s -- --access internet    # открыть и для интернета
+curl -fsSL …/deploy/get.sh | sudo sh -s -- --access localhost   # только эта машина, вход через SSH-туннель
+curl -fsSL …/deploy/get.sh | sudo VS_PANEL_VERSION=0.3.0 sh     # определённый релиз
 ```
 
 ### Windows
 
-Скопируйте каталог `win-x64` на машину и дважды щёлкните в нём `install.cmd`.
-Он попросит права администратора. Публикация из исходников на Windows выполняется
-из PowerShell или CMD по [инструкции для разработчиков](docs/development.md#поставка);
-`install.cmd` только устанавливает готовый пакет.
+В PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/deploy/windows/get.ps1 | iex
+```
+
+Если PowerShell открыт не от имени администратора, команда попросит права и продолжит в
+новом окне. Ключи установщика передаются так:
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/deploy/windows/get.ps1))) --access internet
+```
+
+Определённый релиз — `$env:VS_PANEL_VERSION = '0.3.0'` перед командой.
 
 При первой установке откроется окно выбора папки для игровых серверов. «Отмена»
 оставляет `C:\ProgramData\vs-panel\servers`. Лучше выбрать папку прямо в корне диска,
@@ -175,7 +190,7 @@ sudo sh install.sh --access localhost     # только эта машина, в
 - кладёт ярлык «Vintage Story Panel» в меню «Пуск» и на рабочий стол;
 - открывает в браузере мастер установки.
 
-Ключи `install.cmd` (из командной строки администратора в каталоге установки):
+Ключи установщика (те же у `get.ps1` и `install.cmd`):
 
 | Ключ | Действие |
 |---|---|
@@ -189,6 +204,13 @@ sudo sh install.sh --access localhost     # только эта машина, в
 > Установщик не создаёт пользователей, не спрашивает пароль и не меняет политику
 > безопасности. Доступ к `C:\ProgramData\vs-panel` и к папке серверов остаётся только
 > у системы и администраторов.
+
+### Из каталога сборки
+
+Без доступа к GitHub или со своей сборкой установщик запускается из каталога пакета:
+[опубликуйте его](docs/development.md#поставка) (`dotnet build` не обновляет `artifacts`)
+или распакуйте архив релиза, скопируйте на машину и запустите в нём `sudo sh install.sh`
+на Linux или `install.cmd` на Windows. Ключи те же.
 
 ### Мастер установки
 
@@ -326,7 +348,7 @@ ssh -L 8080:localhost:8080 server
 | `vs-panel password` | новый пароль учётной записи `admin`, если он забыт |
 | `vs-panel start`, `stop`, `restart` | запустить, остановить, перезапустить панель |
 | `vs-panel doctor` | проверить установку, ничего не меняя |
-| `vs-panel update --from <каталог>` | поставить новую версию |
+| `vs-panel update` | поставить последний релиз; `--version <версия>` — определённый, `--from <каталог>` — из каталога сборки |
 | `vs-panel rollback` | вернуть предыдущую версию |
 | `vs-panel repair` | восстановить службы и права файлов; с `--access` — сменить доступ к панели |
 | `vs-panel logs` | журнал служб |
@@ -336,18 +358,16 @@ ssh -L 8080:localhost:8080 server
 
 ### Обновление
 
-Опубликуйте свежий пакет (или получите готовый каталог установки), скопируйте его на
-машину и выполните:
-
 ```bash
-sudo vs-panel update --from ./linux-x64
+sudo vs-panel update                     # последний релиз
+sudo vs-panel update --version 0.3.0     # определённый релиз
+sudo vs-panel update --from ./linux-x64  # свой пакет из каталога сборки
 ```
 
-На Windows — в PowerShell от имени администратора:
-
-```powershell
-vs-panel update --from 'D:\path\to\win-x64'
-```
+На Windows — те же команды в PowerShell от имени администратора, без `sudo`. Если
+уже стоит последний релиз или более новая версия, `update` ничего не делает. Команда
+установки из [раздела выше](#установка) тоже обновляет уже поставленную панель, а на
+Windows ею же переустанавливают ту же версию. Для Windows на ARM пакета пока нет.
 
 Учётные записи, серверы, миры и настройки сохраняются. Хранятся две предыдущие
 версии; `vs-panel rollback` возвращает последнюю из них. После обновления интерфейса
@@ -443,7 +463,8 @@ bash scripts/publish.sh linux-x64      # или linux-arm64
 .\scripts\publish.ps1 win-x64
 ```
 
-Пакет появится в `artifacts/<цель>` — из этого каталога и запускается установщик. Стиль
+Пакет появится в `artifacts/<цель>` — из этого каталога и запускается установщик. Релиз
+публикует тег `v<версия>`, совпадающий с `PanelVersion` в `Directory.Build.props`. Стиль
 задаёт `.editorconfig`, проверка — `dotnet format whitespace --verify-no-changes`.
 Устройство кода, правила, которые проверяют тесты, и работа установщика — в
 [docs/development.md](docs/development.md).
