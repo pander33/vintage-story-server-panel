@@ -65,6 +65,11 @@ indent_style = space
 indent_size = 2
 quote_type = double
 
+# yaml: табы в YAML запрещены
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
 # less
 [*.less]
 indent_style = tab

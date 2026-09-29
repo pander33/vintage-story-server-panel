@@ -315,3 +315,7 @@ If installation stopped with an error, save its output and the output of `vs-pan
 
 Building, publishing and how the panel is put together — [docs/development.md](docs/development.md)
 (in Russian).
+
+## License
+
+[MIT](LICENSE).

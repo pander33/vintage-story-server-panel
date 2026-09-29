@@ -315,3 +315,7 @@ vs-panel update --from 'D:\path\to\win-x64'
 ## Разработка
 
 Сборка, публикация и устройство панели — [docs/development.md](docs/development.md).
+
+## Лицензия
+
+[MIT](LICENSE).
