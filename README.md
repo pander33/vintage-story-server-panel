@@ -123,6 +123,40 @@ confirmation phrase.
 **Both:** internet access to download the game and mods. The installer sets up the .NET
 runtime for the game itself; the panel does not need a separate .NET installation.
 
+### Panel and game server resources
+
+The panel and game servers run on the same machine. The game accounts for most
+of the load; budget resources for all game servers running at the same time.
+
+For the panel and agent without a running game, budget 1–2 modern CPU cores,
+0.5–1 GB of RAM in addition to the OS requirements, and 2–3 GB of disk space for
+installation, updates and logs. These are planning estimates, not measured minimums:
+panel load measurements have not yet been recorded.
+
+The [official Vintage Story guideline](https://www.vintagestory.at/selfhosting/)
+is 1 GB of RAM per game server plus 300 MB per concurrent player, with 4 CPU threads
+recommended. Mods and active world exploration increase the load.
+
+Practical recommendations with headroom for **the whole machine: OS, panel and one game server**:
+
+| Load | CPU | Total RAM | SSD space for the server and backups |
+|---|---|---|---|
+| 2–5 players, no heavy mods | 4 fast threads | 8 GB | from 40–60 GB |
+| 5–10 players, moderate mods | 4–6 fast threads | 16 GB | from 80–100 GB |
+| 10–20 players or a heavy mod pack | 6–8 fast threads | 24–32 GB | from 150 GB |
+
+These are starting points, not guarantees for every mod pack. Disk space depends
+on world growth and the number of retained backups. For several servers, add their
+RAM requirements and leave headroom for the OS and panel; size the CPU for their
+combined load. For example, a reasonable starting point for two servers with
+5 players each is 6–8 fast threads, 16 GB of RAM and 150–200 GB of free SSD space;
+budget 32 GB of RAM with heavy mods.
+
+Each game server needs a different port. Internet access is needed to download
+the game and mods; external players need a reachable game port (with router port
+forwarding where necessary). The default panel port is 8080, and the first game
+server's default port is 42420.
+
 ## Installation
 
 Installation is one command: it takes the latest [release](https://github.com/ruslan120p/vintage-story-panel-net/releases)
