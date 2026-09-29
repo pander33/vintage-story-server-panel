@@ -2,6 +2,11 @@
 
 # Vintage Story Panel
 
+[![CI](https://github.com/ruslan120p/vintage-story-panel-net/actions/workflows/ci.yml/badge.svg)](https://github.com/ruslan120p/vintage-story-panel-net/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![.NET 10](https://img.shields.io/badge/.NET-10-512BD4.svg)](https://dotnet.microsoft.com/)
+![Platforms: Linux | Windows](https://img.shields.io/badge/platforms-Linux%20%7C%20Windows-lightgrey.svg)
+
 **English** · [Русский](README.ru.md)
 
 A web panel for running dedicated Vintage Story servers. Start and stop, console,
@@ -10,6 +15,29 @@ command line on the server.
 
 Runs on Linux and Windows. One panel manages several game servers on the same machine.
 The interface is available in English and Russian.
+
+> [!WARNING]
+> **Early release — expect breaking changes.** Settings, stored data and the command line
+> may change between versions. Take a backup of your worlds before updating the panel.
+
+![Overview: servers, state, resources and system health](screenshots/Overview.png)
+
+## Quick start
+
+There are no ready-made releases yet: [build the package from source](#building-from-source)
+first, or download one from the latest successful [CI run](https://github.com/ruslan120p/vintage-story-panel-net/actions/workflows/ci.yml)
+(the *Artifacts* section; packages are kept for a week and a GitHub sign-in is required).
+
+**Linux** — copy the `linux-x64` (or `linux-arm64`) directory to the server and run:
+
+```bash
+cd linux-x64 && sudo sh install.sh
+```
+
+**Windows** — copy the `win-x64` directory to the machine and double-click `install.cmd`.
+
+The installer prints a one-time link to the [setup wizard](#setup-wizard): create the
+administrator account there, and the panel is ready. Details — in [Installation](#installation).
 
 ## Features
 
@@ -63,6 +91,19 @@ cleanup rules for old backups.
 
 An action that cannot be undone (deleting a world, a server, a backup) asks you to type a
 confirmation phrase.
+
+### Screenshots
+
+| | |
+|---|---|
+| ![Players and console: command catalogue, connections, player actions](screenshots/PlayersConsole.png) | ![Worlds and mods: the ModDB catalogue filtered by game version](screenshots/WorldsMods.png) |
+| **Players & console** | **Worlds & mods** — ModDB |
+| ![Log and events: the server log with categories and search](screenshots/LogEvents.png) | ![Backups: archives, restore, cleanup](screenshots/Backups.png) |
+| **Log & events** | **Backups** |
+| ![Maintenance: scheduled restarts and backups](screenshots/Maintenance.png) | ![Settings: serverconfig.json as a form](screenshots/Settings.png) |
+| **Maintenance** | **Settings** |
+| ![Setup wizard: creating the administrator](screenshots/Installation.png) | |
+| **Setup wizard** | |
 
 ## Requirements
 
@@ -210,6 +251,26 @@ needs port forwarding to the machine.
 > and the like) and enable `--secure-cookie true`. Otherwise keep `--access lan` or
 > `--access localhost`.
 
+**HTTPS with Caddy.** [Caddy](https://caddyserver.com/) gets a certificate on its own; it
+needs a domain name pointing at the machine and ports 80 and 443 open. The whole
+`/etc/caddy/Caddyfile`:
+
+```
+panel.example.com {
+	reverse_proxy 127.0.0.1:8080
+}
+```
+
+The panel then listens on the machine only and trusts the domain name:
+
+```bash
+sudo vs-panel repair --access localhost --allowed-hosts panel.example.com --secure-cookie true
+```
+
+The panel does not read `X-Forwarded-For` yet. Behind a proxy every visitor comes from
+`127.0.0.1`: the audit log shows that address, and failed sign-ins from anyone lock the
+sign-in form for everyone for five minutes.
+
 An **SSH tunnel** is the safest option: the panel listens on the machine only, nothing is
 exposed.
 
@@ -311,11 +372,70 @@ Settings → Panel. Servers that already exist stay where they are.
 
 If installation stopped with an error, save its output and the output of `vs-panel doctor`.
 
-## Development
+## How it works and security
 
-Building, publishing and how the panel is put together — [docs/development.md](docs/development.md)
+The panel is two processes:
+- **the web panel** (`vs-panel-web`) serves the interface. On Linux it runs as the
+  unprivileged `vs-panel` user and has no access to game directories;
+- **the agent** (`vs-panel-agent`) does everything that needs privileges: services, game
+  files, the firewall. It runs as root on Linux and as LocalSystem on Windows.
+
+The panel sends the agent only a server ID and an operation; the agent works out every
+path itself from its own registry. It answers only the panel: on Linux it checks the
+caller's user ID on its Unix socket (`SO_PEERCRED`), on Windows its named pipe is open to
+the service account and administrators only.
+
+- The game never runs as root: on Linux it is started as a separate `vsgame` user.
+- An uploaded archive is judged as a whole — every path and link in it — before anything
+  is extracted.
+- Passwords are hashed with scrypt; two-factor sign-in (TOTP) is available.
+- Changes made through the panel are recorded in the audit log; the free-form game console
+  is for administrators only, and every line sent to it is recorded in full.
+
+## Reporting problems
+
+Open an [issue](https://github.com/ruslan120p/vintage-story-panel-net/issues) with:
+- the operating system and the panel version (`vs-panel version`);
+- what you did and what happened;
+- the output of `vs-panel doctor` and, if possible, the diagnostic bundle (see
+  [Troubleshooting](#troubleshooting)).
+
+Please report security problems privately, through
+[a security advisory](https://github.com/ruslan120p/vintage-story-panel-net/security/advisories/new),
+not in a public issue.
+
+Pull requests are welcome. For anything larger than a fix, open an issue first so we can
+agree on the approach.
+
+## Building from source
+
+You need the [.NET SDK 10](https://dotnet.microsoft.com/download). The tests need no game
+server and run on Linux and Windows:
+
+```bash
+dotnet build
+dotnet test
+```
+
+To build an installation package (self-contained, no .NET needed on the target machine):
+
+```bash
+bash scripts/publish.sh linux-x64      # or linux-arm64
+```
+
+```powershell
+.\scripts\publish.ps1 win-x64
+```
+
+The package lands in `artifacts/<target>` — that is the directory the installer runs
+from. Style follows `.editorconfig`; check it with
+`dotnet format whitespace --verify-no-changes`. How the code is organised, the rules the
+tests enforce and how the installer works — in [docs/development.md](docs/development.md)
 (in Russian).
 
 ## License
 
 [MIT](LICENSE).
+
+Vintage Story Panel is an independent project. It is not affiliated with, endorsed by or
+supported by Anapoly Games, the developer of Vintage Story.
