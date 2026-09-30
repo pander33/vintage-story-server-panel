@@ -320,7 +320,7 @@ public sealed class ModCatalogueTests
 		var clock = new ManualClock();
 		var proxy = new ModImageProxy(new HttpClient(new Handler(_ => { calls++; return Image(body, "image/png"); })), clock);
 
-		// 64 МБ / 2 МБ = 32 картинки; тридцать третья вытесняет первую.
+		// 16 МБ / 2 МБ = 8 картинок; девятая вытесняет первую.
 		for (var index = 0; index < 34; index++)
 		{
 			clock.Advance(TimeSpan.FromSeconds(1));

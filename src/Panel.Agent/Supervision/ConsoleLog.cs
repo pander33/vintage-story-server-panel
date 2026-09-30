@@ -118,12 +118,14 @@ public static class ConsoleLog
 			offset = 0;
 		}
 
+		// Буфер по тому, что появилось после курсора, а не на всю порцию: консоль опрашивается
+		// каждые полторы секунды, и полмегабайта на каждый опрос ради пары строк были бы мусором.
 		byte[] data;
 		try
 		{
 			using var stream = Open(path);
 			stream.Seek(offset, SeekOrigin.Begin);
-			data = ReadUpTo(stream, ChunkBytes);
+			data = ReadUpTo(stream, (int) Math.Min(ChunkBytes, stream.Length - offset));
 		}
 		catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
 		{
@@ -142,7 +144,7 @@ public static class ConsoleLog
 		}
 
 		var next = offset + usable;
-		return new ConsoleChunk(next.ToString(CultureInfo.InvariantCulture), Split(data.AsSpan(0, usable).ToArray()));
+		return new ConsoleChunk(next.ToString(CultureInfo.InvariantCulture), Split(data.AsSpan(0, usable)));
 	}
 
 	/// <summary>
@@ -171,19 +173,16 @@ public static class ConsoleLog
 	}
 
 	/// <summary>Непустые строки; CRLF, который игра пишет на Windows, отбрасывается.</summary>
-	private static List<string> Split(byte[] data)
+	private static List<string> Split(ReadOnlySpan<byte> data)
 	{
 		var lines = new List<string>();
 		var start = 0;
 		while (start <= data.Length)
 		{
-			var end = Array.IndexOf(data, (byte) '\n', start);
-			if (end < 0)
-			{
-				end = data.Length;
-			}
+			var found = data[start..].IndexOf((byte) '\n');
+			var end = found < 0 ? data.Length : start + found;
 
-			var line = Decode(data.AsSpan(start, end - start)).TrimEnd('\r');
+			var line = Decode(data[start..end]).TrimEnd('\r');
 			if (line.Trim().Length > 0)
 			{
 				lines.Add(line);

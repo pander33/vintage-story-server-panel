@@ -256,15 +256,16 @@ public sealed class BackupBackend
 			}
 
 			scope?.Enter(OperationStages.Swap);
-			Directory.Move(server.DataDirectory, displaced);
+			await GameFiles.MoveDirectoryAsync(server.DataDirectory, displaced, ct).ConfigureAwait(false);
 			try
 			{
-				Directory.Move(restored, server.DataDirectory);
+				await GameFiles.MoveDirectoryAsync(restored, server.DataDirectory, ct).ConfigureAwait(false);
 			}
 			catch
 			{
-				// Вернуть прежние данные, иначе сервер останется без каталога данных.
-				Directory.Move(displaced, server.DataDirectory);
+				// Вернуть прежние данные, иначе сервер останется без каталога данных. Без отмены:
+				// прерванный откат оставил бы сервер без каталога данных наверняка.
+				await GameFiles.MoveDirectoryAsync(displaced, server.DataDirectory, CancellationToken.None).ConfigureAwait(false);
 				throw;
 			}
 

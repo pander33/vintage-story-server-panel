@@ -72,14 +72,24 @@ public sealed class ServerMonitor
 		CancellationToken ct)
 	{
 		var monitor = new ServerMonitor(instance, options, clock, events);
-		var telemetry = await monitor.telemetryFile.LoadAsync(ct).ConfigureAwait(false);
-		var metrics = await monitor.metricsFile.LoadAsync(ct).ConfigureAwait(false);
 		var now = clock.GetUtcNow();
 
-		lock (monitor.sync)
+		// Запись за записью: снимок разбирается, сводится к выжимке и отпускается, так что в памяти
+		// никогда не лежит весь файл.
+		await foreach (var sample in monitor.telemetryFile.ReadAsync(ct).ConfigureAwait(false))
 		{
-			monitor.telemetry.Restore(telemetry, now);
-			monitor.metrics.Restore(metrics, now);
+			lock (monitor.sync)
+			{
+				monitor.telemetry.Restore(sample, now);
+			}
+		}
+
+		await foreach (var line in monitor.metricsFile.ReadAsync(ct).ConfigureAwait(false))
+		{
+			lock (monitor.sync)
+			{
+				monitor.metrics.Restore(line, now);
+			}
 		}
 
 		return monitor;

@@ -20,6 +20,19 @@
     <SupportedOSPlatformVersion>1.0</SupportedOSPlatformVersion>
   </PropertyGroup>
 
+  <!-- Панель и демон работают постоянно рядом с игровым сервером, которому нужна память.
+       Microsoft.NET.Sdk.Web по умолчанию включает серверный сборщик: куча на каждое ядро и
+       редкие сборки, и процесс с горсткой запросов держит сотни мегабайт. Рабочей станции без
+       фонового потока сборки хватает: запросов мало, пауза сборки небольшой кучи короче
+       миллисекунды. ConserveMemory сжимает кучу больших объектов вместо того, чтобы расти. -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Panel.Web' Or '$(MSBuildProjectName)' == 'Panel.Agent'">
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Panel.Web' Or '$(MSBuildProjectName)' == 'Panel.Agent'">
+    <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="5" />
+  </ItemGroup>
+
   <!-- Значок трёх поставляемых программ: .exe на Windows (Проводник, диспетчер задач, ярлыки).
        На Linux ресурс Win32 в сборке ничего не меняет. Источник — scripts/icons.ps1. -->
   <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Panel.Web' Or '$(MSBuildProjectName)' == 'Panel.Agent' Or '$(MSBuildProjectName)' == 'Panel.Cli'">

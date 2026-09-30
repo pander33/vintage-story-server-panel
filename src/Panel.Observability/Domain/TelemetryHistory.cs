@@ -6,10 +6,10 @@ using Panel.SharedKernel;
 namespace Panel.Observability.Domain;
 
 /// <summary>Длинный тик из снимка.</summary>
-public sealed record LongTick(long At, double GapMilliseconds);
+public readonly record struct LongTick(long At, double GapMilliseconds);
 
 /// <summary>Пинг одного игрока в одном снимке.</summary>
-public sealed record PingReading(string Name, double? PingMilliseconds);
+public readonly record struct PingReading(string Name, double? PingMilliseconds);
 
 /// <summary>
 /// Выжимка одного снимка телеметрии: только данные для отчётов.
@@ -17,7 +17,9 @@ public sealed record PingReading(string Name, double? PingMilliseconds);
 /// <remarks>
 /// При опросе раз в две секунды за сутки набирается 43 200 снимков на сервер, и целиком, как
 /// <see cref="JsonObject"/>, они заняли бы сотни мегабайт. Поэтому в памяти лежит выжимка, а в
-/// файл пишется полный снимок: формат истории заморожен (ADR-04).
+/// файл пишется полный снимок. Выжимка тоже экономна: тики и пинги — структуры в массиве, а
+/// не объекты в списке, пустой массив общий, имя игрока — одна строка на всю историю
+/// (параметр <c>name</c> у <see cref="FromSample"/>).
 /// </remarks>
 public sealed record TelemetryPoint(
 	long SampledAt,
@@ -31,11 +33,13 @@ public sealed record TelemetryPoint(
 	IReadOnlyList<PingReading> Players)
 {
 	/// <summary>Выжимка из строки истории или свежего снимка.</summary>
-	public static TelemetryPoint FromSample(JsonObject sample)
+	/// <param name="name">Замена имени игрока равной строкой, которую история уже хранит.</param>
+	public static TelemetryPoint FromSample(JsonObject sample, Func<string, string>? name = null)
 	{
 		ArgumentNullException.ThrowIfNull(sample);
 
 		var sampled = (long) TelemetryNumbers.Number(sample["sampled_at"]);
+		name ??= static value => value;
 
 		return new TelemetryPoint(
 			sampled,
@@ -48,16 +52,16 @@ public sealed record TelemetryPoint(
 			TelemetryNumbers.Number(sample["maximum_tick_gap_ms"]),
 			(int) TelemetryNumbers.Number(sample["long_tick_count"]),
 			sample["long_ticks"] is JsonArray ticks
-				? [.. ticks.OfType<JsonObject>().Select(tick => new LongTick(
-					(long)TelemetryNumbers.Number(tick["at"], sampled) is var at && at != 0 ? at : sampled,
-					Math.Round(TelemetryNumbers.Number(tick["gap_ms"]), 1)))]
+				? ticks.OfType<JsonObject>().Select(tick => new LongTick(
+					(long) TelemetryNumbers.Number(tick["at"], sampled) is var at && at != 0 ? at : sampled,
+					Math.Round(TelemetryNumbers.Number(tick["gap_ms"]), 1))).ToArray()
 				: [],
 			sample["players"] is JsonArray players
-				? [.. players.OfType<JsonObject>().Select(player => new PingReading(
-					TelemetryNumbers.Text(player["name"]),
+				? players.OfType<JsonObject>().Select(player => new PingReading(
+					name(TelemetryNumbers.Text(player["name"])),
 					player["ping_ms"] is { } ping && ping.GetValueKind() != JsonValueKind.Null
 						? TelemetryNumbers.Number(ping)
-						: null))]
+						: null)).ToArray()
 				: []);
 	}
 }
@@ -203,9 +207,16 @@ public sealed class TelemetryHistory
 
 	private const int spikeFromMilliseconds = 250;
 
+	/// <summary>
+	/// Сколько разных имён игроков хранится для общего использования. Предел лишь от
+	/// неожиданного потока имён: переполнение очищает набор, точки сохраняют свои строки.
+	/// </summary>
+	private const int maxNames = 4096;
+
 	private static readonly TimeSpan playerWindow = TimeSpan.FromMinutes(5);
 
 	private readonly List<TelemetryPoint> points = [];
+	private readonly HashSet<string> names = new(StringComparer.Ordinal);
 
 	public TelemetryHistory(TimeSpan maxAge)
 	{
@@ -224,15 +235,23 @@ public sealed class TelemetryHistory
 	{
 		ArgumentNullException.ThrowIfNull(samples);
 
-		var cutoff = now.ToUnixTimeSeconds() - (long) MaxAge.TotalSeconds;
 		foreach (var sample in samples)
 		{
-			var point = TelemetryPoint.FromSample(sample);
-			if (point.SampledAt >= cutoff)
-			{
-				points.Add(point);
-				Latest = sample;
-			}
+			Restore(sample, now);
+		}
+	}
+
+	/// <summary>Один снимок из файла истории: файл читается потоком, а не целиком.</summary>
+	public void Restore(JsonObject sample, DateTimeOffset now)
+	{
+		ArgumentNullException.ThrowIfNull(sample);
+
+		var cutoff = now.ToUnixTimeSeconds() - (long) MaxAge.TotalSeconds;
+		var point = TelemetryPoint.FromSample(sample, Shared);
+		if (point.SampledAt >= cutoff)
+		{
+			points.Add(point);
+			Latest = sample;
 		}
 	}
 
@@ -249,7 +268,7 @@ public sealed class TelemetryHistory
 		stored["sampled_at"] = sampledAt;
 
 		Latest = stored;
-		points.Add(TelemetryPoint.FromSample(stored));
+		points.Add(TelemetryPoint.FromSample(stored, Shared));
 
 		var cutoff = sampledAt - (long) MaxAge.TotalSeconds;
 		var expired = points.FindIndex(point => point.SampledAt >= cutoff);
@@ -326,23 +345,25 @@ public sealed class TelemetryHistory
 	public PerformanceReport Performance(DateTimeOffset now, TimeSpan window)
 	{
 		var cutoff = now.ToUnixTimeSeconds() - (long) window.TotalSeconds;
-		var seen = new HashSet<string>(StringComparer.Ordinal);
+		var seenGenerated = new HashSet<double>();
+		var seenSampled = new HashSet<long>();
 		var series = new List<PerformancePoint>();
 		var longTicks = new List<LongTick>();
 		var spikes = new List<PingSpike>();
 		var lastSpike = new Dictionary<string, long>(StringComparer.Ordinal);
 
-		foreach (var point in points)
+		for (var index = Since(cutoff); index < points.Count; index++)
 		{
+			var point = points[index];
 			if (point.SampledAt < cutoff || !point.Available || point.Stale)
 			{
 				continue;
 			}
 
-			var key = point.GeneratedAt is { } generated
-				? generated.ToString("R", CultureInfo.InvariantCulture)
-				: "s:" + point.SampledAt.ToString(CultureInfo.InvariantCulture);
-			if (!seen.Add(key))
+			var fresh = point.GeneratedAt is { } generated
+				? seenGenerated.Add(generated)
+				: seenSampled.Add(point.SampledAt);
+			if (!fresh)
 			{
 				continue;
 			}
@@ -382,23 +403,71 @@ public sealed class TelemetryHistory
 			PingCriticalMilliseconds);
 	}
 
+	/// <remarks>
+	/// Имя сравнивается без учёта регистра без новых строк: за сутки это десятки тысяч точек, и
+	/// приведение к нижнему регистру при каждом сравнении давало мегабайты мусора на запрос.
+	/// </remarks>
 	private IEnumerable<PingSample> PingsOf(string name, long cutoff)
 	{
-		var key = name.ToLowerInvariant();
-
-		foreach (var point in points)
+		for (var index = Since(cutoff); index < points.Count; index++)
 		{
+			var point = points[index];
 			if (point.SampledAt < cutoff || !point.Available)
 			{
 				continue;
 			}
 
-			var player = point.Players.FirstOrDefault(item => item.Name.ToLowerInvariant() == key);
-			if (player?.PingMilliseconds is { } ping)
+			foreach (var player in point.Players)
 			{
-				yield return new PingSample(point.SampledAt, ping);
+				if (string.Equals(player.Name, name, StringComparison.OrdinalIgnoreCase))
+				{
+					if (player.PingMilliseconds is { } ping)
+					{
+						yield return new PingSample(point.SampledAt, ping);
+					}
+
+					break;
+				}
 			}
 		}
+	}
+
+	/// <summary>
+	/// Первая точка окна: поиск с конца. Поток телеметрии каждые две секунды считает пинг игроков
+	/// за пять минут, и проход по суточной истории от начала на каждого игрока и каждого зрителя
+	/// был бы напрасным.
+	/// </summary>
+	/// <remarks>
+	/// Точки идут в порядке записи, то есть по времени; то же предположение делает отбрасывание
+	/// устаревших в <see cref="Record"/>. Если часы машины отскочили назад, окно может начаться
+	/// чуть позже, но не захватит лишнего: проверка времени точки остаётся в цикле.
+	/// </remarks>
+	private int Since(long cutoff)
+	{
+		var index = points.Count;
+		while (index > 0 && points[index - 1].SampledAt >= cutoff)
+		{
+			index--;
+		}
+
+		return index;
+	}
+
+	/// <summary>Имя игрока той строкой, что уже хранится в истории: у игрока одно имя на все точки.</summary>
+	private string Shared(string name)
+	{
+		if (names.TryGetValue(name, out var known))
+		{
+			return known;
+		}
+
+		if (names.Count >= maxNames)
+		{
+			names.Clear();
+		}
+
+		names.Add(name);
+		return name;
 	}
 
 	/// <summary>Не больше 720 точек: каждая n-я, как <c>series[::step]</c>.</summary>

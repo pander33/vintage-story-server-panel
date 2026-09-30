@@ -17,6 +17,10 @@ public sealed class JsonLinesFile
 {
 	private const long compactAboveBytes = 16 * 1024 * 1024;
 
+	private const int tailBlockBytes = 64 * 1024;
+
+	private static readonly byte[] utf8Bom = [0xEF, 0xBB, 0xBF];
+
 	private static readonly TimeSpan compactInterval = TimeSpan.FromHours(1);
 
 	private readonly SemaphoreSlim @lock = new(1, 1);
@@ -70,13 +74,64 @@ public sealed class JsonLinesFile
 		}
 	}
 
-	/// <summary>Последние строки журнала. Файл читается целиком: он уплотняется и большим не бывает.</summary>
+	/// <summary>
+	/// Последние строки журнала, как их разбил бы <see cref="File.ReadAllLines(string)"/>.
+	/// </summary>
+	/// <remarks>
+	/// Читается с конца, блоками, пока не наберётся на одну строку больше нужного: лента событий
+	/// спрашивает хвост каждые три секунды на каждую открытую вкладку, а файл до уплотнения —
+	/// тысячи строк. Первая строка прочитанного куска может быть обрезана, поэтому отбрасывается,
+	/// если кусок начинается не с начала файла. Перевод строки в UTF-8 — всегда отдельный байт, так
+	/// что граница блока не рвёт символ ни в одной из оставшихся строк.
+	/// </remarks>
 	public async Task<IReadOnlyList<string>> TailAsync(int count, CancellationToken ct)
 	{
+		if (count <= 0)
+		{
+			return [];
+		}
+
 		try
 		{
-			var lines = await File.ReadAllLinesAsync(path, ct).ConfigureAwait(false);
-			return count >= lines.Length ? lines : lines[^count..];
+			var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, bufferSize: 1, useAsync: true);
+			await using (stream.ConfigureAwait(false))
+			{
+				var end = stream.Length;
+				var start = end;
+				var newlines = 0;
+				var chunks = new List<byte[]>();
+
+				while (start > 0 && newlines <= count)
+				{
+					var size = (int) Math.Min(tailBlockBytes, start);
+					start -= size;
+					var block = new byte[size];
+					stream.Seek(start, SeekOrigin.Begin);
+					await stream.ReadExactlyAsync(block, ct).ConfigureAwait(false);
+					newlines += block.AsSpan().Count((byte) '\n');
+					chunks.Add(block);
+				}
+
+				chunks.Reverse();
+				var data = chunks.SelectMany(chunk => chunk).ToArray();
+				var text = start == 0 && data.AsSpan().StartsWith(utf8Bom)
+					? Encoding.UTF8.GetString(data, utf8Bom.Length, data.Length - utf8Bom.Length)
+					: Encoding.UTF8.GetString(data);
+
+				var lines = new List<string>();
+				using var reader = new StringReader(text);
+				while (reader.ReadLine() is { } line)
+				{
+					lines.Add(line);
+				}
+
+				if (start > 0 && lines.Count > 0)
+				{
+					lines.RemoveAt(0);
+				}
+
+				return count >= lines.Count ? lines : lines.GetRange(lines.Count - count, count);
+			}
 		}
 		catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
 		{

@@ -87,17 +87,15 @@ public sealed class MetricsHistory
 
 	public IReadOnlyList<MetricsPoint> Points => points;
 
-	public void Restore(IEnumerable<JsonObject> lines, DateTimeOffset now)
+	/// <summary>Одна строка файла истории: файл читается потоком, а не целиком.</summary>
+	public void Restore(JsonObject line, DateTimeOffset now)
 	{
-		ArgumentNullException.ThrowIfNull(lines);
+		ArgumentNullException.ThrowIfNull(line);
 
 		var cutoff = now.ToUnixTimeSeconds() - (long) MaxAge.TotalSeconds;
-		foreach (var line in lines)
+		if (MetricsPoint.FromJson(line) is { } point && point.Ts >= cutoff)
 		{
-			if (MetricsPoint.FromJson(line) is { } point && point.Ts >= cutoff)
-			{
-				points.Add(point);
-			}
+			points.Add(point);
 		}
 	}
 

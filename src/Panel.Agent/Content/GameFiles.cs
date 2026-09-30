@@ -22,6 +22,9 @@ public static class GameFiles
 	/// <summary>Учётная запись, от которой работает игра.</summary>
 	public const string GameUser = "vsgame";
 
+	/// <summary>Сколько раз пробовать переименовать каталог на Windows (<see cref="MoveDirectoryAsync"/>).</summary>
+	private const int moveAttempts = 10;
+
 	/// <summary>Метка времени в именах истории и резервных копий: <c>20260921-143000</c>.</summary>
 	public static string Stamp(DateTimeOffset moment) =>
 		moment.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
@@ -44,6 +47,37 @@ public static class GameFiles
 		}
 
 		return candidate;
+	}
+
+	/// <summary>
+	/// Переименование каталога при обмене деревьев (восстановление копии, замена программы).
+	/// </summary>
+	/// <remarks>
+	/// На Windows только что записанные файлы ненадолго открывают антивирус и индексатор, и
+	/// переименование каталога получает отказ в доступе, хотя через долю секунды прошло бы.
+	/// Поэтому там попытка повторяется с нарастающей паузой, всего около двух секунд, и только
+	/// пока источник есть, а назначения нет: иначе ошибка настоящая и ждать нечего. На Linux
+	/// переименование либо удаётся сразу, либо не удастся вовсе.
+	/// </remarks>
+	public static async Task MoveDirectoryAsync(string source, string destination, CancellationToken ct)
+	{
+		for (var attempt = 1; ; attempt++)
+		{
+			try
+			{
+				Directory.Move(source, destination);
+				return;
+			}
+			catch (Exception exception) when (
+				exception is IOException or UnauthorizedAccessException
+				&& OperatingSystem.IsWindows()
+				&& attempt < moveAttempts
+				&& Directory.Exists(source)
+				&& !Path.Exists(destination))
+			{
+				await Task.Delay(TimeSpan.FromMilliseconds(50 * attempt), ct).ConfigureAwait(false);
+			}
+		}
 	}
 
 	/// <summary>Обычный файл: не ссылка и не каталог. Через ссылку можно выйти за пределы каталога.</summary>

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -33,31 +34,45 @@ public sealed class HistoryFile
 
 	public string Path => path;
 
-	/// <summary>Все записи файла; строки, которые не разбираются, пропускаются.</summary>
-	public async Task<IReadOnlyList<JsonObject>> LoadAsync(CancellationToken ct)
+	/// <summary>
+	/// Записи файла по одной; строки, которые не разбираются, пропускаются, ошибка чтения
+	/// заканчивает перечисление.
+	/// </summary>
+	/// <remarks>
+	/// Не списком: история телеметрии за сутки — десятки тысяч полных снимков, и разобранные
+	/// разом они занимали при старте панели сотни мегабайт, хотя в памяти остаётся только выжимка.
+	/// </remarks>
+	public async IAsyncEnumerable<JsonObject> ReadAsync([EnumeratorCancellation] CancellationToken ct)
 	{
 		if (!File.Exists(path))
 		{
-			return [];
+			yield break;
 		}
 
-		var result = new List<JsonObject>();
+		IAsyncEnumerator<string>? lines = null;
 		try
 		{
-			foreach (var line in await File.ReadAllLinesAsync(path, ct).ConfigureAwait(false))
-			{
-				if (Parse(line) is { } item)
-				{
-					result.Add(item);
-				}
-			}
+			lines = File.ReadLinesAsync(path, ct).GetAsyncEnumerator(ct);
 		}
 		catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
 		{
-			return result;
 		}
 
-		return result;
+		if (lines is null)
+		{
+			yield break;
+		}
+
+		await using (lines.ConfigureAwait(false))
+		{
+			while (await NextAsync(lines).ConfigureAwait(false))
+			{
+				if (Parse(lines.Current) is { } item)
+				{
+					yield return item;
+				}
+			}
+		}
 	}
 
 	public async Task<bool> AppendAsync(JsonObject value, CancellationToken ct)
@@ -89,7 +104,15 @@ public sealed class HistoryFile
 		await gate.WaitAsync(ct).ConfigureAwait(false);
 		try
 		{
-			return await ReplaceAsync(values.Select(Line), ct).ConfigureAwait(false);
+			return await ReplaceAsync(
+				async writer =>
+				{
+					foreach (var value in values)
+					{
+						await writer.WriteAsync(Line(value).AsMemory(), ct).ConfigureAwait(false);
+					}
+				},
+				ct).ConfigureAwait(false);
 		}
 		finally
 		{
@@ -101,7 +124,7 @@ public sealed class HistoryFile
 	/// Отбросить строки старше <paramref name="cutoff"/> по полю <paramref name="timeKey"/>. Строки
 	/// разбираются только до этого поля: история за сутки большая, и разбирать каждый снимок ради
 	/// одной метки ни к чему. Чтение и замена идут под одной блокировкой, иначе дозапись между
-	/// ними потерялась бы.
+	/// ними потерялась бы. Файл переписывается построчно, а не собирается в памяти целиком.
 	/// </summary>
 	public async Task<bool> PruneAsync(string timeKey, long cutoff, CancellationToken ct)
 	{
@@ -115,16 +138,22 @@ public sealed class HistoryFile
 				return true;
 			}
 
-			var lines = await File.ReadAllLinesAsync(path, ct).ConfigureAwait(false);
-			var kept = lines.Where(line =>
-			{
-				var match = pattern.Match(line);
-				return match.Success
-					&& double.TryParse(match.Groups["value"].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var stamp)
-					&& stamp >= cutoff;
-			});
-
-			return await ReplaceAsync(kept.Select(line => line + '\n'), ct).ConfigureAwait(false);
+			return await ReplaceAsync(
+				async writer =>
+				{
+					await foreach (var line in File.ReadLinesAsync(path, ct).ConfigureAwait(false))
+					{
+						var match = pattern.Match(line);
+						if (match.Success
+							&& double.TryParse(match.Groups["value"].ValueSpan, NumberStyles.Float, CultureInfo.InvariantCulture, out var stamp)
+							&& stamp >= cutoff)
+						{
+							await writer.WriteAsync(line.AsMemory(), ct).ConfigureAwait(false);
+							await writer.WriteAsync("\n".AsMemory(), ct).ConfigureAwait(false);
+						}
+					}
+				},
+				ct).ConfigureAwait(false);
 		}
 		catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
 		{
@@ -137,13 +166,19 @@ public sealed class HistoryFile
 	}
 
 	/// <summary>Запись во временный файл рядом и переименование. Вызывать под блокировкой.</summary>
-	private async Task<bool> ReplaceAsync(IEnumerable<string> lines, CancellationToken ct)
+	private async Task<bool> ReplaceAsync(Func<StreamWriter, Task> write, CancellationToken ct)
 	{
 		var temporary = path + ".tmp";
 		try
 		{
 			EnsureDirectory();
-			await File.WriteAllTextAsync(temporary, string.Concat(lines), new UTF8Encoding(false), ct).ConfigureAwait(false);
+			var writer = new StreamWriter(temporary, append: false, new UTF8Encoding(false));
+			await using (writer.ConfigureAwait(false))
+			{
+				await write(writer).ConfigureAwait(false);
+				await writer.FlushAsync(ct).ConfigureAwait(false);
+			}
+
 			File.Move(temporary, path, overwrite: true);
 			return true;
 		}
@@ -172,6 +207,19 @@ public sealed class HistoryFile
 		if (!OperatingSystem.IsWindows())
 		{
 			File.SetUnixFileMode(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+		}
+	}
+
+	/// <summary>Следующая строка; ошибка чтения — конец файла, как и прежде при чтении целиком.</summary>
+	private static async Task<bool> NextAsync(IAsyncEnumerator<string> lines)
+	{
+		try
+		{
+			return await lines.MoveNextAsync().ConfigureAwait(false);
+		}
+		catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+		{
+			return false;
 		}
 	}
 

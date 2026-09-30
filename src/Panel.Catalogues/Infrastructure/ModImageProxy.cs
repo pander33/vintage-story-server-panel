@@ -13,13 +13,14 @@ public sealed record ModImage(string ContentType, byte[] Data);
 /// Только https и только хост CDN ModDB — та же проверка, что у архивов. Переадресации не
 /// следует. Предел — 2 МБ на картинку и 10 с ожидания. Тип — png, jpeg, gif или webp, и по заголовку
 /// ответа, и по первым байтам файла; SVG нет: это документ со скриптами. Кэш в памяти: общий предел
-/// 64 МБ, при нехватке вытесняются давние.
+/// 16 МБ, при нехватке вытесняются давние. Обложка мода — десятки килобайт, так что в кэш входят
+/// сотни, а панель живёт на одной машине с игрой, и память ей нужнее.
 /// </remarks>
 public sealed class ModImageProxy
 {
 	public const int MaxImageBytes = 2 * 1024 * 1024;
 
-	public const long CacheBytes = 64L * 1024 * 1024;
+	public const long CacheBytes = 16L * 1024 * 1024;
 
 	private const string userAgent = "VintageStoryPanel/0.2.0";
 

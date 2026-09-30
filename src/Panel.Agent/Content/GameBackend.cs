@@ -237,14 +237,14 @@ public sealed class GameBackend
 				}
 			}
 
-			Directory.Move(program, old);
+			await GameFiles.MoveDirectoryAsync(program, old, ct).ConfigureAwait(false);
 			try
 			{
-				Directory.Move(candidate, program);
+				await GameFiles.MoveDirectoryAsync(candidate, program, ct).ConfigureAwait(false);
 			}
 			catch
 			{
-				Directory.Move(old, program);
+				await GameFiles.MoveDirectoryAsync(old, program, CancellationToken.None).ConfigureAwait(false);
 				throw;
 			}
 
