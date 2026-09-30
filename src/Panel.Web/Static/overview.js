@@ -1,6 +1,6 @@
 'use strict';
 
-// Обзор: серверы, состояние выбранного, показатели, ресурсы, здоровье, события, расписание,
+// Обзор: серверы, машина панели, состояние выбранного, показатели, ресурсы, здоровье, события, расписание,
 // а также создание, переименование, «убрать из панели» и удаление серверов.
 
 (() => {
@@ -207,6 +207,55 @@
 			empty: I18N.t('overviewDynamic.o093'),
 		});
 		renderHealth();
+	}
+
+	// ---------- машина ----------
+
+	// Машина одна на все серверы: карточка не зависит от выбранного. Цвет — по занятой доле;
+	// процессор в оценку карточки не входит, его всплеск за секунду замера тревогой не считается.
+	const HOST_USES = {
+		panel: () => I18N.t('overview.hostUsePanel'),
+		data: name => I18N.t('overview.hostUseData', {name}),
+		backups: name => I18N.t('overview.hostUseBackups', {name}),
+	};
+	const hostLevel = percent => percent >= 90 ? 'error' : (percent >= 75 ? 'warn' : 'ok');
+
+	function hostTile(label, value, sub, percent, foot) {
+		const bar = percent == null ? '' : `<div class="host-track"><span class="${hostLevel(percent)}" data-width="${Math.min(100, Math.max(0, percent)).toFixed(1)}"></span></div>`;
+		return `<div class="host-tile"><div class="host-tile-label" title="${esc(label)}">${esc(label)}</div><div class="host-tile-value">${esc(value)}${sub ? ` <small>${esc(sub)}</small>` : ''}</div>${bar}<div class="host-tile-foot">${esc(foot || '')}</div></div>`;
+	}
+
+	async function loadHost() {
+		const data = await api('/api/host');
+		const tiles = [], levels = [];
+		const cpu = data.cpu_percent;
+		const load = Array.isArray(data.load) ? I18N.t('overview.hostLoad', {load: data.load.map(value => Number(value).toFixed(2)).join(' · ')}) : '';
+		tiles.push(hostTile('CPU', cpu == null ? '—' : `${Number(cpu).toFixed(0)}%`, I18N.t('overview.hostCores', {count: data.cpus}), cpu, load));
+		if (data.memory_total) {
+			const used = data.memory_total - data.memory_available;
+			const percent = used / data.memory_total * 100;
+			levels.push(hostLevel(percent));
+			tiles.push(hostTile(I18N.t('common.memory'), fmtBytes(used), `/ ${fmtBytes(data.memory_total)}`, percent, I18N.t('overview.hostAvailable', {size: fmtBytes(data.memory_available)})));
+		}
+		if (data.swap_total) {
+			tiles.push(hostTile(I18N.t('overview.hostSwap'), fmtBytes(data.swap_used), `/ ${fmtBytes(data.swap_total)}`, data.swap_used / data.swap_total * 100, ''));
+		}
+		for (const volume of data.volumes || []) {
+			const percent = volume.total ? (volume.total - volume.free) / volume.total * 100 : 0;
+			levels.push(hostLevel(percent));
+			const uses = (volume.uses || []).map(use => HOST_USES[use.kind]?.(use.server) || use.kind).join(', ');
+			tiles.push(hostTile(I18N.t('overview.hostDisk', {mount: volume.mount}), fmtBytes(volume.free), I18N.t('overview.hostFreeOf', {size: fmtBytes(volume.total)}), percent, uses));
+		}
+		$('#host-grid').innerHTML = tiles.join('');
+		// Ширину задаёт скрипт: атрибут style запрещён политикой CSP.
+		$$('#host-grid [data-width]').forEach(bar => { bar.style.width = `${bar.dataset.width}%`; });
+
+		$('#host-name').textContent = data.hostname || I18N.t('overview.hostTitle');
+		$('#host-detail').textContent = [data.platform, I18N.t('overview.hostUptime', {time: fmtDuration(data.uptime)}), I18N.t('overview.hostPanelMemory', {size: fmtBytes(data.panel_memory)})].filter(Boolean).join(' · ');
+		const worst = levels.includes('error') ? 'error' : (levels.includes('warn') ? 'warn' : 'ok');
+		const chip = $('#host-chip');
+		chip.textContent = I18N.t({ok: 'overview.hostOk', warn: 'overview.hostWarn', error: 'overview.hostError'}[worst]);
+		chip.className = `status-chip ${worst}`;
 	}
 
 	// ---------- здоровье ----------
@@ -520,7 +569,7 @@
 	// ---------- раздел ----------
 
 	async function refreshAll() {
-		await Promise.allSettled([VS.loadInstances(), VS.refreshStatus(), loadMetrics(), loadActivity(), loadNextMaintenance(), loadProvision().then(data => { if (data.running) watchProvision(); })]);
+		await Promise.allSettled([VS.loadInstances(), VS.refreshStatus(), loadMetrics(), loadHost(), loadActivity(), loadNextMaintenance(), loadProvision().then(data => { if (data.running) watchProvision(); })]);
 		stamp();
 	}
 
@@ -538,6 +587,7 @@
 			if (state.telemetry) renderTelemetry(state.telemetry);
 			refreshAll();
 			VS.every('overview-metrics', 60000, loadMetrics, {page: 'overview', now: false});
+			VS.every('overview-host', 15000, loadHost, {page: 'overview', now: false});
 			watchFeed();
 			// Относительное время («5 мин назад») стареет и без новых событий.
 			VS.every('overview-feed-clock', 30000, renderFeed, {page: 'overview', now: false});

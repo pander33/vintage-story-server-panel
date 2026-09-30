@@ -16,6 +16,42 @@ public sealed record PlayersResponse
 	[JsonPropertyName("telemetry")] public required TelemetryStateResponse Telemetry { get; init; }
 }
 
+/// <summary>
+/// Ответ <c>GET /api/host</c>: машина, на которой стоит панель. Нечитаемое значение — <c>null</c>,
+/// а не ноль: ноль свободной памяти — это тревога, а не «неизвестно».
+/// </summary>
+public sealed record HostResponse
+{
+	[JsonPropertyName("hostname")] public required string Hostname { get; init; }
+	[JsonPropertyName("platform")] public required string Platform { get; init; }
+	[JsonPropertyName("uptime")] public required long Uptime { get; init; }
+	[JsonPropertyName("cpus")] public required int Cpus { get; init; }
+	[JsonPropertyName("cpu_percent")] public double? CpuPercent { get; init; }
+	[JsonPropertyName("load")] public IReadOnlyList<double>? Load { get; init; }
+	[JsonPropertyName("memory_total")] public long? MemoryTotal { get; init; }
+	[JsonPropertyName("memory_available")] public long? MemoryAvailable { get; init; }
+	[JsonPropertyName("swap_total")] public long? SwapTotal { get; init; }
+	[JsonPropertyName("swap_used")] public long? SwapUsed { get; init; }
+	[JsonPropertyName("panel_memory")] public required long PanelMemory { get; init; }
+	[JsonPropertyName("volumes")] public required IReadOnlyList<HostVolumeResponse> Volumes { get; init; }
+}
+
+/// <summary>Том машины и что на нём лежит: панель, данные и копии серверов.</summary>
+public sealed record HostVolumeResponse
+{
+	[JsonPropertyName("mount")] public required string Mount { get; init; }
+	[JsonPropertyName("total")] public required long Total { get; init; }
+	[JsonPropertyName("free")] public required long Free { get; init; }
+	[JsonPropertyName("uses")] public required IReadOnlyList<HostVolumeUseResponse> Uses { get; init; }
+}
+
+/// <summary>Что лежит на томе: <c>panel</c>, <c>data</c> или <c>backups</c>; у серверных — имя сервера.</summary>
+public sealed record HostVolumeUseResponse
+{
+	[JsonPropertyName("kind")] public required string Kind { get; init; }
+	[JsonPropertyName("server")] public string? Server { get; init; }
+}
+
 /// <summary>Четыре поля свежести снимка: <c>available, stale, detail, age_seconds</c>.</summary>
 public sealed record TelemetryStateResponse
 {

@@ -97,6 +97,7 @@ public static class PanelServices
 		services.AddSingleton<ITelemetrySource>(_ => new AgentTelemetrySource(agent));
 		services.AddSingleton<IMetricsSource>(_ => new AgentMetricsSource(agent));
 		services.AddSingleton<ServerMonitors>();
+		services.AddSingleton<HostProbe>();
 		services.AddHostedService<MonitoringService>();
 		services.AddSingleton<IApplyMarkerStore>(_ => new FileApplyMarkerStore(options.StateDirectory));
 

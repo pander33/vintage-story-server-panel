@@ -12,7 +12,10 @@ using Panel.Contracts.Http;
 using Panel.Contracts.Privacy;
 using Panel.Configuration.Ports;
 using Panel.Contracts.ServerCommands;
+using Panel.Fleet.Domain;
+using Panel.Fleet.Ports;
 using Panel.Observability.Domain;
+using Panel.Observability.Infrastructure;
 using Panel.Observability.Ports;
 using Panel.Provisioning.Ports;
 using Panel.Runtime.Domain;
@@ -112,6 +115,44 @@ public static class ObservabilityEndpoints
 			{
 				Lines = [.. journal.Value.Lines.Select(line => AddressMask.Scrub(line, hide))],
 				Unit = journal.Value.Unit.Length > 0 ? journal.Value.Unit : "vs-panel.service",
+			});
+		});
+
+		routes.MapGet("/api/host", async (
+			HttpContext http,
+			CommandAuthorizer authorizer,
+			HostProbe probe,
+			IRegistryStore registry,
+			PanelOptions options,
+			CancellationToken ct) =>
+		{
+			var allowed = PanelResults.Authorize(http, authorizer, typeof(ReadTelemetry), requireCsrf: false);
+			if (!allowed.IsSuccess)
+			{
+				return PanelResults.Refuse(allowed.Failure!);
+			}
+
+			// Машина одна на все серверы и к выбранному не относится.
+			var memory = HostProbe.Memory();
+			var load = HostProbe.Load();
+			var servers = await registry.LoadAsync(ct).ConfigureAwait(false) is RegistrySnapshot.Available available
+				? available.Servers
+				: [];
+
+			return PanelResults.Json(new HostResponse
+			{
+				Hostname = Environment.MachineName,
+				Platform = probe.Platform,
+				Uptime = Environment.TickCount64 / 1000,
+				Cpus = Environment.ProcessorCount,
+				CpuPercent = await probe.CpuPercentAsync(ct).ConfigureAwait(false),
+				Load = load is { } average ? [average.One, average.Five, average.Fifteen] : null,
+				MemoryTotal = memory?.Total,
+				MemoryAvailable = memory?.Available,
+				SwapTotal = memory?.SwapTotal,
+				SwapUsed = memory?.SwapUsed,
+				PanelMemory = Environment.WorkingSet,
+				Volumes = HostVolumes(options, servers),
 			});
 		});
 
@@ -499,6 +540,51 @@ public static class ObservabilityEndpoints
 		Cursor = item.Cursor,
 		Timestamp = item.Timestamp,
 	};
+
+	/// <summary>
+	/// Тома, на которых лежат состояние панели, данные и копии серверов, каждый один раз. Все тома
+	/// машины не перечисляются: на Linux это ещё и <c>/proc</c>, <c>tmpfs</c> и образы snap.
+	/// </summary>
+	private static List<HostVolumeResponse> HostVolumes(PanelOptions options, IReadOnlyList<RegisteredServer> servers)
+	{
+		IReadOnlyList<DriveInfo> drives;
+		try
+		{
+			drives = DriveInfo.GetDrives();
+		}
+		catch (IOException)
+		{
+			return [];
+		}
+
+		var places = new List<(string Path, HostVolumeUseResponse Use)> { (options.StateDirectory, new HostVolumeUseResponse { Kind = "panel" }) };
+		foreach (var server in servers)
+		{
+			places.Add((server.DataDirectory, new HostVolumeUseResponse { Kind = "data", Server = server.Name }));
+			places.Add((server.BackupDirectory, new HostVolumeUseResponse { Kind = "backups", Server = server.Name }));
+		}
+
+		var volumes = new List<HostVolumeResponse>();
+		foreach (var (path, use) in places)
+		{
+			if (HostProbe.VolumeOf(path, drives) is not { } space)
+			{
+				continue;
+			}
+
+			var index = volumes.FindIndex(volume => volume.Mount == space.Mount);
+			if (index < 0)
+			{
+				volumes.Add(new HostVolumeResponse { Mount = space.Mount, Total = space.Total, Free = space.Free, Uses = [use] });
+			}
+			else if (!volumes[index].Uses.Contains(use))
+			{
+				volumes[index] = volumes[index] with { Uses = [.. volumes[index].Uses, use] };
+			}
+		}
+
+		return volumes;
+	}
 
 	private static InstanceId Instance(HttpContext http) => PanelContext.Get(http)!.Instance;
 }
