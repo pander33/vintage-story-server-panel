@@ -378,8 +378,9 @@ public sealed partial class ModDbClient
 			return Refused(Phrase.From("Недопустимый адрес загрузки"));
 		}
 
+		var limit = TimeSpan.FromSeconds(30);
 		using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-		timeout.CancelAfter(TimeSpan.FromSeconds(30));
+		timeout.CancelAfter(limit);
 		try
 		{
 			using var request = new HttpRequestMessage(HttpMethod.Get, url);
@@ -404,7 +405,7 @@ public sealed partial class ModDbClient
 		catch (Exception exception) when (exception is HttpRequestException or IOException
 											  || (exception is OperationCanceledException && !ct.IsCancellationRequested))
 		{
-			return Refused(Phrase.Format($"Не удалось скачать мод: {exception.Message}"));
+			return Refused(Phrase.Format($"Не удалось скачать мод: {Reachability.Explain(exception, url, limit)}"));
 		}
 	}
 
@@ -521,8 +522,9 @@ public sealed partial class ModDbClient
 	private async Task<Result<JsonObject>> GetAsync(
 		string path, string query, CancellationToken ct, int maximum = maxResponseBytes, TimeSpan? limit = null)
 	{
+		var wait = limit ?? TimeSpan.FromSeconds(15);
 		using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-		timeout.CancelAfter(limit ?? TimeSpan.FromSeconds(15));
+		timeout.CancelAfter(wait);
 
 		byte[]? data;
 		try
@@ -543,7 +545,7 @@ public sealed partial class ModDbClient
 		catch (Exception exception) when (exception is HttpRequestException or IOException
 											  || (exception is OperationCanceledException && !ct.IsCancellationRequested))
 		{
-			return Refused(Phrase.Format($"ModDB недоступен: {exception.Message}"));
+			return Refused(Phrase.Format($"ModDB недоступен: {Reachability.Explain(exception, new Uri(ApiBase), wait)}"));
 		}
 
 		if (data is null)

@@ -104,7 +104,7 @@ public sealed class PackageDownloader
 		catch (Exception exception) when (exception is HttpRequestException or IOException or UnauthorizedAccessException
 											  || (exception is OperationCanceledException && !ct.IsCancellationRequested))
 		{
-			return Fail(destination, Phrase.Format($"Не удалось скачать пакет сервера: {exception.Message}"));
+			return Fail(destination, Phrase.Format($"Не удалось скачать пакет сервера: {Reachability.Explain(exception, url, http.Timeout)}"));
 		}
 		catch
 		{

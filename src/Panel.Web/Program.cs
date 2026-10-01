@@ -18,9 +18,15 @@ var builder = WebApplication.CreateBuilder(args);
 // Служба Windows vs-panel отвечает диспетчеру служб. Вне службы вызов ничего не делает.
 builder.Host.UseWindowsService(service => service.ServiceName = "vs-panel");
 
+// Без строки на каждый HTTP-запрос. Поставка — один файл без appsettings.json (publish.sh его
+// удаляет), поэтому правило задано здесь: иначе journald получал бы каждый запрос статики вместе
+// с адресом, а в нём и одноразовый токен мастера (/setup?token=…), и в журнале панели, который
+// уходит в диагностику, не оставалось бы места для отказов.
+builder.Logging.AddFilter("Microsoft.AspNetCore", LogLevel.Warning);
+
 // На Windows журнал службы панели — журнал событий Windows, его читает через демон раздел
 // «Журнал службы панели». По умолчанию туда пишутся только предупреждения; здесь пишется то
-// же, что journald получает на Linux, но без строки на каждый HTTP-запрос.
+// же, что journald получает на Linux.
 if (OperatingSystem.IsWindows())
 {
 	builder.Logging.AddFilter<Microsoft.Extensions.Logging.EventLog.EventLogLoggerProvider>(null, LogLevel.Information);

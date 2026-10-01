@@ -96,6 +96,16 @@ public sealed record PanelOptions
 	/// </summary>
 	public string GameVersion { get; init; } = "1.22.7";
 
+	/// <summary>
+	/// PANEL_MODDB_CDN_ADDRESSES: резервные адреса узла CDN ModDB через запятую. Пробуются, если адрес
+	/// из DNS не отвечает: из РФ DNS выдавал заблокированный узел, а соседний работал. Значение без
+	/// единого адреса (например, <c>none</c>) отключает резерв.
+	/// </summary>
+	public IReadOnlyList<System.Net.IPAddress> ModDbCdnAddresses { get; init; } = Addresses(DefaultCdnAddresses);
+
+	/// <summary>Узел BunnyCDN, доступный из РФ на 2026-10-01.</summary>
+	public const string DefaultCdnAddresses = "79.127.134.133";
+
 	/// <summary>Кэш каталога версий игры, один на панель.</summary>
 	public string CatalogueCachePath => Path.Combine(StateDirectory, "catalogue.json");
 
@@ -185,6 +195,14 @@ public sealed record PanelOptions
 		return values;
 	}
 
+	/// <summary>Адреса через запятую; не адрес пропускается.</summary>
+	public static IReadOnlyList<System.Net.IPAddress> Addresses(string value) =>
+	[
+		.. value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+			.Select(item => System.Net.IPAddress.TryParse(item, out var address) ? address : null)
+			.OfType<System.Net.IPAddress>(),
+	];
+
 	private static PanelOptions Build(bool windows, Func<string, string, string> text, Func<string, int, int> number) => new()
 	{
 		AgentSocket = text("PANEL_AGENT_SOCKET", windows ? @"\\.\pipe\vs-panel-agent" : "/run/vs-panel/agent.sock"),
@@ -210,6 +228,7 @@ public sealed record PanelOptions
 		MaxUploadMegabytes = number("PANEL_MAX_UPLOAD_MB", 256),
 		MaxWorldUploadMegabytes = number("PANEL_MAX_WORLD_UPLOAD_MB", 4096),
 		GameVersion = text("PANEL_GAME_VERSION", "1.22.7"),
+		ModDbCdnAddresses = Addresses(text(Catalogues.Infrastructure.Reachability.CdnAddressesKey, DefaultCdnAddresses)),
 
 		// Нижние границы интервалов.
 		TelemetryIntervalSeconds = Math.Max(2, number("PANEL_TELEMETRY_INTERVAL", 2)),

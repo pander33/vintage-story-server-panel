@@ -23,6 +23,8 @@ public sealed class SystemdProvisioning : IProvisioningPlatform
 {
 	private const string panelUnit = "vs-panel.service";
 
+	private const string agentUnit = "vs-panel-agent.service";
+
 	private const string stat = "/usr/bin/stat";
 
 	private const string ufw = "/usr/sbin/ufw";
@@ -238,14 +240,14 @@ public sealed class SystemdProvisioning : IProvisioningPlatform
 	}
 
 	/// <summary>
-	/// Журнал юнита панели, общий для всех серверов, строками <c>short-iso</c>, как их печатает
-	/// journalctl.
+	/// Журнал юнитов панели и демона, общий для всех серверов, строками <c>short-iso</c>, как их
+	/// печатает journalctl: обе службы одним потоком по времени, отказ демона рядом с запросом панели.
 	/// </summary>
 	public async Task<Result<PanelLogsPayload>> PanelLogsAsync(int count, CancellationToken ct)
 	{
 		var result = await HostTools.RunAsync(
 				HostTools.Journalctl,
-				["--unit", panelUnit, "--no-pager", "--output=short-iso", "--lines", count.ToString(CultureInfo.InvariantCulture)],
+				["--unit", panelUnit, "--unit", agentUnit, "--no-pager", "--output=short-iso", "--lines", count.ToString(CultureInfo.InvariantCulture)],
 				TimeSpan.FromSeconds(30),
 				ct)
 			.ConfigureAwait(false);
@@ -254,7 +256,7 @@ public sealed class SystemdProvisioning : IProvisioningPlatform
 			return Failure.Unavailable(result.Tail("Cannot read panel journal"));
 		}
 
-		return new PanelLogsPayload { Lines = SplitLines(result.StandardOutput), Unit = panelUnit };
+		return new PanelLogsPayload { Lines = SplitLines(result.StandardOutput), Unit = $"{panelUnit}, {agentUnit}" };
 	}
 
 	/// <summary>

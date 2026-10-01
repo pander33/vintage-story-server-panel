@@ -93,8 +93,9 @@ public sealed class ModImageProxy
 
 	private async Task<Result<ModImage>> FetchAsync(Uri url, CancellationToken ct)
 	{
+		var limit = TimeSpan.FromSeconds(10);
 		using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-		timeout.CancelAfter(TimeSpan.FromSeconds(10));
+		timeout.CancelAfter(limit);
 		try
 		{
 			using var request = new HttpRequestMessage(HttpMethod.Get, url);
@@ -140,7 +141,7 @@ public sealed class ModImageProxy
 		catch (Exception exception) when (exception is HttpRequestException or IOException
 											  || (exception is OperationCanceledException && !ct.IsCancellationRequested))
 		{
-			return Failure.Unavailable($"Картинка недоступна: {exception.Message}");
+			return Failure.Unavailable($"Картинка недоступна: {Reachability.Explain(exception, url, limit)}");
 		}
 	}
 

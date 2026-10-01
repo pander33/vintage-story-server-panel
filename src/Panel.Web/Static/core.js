@@ -198,15 +198,22 @@ const VS = (() => {
 	 * время останавливается, перезапускается или меняется, и править настройки некогда.
 	 */
 	const UNTRACKED = /^\/api\/(login|logout|session|operation|instances\/select|server\/console|provision(\/|$))/;
-	const operation = {pending: 0, delay: null, box: null, watching: false, last: null};
+	// collapsed — ход свёрнут оператором и до конца запросов показывается в строке операций, а не
+	// диалогом. Пока идёт задача браузера (task), диалог не открывается вовсе: её ход уже в строке.
+	const operation = {pending: 0, delay: null, box: null, watching: false, last: null, collapsed: false};
 
 	function trackBegin() {
 		operation.pending++;
-		if (operation.pending === 1 && !operation.box) operation.delay = setTimeout(openOperation, 1500);
+		if (operation.pending === 1 && !operation.box && !operation.collapsed && !local.task) operation.delay = setTimeout(openOperation, 1500);
+		renderLocal();
 	}
 	function trackEnd() {
 		operation.pending = Math.max(0, operation.pending - 1);
-		if (operation.pending === 0 && !operation.watching) closeOperation();
+		if (operation.pending === 0 && !operation.watching) {
+			closeOperation();
+			operation.collapsed = false;
+		}
+		renderLocal();
 	}
 
 	function openOperation() {
@@ -218,7 +225,11 @@ const VS = (() => {
 			<div class="dialog-fields"><ol class="progress-steps" data-steps><li class="running">${esc(I18N.t('core.sendingData'))}</li></ol><div class="operation-meter hidden" data-meter><i></i></div><small class="muted" data-elapsed></small></div>
 			<div class="dialog-actions"><button class="button" type="button" data-collapse>${esc(I18N.t('core.collapseToStatusBar'))}</button></div>`;
 		box.addEventListener('cancel', event => event.preventDefault());
-		$('[data-collapse]', box).addEventListener('click', () => closeOperation());
+		$('[data-collapse]', box).addEventListener('click', () => {
+			operation.collapsed = operation.pending > 0;
+			closeOperation();
+			renderLocal();
+		});
 		document.body.append(box);
 		operation.box = box;
 		box.showModal();
@@ -325,7 +336,7 @@ const VS = (() => {
 
 	async function pollActivity() {
 		const bar = $('#activity-bar');
-		if (!bar || bar.classList.contains('hidden')) return;
+		if (!bar || bar.classList.contains('hidden') || (!activeMaintenance && local.task)) return;
 		try {
 			const data = await api('/api/operation');
 			const stage = data.active ? (data.stages || [])[data.stage] : null;
@@ -374,12 +385,92 @@ const VS = (() => {
 			setBusyLock(true);
 			every('activity', 2000, pollActivity);
 		} else {
-			setBusyLock(false);
+			setBusyLock(!!local.task);
 			stopTimer('activity');
 			if (activeMaintenance) { showActivityOutcome(activeMaintenance); activeMaintenance = null; }
-			else bar.classList.add('hidden');
+			else renderLocal();
 		}
 	}
+
+	// ---------- работа этого браузера ----------
+
+	/**
+	 * Строка операций показывает и то, чего сервер арендой не видит: свёрнутый ход запроса и задачу
+	 * из нескольких запросов подряд (установка модов из сборки). Аренда сервера важнее: пока она
+	 * есть, строка занята ею. Задача живёт в этой вкладке — уход со страницы спрашивает подтверждения.
+	 */
+	const local = {task: null, outcome: null, hideTimer: null, shown: false};
+
+	function renderLocal() {
+		const bar = $('#activity-bar');
+		if (!bar || activeMaintenance) return;
+		clearTimeout(local.hideTimer);
+		const task = local.task;
+		if (task || (operation.collapsed && operation.pending > 0)) {
+			bar.classList.remove('hidden', 'ok', 'error');
+			bar.classList.add('running');
+			$('#activity-dot').className = 'pulse-dot warn';
+			$('#activity-more').hidden = true;
+			if (task) {
+				$('#activity-title').textContent = task.title;
+				$('#activity-stage').textContent = task.total ? `· ${Math.min(task.done + 1, task.total)}/${task.total}${task.label ? ` · ${task.label}` : ''}` : '';
+				$('#activity-track').hidden = !task.total;
+				if (task.total) $('#activity-meter').style.width = `${Math.round(task.done * 100 / task.total)}%`;
+				$('#activity-time').textContent = fmtAgo(task.started / 1000);
+				stopTimer('activity');
+			} else {
+				$('#activity-title').textContent = operation.last?.title || I18N.t('core.serverOperation');
+				$('#activity-time').textContent = '';
+				every('activity', 2000, pollActivity);
+			}
+			setBusyLock(!!task);
+			local.shown = true;
+			return;
+		}
+		// Строкой не владеем — не трогать: в ней может догорать итог обслуживания.
+		if (!local.shown) return;
+		stopTimer('activity');
+		setBusyLock(false);
+		const outcome = local.outcome;
+		if (!outcome) { bar.classList.add('hidden'); local.shown = false; return; }
+		bar.classList.remove('hidden', 'running', 'ok', 'error');
+		bar.classList.add(outcome.ok ? 'ok' : 'error');
+		$('#activity-dot').className = `pulse-dot ${outcome.ok ? 'ok' : 'error'}`;
+		$('#activity-title').textContent = `${I18N.t(outcome.ok ? 'core.done' : 'core.errorShort')} · ${outcome.title}`;
+		$('#activity-stage').textContent = outcome.summary ? `· ${outcome.summary}` : '';
+		$('#activity-track').hidden = true;
+		$('#activity-time').textContent = '';
+		$('#activity-more').hidden = true;
+		local.hideTimer = setTimeout(() => { local.outcome = null; renderLocal(); }, outcome.ok ? 10000 : 60000);
+	}
+
+	/**
+	 * Начать задачу браузера: title — что делается. step(label, done, total) — ход, finish(ok, summary) —
+	 * итог, который строка показывает ещё какое-то время (ошибка — дольше).
+	 */
+	function task(title) {
+		const job = {title, label: '', done: 0, total: 0, started: Date.now()};
+		local.task = job;
+		local.outcome = null;
+		renderLocal();
+		return {
+			step(label, done, total) {
+				Object.assign(job, {label, done, total});
+				if (local.task === job) renderLocal();
+			},
+			finish(ok, summary = '') {
+				if (local.task !== job) return;
+				local.task = null;
+				local.outcome = {ok, title, summary};
+				renderLocal();
+				emit('operation-finished');
+			},
+		};
+	}
+
+	window.addEventListener('beforeunload', event => {
+		if (local.task) event.preventDefault();
+	});
 
 	document.addEventListener('DOMContentLoaded', () => {
 		$('#activity-more')?.addEventListener('click', () => {
@@ -760,7 +851,7 @@ const VS = (() => {
 
 	return {
 		$, $$, esc, fmtBytes, fmtDuration, fmtDateTime, fmtTime, fmtShortTime, fmtAgo, fmtDay, toDate,
-		state, can, roleTitles, on, emit, toast, fail, api, applyRoles, applyBusyLock, busy, dialog, confirmAction, modal,
+		state, can, roleTitles, on, emit, toast, fail, api, applyRoles, applyBusyLock, busy, dialog, confirmAction, modal, task,
 		stream, closeStream, every, stopTimer, pages, selectPage, selectTab,
 		loadInstances, currentServer, selectInstance, refreshStatus, healthTitles, healthLevel,
 		lineChart, timeLabels,

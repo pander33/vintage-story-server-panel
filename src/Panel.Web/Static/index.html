@@ -139,6 +139,8 @@
             <article class="metric-card"><div class="metric-label"><span data-i18n="overview.backup">BACKUP</span> <span>◷</span></div><div class="metric-value"><span id="metric-backup">—</span><small id="metric-backup-day"></small></div><div class="metric-foot" id="metric-backup-foot">—</div></article>
           </div>
 
+          <article class="surface card-pad host-card" id="world-card"><div class="card-header"><div><div class="eyebrow" data-i18n="overview.worldEyebrow">WORLD</div><h3 id="world-name">—</h3><p id="world-date" data-i18n="common.awaitingTelemetry">Waiting for telemetry</p></div><span class="status-chip" id="world-chip">—</span></div><div class="host-grid" id="world-grid" aria-live="polite"></div></article>
+
           <div class="dashboard-grid">
             <article class="surface card-pad">
               <div class="card-header"><div><div class="eyebrow" data-i18n="overview.performanceEyebrow">PERFORMANCE</div><h3 data-i18n="overview.serverResources">Server resources</h3><p data-i18n="overview.resourcesSub">CPU, memory and disk usage</p></div><select class="select-inline" id="metrics-hours" data-i18n-aria-label="common.period" aria-label="Period"><option value="1" data-i18n="common.hour1">1 hour</option><option value="6" data-i18n="common.hours6">6 hours</option><option value="24" selected data-i18n="common.hours24">24 hours</option><option value="168" data-i18n="common.days7">7 days</option></select></div>
@@ -148,7 +150,7 @@
             <article class="surface card-pad">
               <div class="card-header"><div><div class="eyebrow" data-i18n="overview.diagnosticsEyebrow">DIAGNOSTICS</div><h3 data-i18n="overview.systemHealth">System health</h3><p data-i18n="overview.systemHealthSub">Everything important in one place</p></div><span class="status-chip" id="health-chip">—</span></div>
               <div class="health-list" id="health-list"></div>
-              <details class="work-details"><summary data-i18n="overview.techDetails">Technical readings</summary><div class="metric-mini compact"><span><span data-i18n="overview.techPid">PID</span> <b id="tech-pid">—</b></span><span><span data-i18n="overview.techRestarts">Restarts</span> <b id="tech-restarts">—</b></span><span><span data-i18n="overview.techUptime">Uptime</span> <b id="tech-uptime">—</b></span><span><span data-i18n="overview.techWorld">Worlds size</span> <b id="tech-world">—</b></span><span><span data-i18n="overview.techSave">Current world</span> <b id="tech-save">—</b></span><span><span data-i18n="overview.techDate">World date</span> <b id="tech-date">—</b></span><span><span data-i18n="overview.techTraffic">Traffic</span> <b id="tech-traffic">—</b></span><span><span data-i18n="overview.techCpu">CPU</span> <b id="tech-cpu">—</b></span></div></details>
+              <details class="work-details"><summary data-i18n="overview.techDetails">Technical readings</summary><div class="metric-mini compact"><span><span data-i18n="overview.techPid">PID</span> <b id="tech-pid">—</b></span><span><span data-i18n="overview.techRestarts">Restarts</span> <b id="tech-restarts">—</b></span><span><span data-i18n="overview.techUptime">Uptime</span> <b id="tech-uptime">—</b></span><span><span data-i18n="overview.techWorld">Worlds size</span> <b id="tech-world">—</b></span><span><span data-i18n="overview.techTraffic">Traffic</span> <b id="tech-traffic">—</b></span><span><span data-i18n="overview.techCpu">CPU</span> <b id="tech-cpu">—</b></span></div></details>
               <button class="card-link" type="button" data-goto="logs:diagnostics"><span data-i18n="overview.openDiagnostics">Open diagnostics</span> <svg><use href="#i-arrow"/></svg></button>
             </article>
           </div>
@@ -275,7 +277,7 @@
 
           <section class="work-panel" data-panel="logs:panel">
             <article class="surface work-card">
-              <div class="card-header"><div><h3 data-i18n="logs.panelLogTitle">Panel service log</h3><p data-i18n="logs.panelLogSub">vs-panel.service — shared across all servers</p></div><div class="card-header-actions"><select class="select-inline" id="panel-log-lines" data-i18n-aria-label="logs.lines" aria-label="Lines"><option>120</option><option>500</option><option>2000</option></select><button class="button small" type="button" id="panel-log-refresh"><svg><use href="#i-refresh"/></svg> <span data-i18n="common.refresh">Refresh</span></button></div></div>
+              <div class="card-header"><div><h3 data-i18n="logs.panelLogTitle">Panel service log</h3><p data-i18n="logs.panelLogSub">vs-panel and vs-panel-agent — shared across all servers</p></div><div class="card-header-actions"><select class="select-inline" id="panel-log-lines" data-i18n-aria-label="logs.lines" aria-label="Lines"><option>120</option><option>500</option><option>2000</option></select><button class="button small" type="button" id="panel-log-refresh"><svg><use href="#i-refresh"/></svg> <span data-i18n="common.refresh">Refresh</span></button></div></div>
               <div class="terminal-window" id="panel-log"></div>
             </article>
           </section>

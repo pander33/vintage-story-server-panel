@@ -160,12 +160,69 @@
 		$('#metric-tps').textContent = available ? Number(data.observed_tps || 0).toFixed(1) : '—';
 		$('#metric-tps-target').textContent = target ? `/ ${target.toFixed(0)}` : '';
 		$('#metric-tick').textContent = available ? `${Number(data.average_tick_gap_ms || 0).toFixed(1)}${I18N.t('overviewDynamic.o089')}` : '—';
-		$('#tech-date').textContent = available && data.world ? (data.world.pretty_date || '—') : '—';
 		$('#tech-traffic').textContent = available ? `↓ ${fmtBytes(data.total_received_bytes)} · ↑ ${fmtBytes(data.total_sent_bytes)}` : '—';
 		const nav = $('#nav-players');
 		nav.hidden = !available;
 		nav.textContent = players.length;
+		renderWorld(available ? data : null);
 		renderHealth();
+	}
+
+	// ---------- мир ----------
+
+	// Календарь и живой World.Config из телеметрии мода; подписи настроек — из схемы мира, без неё код как есть.
+	const WORLD_SETTINGS = [['gameMode', 'playerlives'], ['temporalStorms', 'worldClimate'], ['daysPerMonth', 'deathPunishment']];
+	let worldSchema = null;
+
+	const WORLD_PERIODS = {night: 'overview.worldNight', morning: 'overview.worldMorning', day: 'overview.worldDaytime', evening: 'overview.worldEvening'};
+	const worldPeriod = hour => hour < 5 || hour >= 21 ? 'night' : (hour < 11 ? 'morning' : (hour < 17 ? 'day' : 'evening'));
+
+	function worldSetting(configuration, code) {
+		const key = Object.keys(configuration).find(name => name.toLowerCase() === code.toLowerCase());
+		if (key == null) return null;
+		const value = configuration[key];
+		const attribute = (worldSchema?.attributes || []).find(item => item.code.toLowerCase() === code.toLowerCase());
+		const text = typeof value === 'string' ? value : JSON.stringify(value);
+		return {label: attribute?.label || key, value: attribute?.options?.find(option => option.value === String(value))?.label || text};
+	}
+
+	function renderWorld(data) {
+		const world = data?.world;
+		const chip = $('#world-chip');
+		if (!world) {
+			$('#world-date').textContent = data === null ? (state.telemetry?.detail || I18N.t('common.awaitingTelemetry')) : I18N.t('overview.worldUnknown');
+			$('#world-grid').innerHTML = '';
+			chip.textContent = '—';
+			chip.className = 'status-chip';
+			return;
+		}
+		const tiles = [];
+		const hour = Number(world.hour_of_day);
+		if (world.hour_of_day != null && Number.isFinite(hour)) {
+			const minutes = Math.floor(hour * 60) % 1440;
+			const time = `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+			const period = worldPeriod(minutes / 60);
+			tiles.push(hostTile(I18N.t('overview.worldTime'), time, '', minutes / 14.4, I18N.t(WORLD_PERIODS[period]), 'ok'));
+			chip.textContent = `${period === 'night' ? '☾' : '☀'} ${I18N.t(WORLD_PERIODS[period])}`;
+			chip.className = `status-chip ${period === 'night' ? '' : 'ok'}`;
+		} else {
+			chip.textContent = '—';
+			chip.className = 'status-chip';
+		}
+		if (world.total_days != null) {
+			const year = world.year == null ? '' : I18N.t('overview.worldYear', {year: world.year});
+			tiles.push(hostTile(I18N.t('overview.worldDay'), String(Math.floor(Number(world.total_days)) + 1), '', null, year));
+		}
+		const configuration = world.configuration || {};
+		for (const [main, extra] of WORLD_SETTINGS) {
+			const setting = worldSetting(configuration, main);
+			if (!setting) continue;
+			const more = worldSetting(configuration, extra);
+			tiles.push(hostTile(setting.label, setting.value, '', null, more ? `${more.label}: ${more.value}` : ''));
+		}
+		$('#world-date').textContent = world.pretty_date || I18N.t('overview.worldUnknown');
+		$('#world-grid').innerHTML = tiles.join('');
+		$$('#world-grid [data-width]').forEach(bar => { bar.style.width = `${bar.dataset.width}%`; });
 	}
 
 	// ---------- метрики ----------
@@ -183,7 +240,7 @@
 			$('#legend-ram').textContent = `${memoryPercent.toFixed(0)}%`;
 			$('#legend-disk').textContent = `${Number(current.disk_percent || 0).toFixed(0)}%`;
 			$('#tech-world').textContent = fmtBytes(current.world_size);
-			$('#tech-save').textContent = current.current_world?.name || current.current_world?.save || '—';
+			$('#world-name').textContent = current.current_world?.name || current.current_world?.save || '—';
 			$('#tech-cpu').textContent = `${Number(current.cpu_percent || 0).toFixed(1)}%`;
 			const backup = current.last_backup;
 			const when = backup ? toDate(backup.modified) : null;
@@ -220,8 +277,8 @@
 	};
 	const hostLevel = percent => percent >= 90 ? 'error' : (percent >= 75 ? 'warn' : 'ok');
 
-	function hostTile(label, value, sub, percent, foot) {
-		const bar = percent == null ? '' : `<div class="host-track"><span class="${hostLevel(percent)}" data-width="${Math.min(100, Math.max(0, percent)).toFixed(1)}"></span></div>`;
+	function hostTile(label, value, sub, percent, foot, level) {
+		const bar = percent == null ? '' : `<div class="host-track"><span class="${level || hostLevel(percent)}" data-width="${Math.min(100, Math.max(0, percent)).toFixed(1)}"></span></div>`;
 		return `<div class="host-tile"><div class="host-tile-label" title="${esc(label)}">${esc(label)}</div><div class="host-tile-value">${esc(value)}${sub ? ` <small>${esc(sub)}</small>` : ''}</div>${bar}<div class="host-tile-foot">${esc(foot || '')}</div></div>`;
 	}
 
@@ -585,6 +642,7 @@
 			renderServers();
 			if (state.status) renderStatus(state.status);
 			if (state.telemetry) renderTelemetry(state.telemetry);
+			if (!worldSchema) VS.loadWorldSchema().then(schema => { worldSchema = schema; if (state.telemetry) renderTelemetry(state.telemetry); }).catch(() => {});
 			refreshAll();
 			VS.every('overview-metrics', 60000, loadMetrics, {page: 'overview', now: false});
 			VS.every('overview-host', 15000, loadHost, {page: 'overview', now: false});

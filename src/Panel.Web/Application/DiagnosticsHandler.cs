@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using Panel.Contracts;
 using Panel.Observability.Domain;
 using Panel.Observability.Ports;
+using Panel.Provisioning.Ports;
 using Panel.Runtime.Ports;
 using Panel.SharedKernel;
 
@@ -15,7 +16,8 @@ namespace Panel.Web.Application;
 /// <para>
 /// Ключи: <c>status</c> — состояние службы без вердикта (он в <c>watchdog</c>), <c>metrics</c> —
 /// свежий замер, <c>causes</c> — разбор последней тысячи строк журнала, <c>config_apply</c> —
-/// применены ли настройки, <c>recent_events</c> — пятьдесят последних событий панели.
+/// применены ли настройки, <c>recent_events</c> — пятьдесят последних событий панели,
+/// <c>panel_journal</c> — хвост журнала служб панели и демона: отказ операции виден только там.
 /// </para>
 /// <para>
 /// Недоступный журнал или конфигурация не мешают собрать пакет: он нужен как раз тогда, когда
@@ -26,6 +28,7 @@ public sealed class DiagnosticsHandler
 {
 	private const int journalLines = 1000;
 	private const int recentEvents = 50;
+	private const int panelJournalLines = 500;
 
 	private readonly GetServerStatusHandler status;
 	private readonly IMetricsSource metrics;
@@ -34,6 +37,7 @@ public sealed class DiagnosticsHandler
 	private readonly ServerConfigurationHandler configuration;
 	private readonly UpdateService updates;
 	private readonly EventBus events;
+	private readonly IProvisioningHost host;
 
 	public DiagnosticsHandler(
 		GetServerStatusHandler status,
@@ -42,7 +46,8 @@ public sealed class DiagnosticsHandler
 		IServerRuntime runtime,
 		ServerConfigurationHandler configuration,
 		UpdateService updates,
-		EventBus events)
+		EventBus events,
+		IProvisioningHost host)
 	{
 		this.status = status;
 		this.metrics = metrics;
@@ -51,6 +56,7 @@ public sealed class DiagnosticsHandler
 		this.configuration = configuration;
 		this.updates = updates;
 		this.events = events;
+		this.host = host;
 	}
 
 	/// <summary>Пакет уже очищен через <see cref="DiagnosticsRedaction"/>.</summary>
@@ -96,9 +102,23 @@ public sealed class DiagnosticsHandler
 			["config_apply"] = applyState,
 			["causes"] = causes,
 			["recent_events"] = new JsonArray([.. recent.Select(item => (JsonNode?) item.DeepClone())]),
+			["panel_journal"] = await PanelJournalAsync(ct).ConfigureAwait(false),
 		};
 
 		return DiagnosticsRedaction.Redact(payload)!.AsObject();
+	}
+
+	/// <summary>Журнал служб панели; недоступный журнал — причина вместо строк, пакет собирается всё равно.</summary>
+	private async Task<JsonObject> PanelJournalAsync(CancellationToken ct)
+	{
+		var journal = await host.PanelLogsAsync(panelJournalLines, ct).ConfigureAwait(false);
+		return journal.IsSuccess
+			? new JsonObject
+			{
+				["unit"] = journal.Value.Unit,
+				["lines"] = new JsonArray([.. journal.Value.Lines.Select(line => (JsonNode?) line)]),
+			}
+			: new JsonObject { ["error"] = PhraseJsonConverter.ToNode(journal.Failure!.Text) };
 	}
 
 	/// <summary>

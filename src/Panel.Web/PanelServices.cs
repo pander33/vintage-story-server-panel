@@ -74,13 +74,18 @@ public static class PanelServices
 		services.AddSingleton<StagingWriter>();
 
 		// Внешние каталоги: ModDB и официальный манифест версий. Один HttpClient на процесс, таймауты
-		// задаются для каждого запроса внутри клиентов.
-		var external = new HttpClient();
+		// задаются для каждого запроса внутри клиентов. Соединение перебирает адреса узла: провайдер
+		// может не пропускать тот узел CDN, что выдал DNS.
+		var connector = new FallbackConnector(new Dictionary<string, IReadOnlyList<System.Net.IPAddress>>
+		{
+			[ModDbClient.DownloadHost] = options.ModDbCdnAddresses,
+		});
+		var external = new HttpClient(connector.Handler(redirects: true));
 		services.AddSingleton(new ModDbClient(external));
 		services.AddSingleton(p => new ModCatalogueCache(p.GetRequiredService<ModDbClient>(), TimeProvider.System));
 
 		// Картинки — через свой клиент без переадресаций: проверка хоста иначе не имела бы смысла.
-		services.AddSingleton(_ => new ModImageProxy(new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }), TimeProvider.System));
+		services.AddSingleton(_ => new ModImageProxy(new HttpClient(connector.Handler(redirects: false)), TimeProvider.System));
 		services.AddSingleton(p => new VersionCatalogue(
 			options.CatalogueCachePath,
 			VersionCatalogue.FromNetwork(external),

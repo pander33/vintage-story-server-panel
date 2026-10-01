@@ -1,5 +1,7 @@
 using System.Runtime.CompilerServices;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Panel.Access.Authorization;
 using Panel.Access.Domain;
 using Panel.Contracts;
@@ -14,7 +16,7 @@ namespace Panel.Web.Endpoints;
 /// Перевод результатов предметной области в HTTP, одно место для всех маршрутов:
 /// соответствие «отказ → код» входит в замороженный контракт (ADR-16).
 /// </summary>
-public static class PanelResults
+public static partial class PanelResults
 {
 	/// <summary>
 	/// Ответ JSON на языке запроса: фразы (<see cref="Phrase"/>) в нём пишутся переведёнными строками
@@ -96,7 +98,32 @@ public static class PanelResults
 	{
 		public int? StatusCode => status;
 
-		public Task ExecuteAsync(HttpContext httpContext) =>
-			Results.Json(value, LocalizedJson.For(httpContext), statusCode: status).ExecuteAsync(httpContext);
+		public Task ExecuteAsync(HttpContext httpContext)
+		{
+			if (value is ErrorResponse error && status is { } code && Logged(httpContext.Request.Method, code))
+			{
+				Refused(
+					httpContext.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(PanelResults)),
+					httpContext.Request.Method,
+					httpContext.Request.Path,
+					code,
+					error.Detail.ToString());
+			}
+
+			return Results.Json(value, LocalizedJson.For(httpContext), statusCode: status).ExecuteAsync(httpContext);
+		}
 	}
+
+	/// <summary>
+	/// Какой отказ записать в журнал панели: изменяющего запроса (кроме «войдите») и любой 5xx.
+	/// Отказ ModDB, демона или файловой системы иначе остаётся только во всплывающем сообщении, а
+	/// журнал панели уходит в диагностику. Отказы чтения 4xx — это опрос страниц, их не пишем.
+	/// </summary>
+	public static bool Logged(string method, int status) =>
+		status >= StatusCodes.Status500InternalServerError
+		|| (status >= StatusCodes.Status400BadRequest && status != StatusCodes.Status401Unauthorized && !HttpMethods.IsGet(method) && !HttpMethods.IsHead(method));
+
+	// Путь без строки запроса: в ней бывают токены.
+	[LoggerMessage(Level = LogLevel.Warning, Message = "Отказ {Method} {Path}: {Status} {Detail}")]
+	private static partial void Refused(ILogger logger, string method, PathString path, int status, string detail);
 }

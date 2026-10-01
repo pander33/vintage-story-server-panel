@@ -4,7 +4,7 @@
 // оператор отмечает строки, и каждая уходит отдельным install-release со своей проверкой совместимости.
 
 (() => {
-	const {esc, api, toast, fail, busy, modal, can} = VS;
+	const {esc, api, toast, modal, can} = VS;
 
 	// Порядок как у ModVersion панели: dev и alpha раньше pre, preview и beta, те раньше rc, релиз
 	// позже своих предрелизов. Только для подсказки — совместимость решает сервер.
@@ -131,23 +131,51 @@
 		actions.append(cancel, install);
 
 		const installed = [];
-		install.addEventListener('click', async () => {
+		let running = null;
+		install.addEventListener('click', () => {
 			const chosen = [...body.querySelectorAll('input:checked')].map(input => rows[Number(input.dataset.index)]);
 			if (!chosen.length) { toast(I18N.t('dependencies.noneSelected')); return; }
-			try {
-				await busy(install, async () => {
-					for (const row of chosen) {
-						const data = await api('/api/mods/install-release', {method: 'POST', body: {identifier: row.identifier, release_id: Number(row.release.releaseid)}});
-						installed.push(data.modid || row.issue.modid);
-						toast(I18N.t('dependencies.installed', {mod: data.modid, version: data.version}), 'ok');
-					}
-				});
-			} catch (error) { fail(error); }
+			running = installAll(chosen, installed);
 			close();
 		});
 
 		await closed;
+		if (running) await running;
 		if (installed.length) await VS.mods.reload(installed, chain);
+	}
+
+	/**
+	 * Поставить выбранные релизы по одному. Ход — в строке операций, чтобы с ним можно было работать
+	 * дальше; отказ одного мода не останавливает остальные, а итог с причинами остаётся на экране.
+	 */
+	async function installAll(chosen, installed) {
+		const job = VS.task(I18N.t('dependencies.installing', {count: chosen.length}));
+		const failures = [];
+		for (const [index, row] of chosen.entries()) {
+			const name = row.title || row.issue.modid;
+			job.step(`${name} ${row.release.version}`, index, chosen.length);
+			try {
+				const data = await api('/api/mods/install-release', {method: 'POST', body: {identifier: row.identifier, release_id: Number(row.release.releaseid)}});
+				installed.push(data.modid || row.issue.modid);
+			} catch (error) {
+				failures.push({name: `${name} ${row.release.version}`, error: error?.message || String(error)});
+			}
+		}
+		job.finish(!failures.length, I18N.t('dependencies.installedSummary', {installed: installed.length, failed: failures.length}));
+		if (failures.length) report(failures, installed.length);
+		else toast(I18N.t('dependencies.installedSummary', {installed: installed.length, failed: 0}), 'ok');
+	}
+
+	/** Итог с отказами — диалогом, а не всплывающим сообщением: его нужно успеть прочитать. */
+	function report(failures, count) {
+		const {body, actions, close} = modal({eyebrow: I18N.t('dependencies.eyebrow'), title: I18N.t('dependencies.failedTitle'), text: I18N.t('dependencies.installedSummary', {installed: count, failed: failures.length})});
+		body.innerHTML = `<div class="data-list">${failures.map(item => `<div><span class="grow"><b>${esc(item.name)}</b><small class="accent">${esc(item.error)}</small></span></div>`).join('')}</div>`;
+		const ok = document.createElement('button');
+		ok.type = 'button';
+		ok.className = 'button primary';
+		ok.textContent = I18N.t('common.close');
+		ok.addEventListener('click', close);
+		actions.append(ok);
 	}
 
 	/**

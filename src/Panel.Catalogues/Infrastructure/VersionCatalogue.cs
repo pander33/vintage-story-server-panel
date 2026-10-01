@@ -82,8 +82,9 @@ public sealed class VersionCatalogue
 	/// <summary>Манифест из сети: не больше 8 МБ, непустой объект.</summary>
 	public static Func<CancellationToken, Task<Result<JsonObject>>> FromNetwork(HttpClient http) => async ct =>
 	{
+		var limit = TimeSpan.FromSeconds(20);
 		using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-		timeout.CancelAfter(TimeSpan.FromSeconds(20));
+		timeout.CancelAfter(limit);
 
 		byte[] data;
 		try
@@ -118,7 +119,7 @@ public sealed class VersionCatalogue
 		catch (Exception exception) when (exception is HttpRequestException or IOException
 											  || (exception is OperationCanceledException && !ct.IsCancellationRequested))
 		{
-			return Failure.Unavailable($"Каталог версий недоступен: {exception.Message}");
+			return Failure.Unavailable($"Каталог версий недоступен: {Reachability.Explain(exception, new Uri(ManifestUrl), limit)}");
 		}
 
 		try
