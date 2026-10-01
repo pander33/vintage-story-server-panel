@@ -564,10 +564,11 @@ public static class ObservabilityEndpoints
 			places.Add((server.BackupDirectory, new HostVolumeUseResponse { Kind = "backups", Server = server.Name }));
 		}
 
+		var origins = HostProbe.MountOrigins();
 		var volumes = new List<HostVolumeResponse>();
 		foreach (var (path, use) in places)
 		{
-			if (HostProbe.VolumeOf(path, drives) is not { } space)
+			if (HostProbe.VolumeOf(path, drives, origins) is not { } space)
 			{
 				continue;
 			}

@@ -102,8 +102,9 @@ public sealed class HostProbe
 	/// <summary>
 	/// Том, на котором лежит путь: точка монтирования с самым длинным совпадающим префиксом, как в
 	/// <c>GameFiles.Usage</c> демона. <c>Path.GetPathRoot</c> на Linux всегда дал бы <c>/</c>.
+	/// Bind-монтирование называется точкой монтирования своего тома (<paramref name="origins"/>).
 	/// </summary>
-	public static VolumeSpace? VolumeOf(string path, IReadOnlyList<DriveInfo> drives)
+	public static VolumeSpace? VolumeOf(string path, IReadOnlyList<DriveInfo> drives, IReadOnlyDictionary<string, string>? origins = null)
 	{
 		ArgumentNullException.ThrowIfNull(drives);
 		if (string.IsNullOrWhiteSpace(path))
@@ -120,12 +121,80 @@ public sealed class HostProbe
 				.OrderByDescending(candidate => candidate.Name.Length)
 				.FirstOrDefault(IsReady);
 
-			return drive is null ? null : new VolumeSpace(drive.Name, drive.TotalSize, drive.AvailableFreeSpace);
+			return drive is null ? null : new VolumeSpace(origins?.GetValueOrDefault(drive.Name) ?? drive.Name, drive.TotalSize, drive.AvailableFreeSpace);
 		}
 		catch (Exception exception) when (exception is ArgumentException or IOException or UnauthorizedAccessException)
 		{
 			return null;
 		}
+	}
+
+	/// <summary>Bind-монтирования процесса панели и точки монтирования их томов; на Windows их нет.</summary>
+	public static IReadOnlyDictionary<string, string> MountOrigins() =>
+		OperatingSystem.IsLinux() && Read("/proc/self/mountinfo") is { } text ? ParseMountinfo(text) : new Dictionary<string, string>();
+
+	/// <summary>
+	/// Bind-монтирование → точка монтирования того же тома из <c>/proc/self/mountinfo</c>.
+	/// </summary>
+	/// <remarks>
+	/// <c>ReadWritePaths=/var/lib/vs-panel</c> юнита при <c>ProtectSystem=strict</c> монтирует каталог
+	/// состояния сам на себя, и панель видела его отдельным диском с теми же цифрами, что у <c>/</c>.
+	/// Bind-монтирование отличает корень внутри тома (четвёртое поле) не <c>/</c>; том — номер
+	/// устройства (третье поле), его точка монтирования — та, где корень <c>/</c>, самая короткая.
+	/// </remarks>
+	public static IReadOnlyDictionary<string, string> ParseMountinfo(string text)
+	{
+		ArgumentNullException.ThrowIfNull(text);
+		var entries = new List<(string Device, string Root, string Mount)>();
+		foreach (var line in text.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+		{
+			var fields = line.Split(' ');
+			if (fields.Length > 4)
+			{
+				entries.Add((fields[2], Unescape(fields[3]), Unescape(fields[4])));
+			}
+		}
+
+		var origins = new Dictionary<string, string>(StringComparer.Ordinal);
+		foreach (var (device, root, mount) in entries.Where(entry => entry.Root != "/"))
+		{
+			var origin = entries
+				.Where(entry => entry.Device == device && entry.Root == "/")
+				.Select(entry => entry.Mount)
+				.OrderBy(candidate => candidate.Length)
+				.FirstOrDefault();
+			if (origin is not null)
+			{
+				origins[mount] = origin;
+			}
+		}
+
+		return origins;
+	}
+
+	/// <summary>Пробел, табуляция, перевод строки и обратная косая черта в mountinfo — восьмеричные, как <c>\040</c>.</summary>
+	private static string Unescape(string field)
+	{
+		if (!field.Contains('\\', StringComparison.Ordinal))
+		{
+			return field;
+		}
+
+		var result = new System.Text.StringBuilder(field.Length);
+		for (var i = 0; i < field.Length; i++)
+		{
+			if (field[i] == '\\' && i + 3 < field.Length && field.Substring(i + 1, 3) is var octal && octal.All(digit => digit is >= '0' and <= '7'))
+			{
+				result.Append((char) Convert.ToInt32(octal, 8));
+				i += 3;
+			}
+			else
+			{
+				result.Append(field[i]);
+			}
+		}
+
+		return result.ToString();
 	}
 
 	/// <summary>Лежит ли путь на томе с этой точкой монтирования.</summary>

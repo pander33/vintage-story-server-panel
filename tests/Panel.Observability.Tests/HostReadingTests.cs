@@ -17,6 +17,26 @@ public sealed class HostReadingTests
 		Assert.Equal(new CpuTimes(170, 620), times);
 	}
 
+	[Fact]
+	public void Bind_монтирование_каталога_состояния_это_тот_же_корневой_том()
+	{
+		// Так mountinfo службы панели выглядит при ProtectSystem=strict и ReadWritePaths=/var/lib/vs-panel.
+		const string mountinfo = """
+			25 1 8:1 / / ro,relatime shared:1 - ext4 /dev/sda1 rw
+			26 25 0:22 / /proc rw,nosuid shared:2 - proc proc rw
+			40 25 8:1 /var/lib/vs-panel /var/lib/vs-panel rw,relatime shared:1 - ext4 /dev/sda1 rw
+			41 25 8:17 / /srv rw,relatime shared:3 - ext4 /dev/sdb1 rw
+			42 41 8:17 /games/my\040world /srv/my\040world rw,relatime shared:3 - ext4 /dev/sdb1 rw
+			43 25 0:50 /x /orphan rw - tmpfs tmpfs rw
+			""";
+
+		var origins = HostProbe.ParseMountinfo(mountinfo);
+
+		Assert.Equal("/", origins["/var/lib/vs-panel"]);
+		Assert.Equal("/srv", origins["/srv/my world"]);
+		Assert.Equal(2, origins.Count);
+	}
+
 	[Theory]
 	[InlineData("")]
 	[InlineData("intr 1 2 3")]
