@@ -198,9 +198,7 @@ public static class Program
 			throw new InstallFailed($"Run as root: sudo vs-panel {command}");
 		}
 
-		var environment = Environment.GetEnvironmentVariables()
-			.Cast<DictionaryEntry>()
-			.ToDictionary(entry => (string) entry.Key, entry => entry.Value as string ?? string.Empty, StringComparer.Ordinal);
+		var environment = EnvironmentVariables(Environment.GetEnvironmentVariables(), StringComparer.Ordinal);
 		var installer = new Installer(host);
 		var commands = new PanelCommands(host);
 
@@ -247,6 +245,23 @@ public static class Program
 	}
 
 	/// <summary>
+	/// Окружение процесса как словарь. На Windows блок окружения может держать имена, различающиеся
+	/// только регистром (<c>Path</c> и <c>PATH</c> — от MSYS, Cygwin или родителя, собравшего блок
+	/// сам): без учёта регистра остаётся первое, а не исключение о повторном ключе.
+	/// </summary>
+	internal static Dictionary<string, string> EnvironmentVariables(IDictionary variables, StringComparer comparer)
+	{
+		ArgumentNullException.ThrowIfNull(variables);
+		var environment = new Dictionary<string, string>(comparer);
+		foreach (DictionaryEntry entry in variables)
+		{
+			environment.TryAdd((string) entry.Key, entry.Value as string ?? string.Empty);
+		}
+
+		return environment;
+	}
+
+	/// <summary>
 	/// Windows: службы и каталог программ требуют прав администратора, как root на Linux. Без
 	/// этих прав работают только команды, которые ничего не меняют.
 	/// </summary>
@@ -261,9 +276,7 @@ public static class Program
 			throw new InstallFailed($"Administrator privileges required: open an Administrator command prompt and retry vs-panel {command}");
 		}
 
-		var environment = Environment.GetEnvironmentVariables()
-			.Cast<DictionaryEntry>()
-			.ToDictionary(entry => (string) entry.Key, entry => entry.Value as string ?? string.Empty, StringComparer.OrdinalIgnoreCase);
+		var environment = EnvironmentVariables(Environment.GetEnvironmentVariables(), StringComparer.OrdinalIgnoreCase);
 		var installer = new WindowsInstaller(host);
 		var commands = new WindowsCommands(host);
 

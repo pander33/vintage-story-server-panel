@@ -27,9 +27,13 @@ exit /b %code%
 
 :elevate
 rem Administrator privileges are required for services, Program Files and ProgramData.
+rem The path and arguments reach PowerShell through the environment, not inside a quoted
+rem literal: an apostrophe in either would end the literal and break the command.
+set "VS_PANEL_SELF=%~f0"
+set "VS_PANEL_ARGS=%*"
 if "%~1"=="" (
-    powershell -NoProfile -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
+    powershell -NoProfile -Command "Start-Process -FilePath $env:VS_PANEL_SELF -Verb RunAs"
 ) else (
-    powershell -NoProfile -Command "Start-Process -FilePath '%~f0' -ArgumentList '%*' -Verb RunAs"
+    powershell -NoProfile -Command "Start-Process -FilePath $env:VS_PANEL_SELF -ArgumentList $env:VS_PANEL_ARGS -Verb RunAs"
 )
 exit /b

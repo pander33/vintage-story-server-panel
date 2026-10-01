@@ -91,6 +91,43 @@ public sealed class WindowsInstallTests : IDisposable
 		Assert.Contains("-Verb RunAs", text, StringComparison.Ordinal);
 	}
 
+	/// <summary>
+	/// Путь и ключи попадают в PowerShell через окружение: внутри литерала в кавычках апостроф
+	/// в пути (<c>C:\Users\O'Brien</c>) или в ключе закрыл бы строку и сломал повышение прав.
+	/// </summary>
+	[Fact]
+	public void Повышение_прав_не_вставляет_путь_и_ключи_в_строку_PowerShell()
+	{
+		var text = File.ReadAllText(Path.Combine(Repository(), "deploy", "windows", "install.cmd"));
+		var commands = text.Split("\r\n").Where(line => line.Contains("powershell", StringComparison.OrdinalIgnoreCase)).ToList();
+
+		Assert.NotEmpty(commands);
+		Assert.All(commands, line => Assert.DoesNotContain("%~f0", line, StringComparison.Ordinal));
+		Assert.All(commands, line => Assert.DoesNotContain("%*", line, StringComparison.Ordinal));
+		Assert.Contains("set \"VS_PANEL_SELF=%~f0\"", text, StringComparison.Ordinal);
+		Assert.Contains("set \"VS_PANEL_ARGS=%*\"", text, StringComparison.Ordinal);
+	}
+
+	/// <summary>Блок окружения Windows может держать <c>Path</c> и <c>PATH</c> сразу; установщик от этого не падает.</summary>
+	[Fact]
+	public void Окружение_с_именами_разного_регистра()
+	{
+		var variables = new System.Collections.Hashtable(StringComparer.Ordinal)
+		{
+			["Path"] = @"C:\Windows",
+			["PATH"] = @"C:\msys64\usr\bin",
+			["VS_PANEL_CREATE_SERVER"] = "0",
+		};
+
+		var environment = Program.EnvironmentVariables(variables, StringComparer.OrdinalIgnoreCase);
+		var options = InstallOptions.ParseWindows([], environment);
+
+		Assert.Equal(2, environment.Count);
+		Assert.True(environment.ContainsKey("path"));
+		Assert.True(options.IsSuccess);
+		Assert.False(options.Value.CreateServer);
+	}
+
 	[Fact]
 	public void Параметры_установки_Windows()
 	{

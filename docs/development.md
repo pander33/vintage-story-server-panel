@@ -76,8 +76,8 @@ GitHub Release. В него также входят `get.sh` и `get.ps1` из �
 `releases/latest` его не отдаёт. Тег с дефисом (`v0.3.0-rc1`) — пререлиз: «последним» он не считается.
 
 ```bash
-git tag v0.2.0
-git push origin v0.2.0
+git tag v0.3.0
+git push origin v0.3.0
 ```
 
 До загрузки каждый архив проверяет `scripts/verify-release.py`: каталог, версия и цель,

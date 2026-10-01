@@ -40,7 +40,7 @@ curl -fsSL https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/
 
 ### Ручная установка: скачать выпуск
 
-1. Откройте [страницу выпуска 0.2.0 на GitHub](https://github.com/ruslan120p/vintage-story-panel-net/releases/tag/v0.2.0).
+1. Откройте [страницу выпуска 0.3.0 на GitHub](https://github.com/ruslan120p/vintage-story-panel-net/releases/tag/v0.3.0).
 2. Разверните список **Assets** и скачайте архив для своей системы:
 
 | Система | Архив |
