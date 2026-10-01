@@ -106,6 +106,9 @@ public sealed record ServiceInstalledPayload
 	[JsonPropertyName("unit")] public string Unit { get; init; } = string.Empty;
 
 	[JsonPropertyName("path")] public string Path { get; init; } = string.Empty;
+
+	/// <summary>Игровой порт в брандмауэре не открылся; служба поставлена.</summary>
+	[JsonPropertyName("firewall_warning")] public Phrase? FirewallWarning { get; init; }
 }
 
 /// <summary>Ответ <c>panel-env-set</c>: строка записана и действует после перезапуска панели.</summary>

@@ -173,6 +173,7 @@ public static class Program
 		var editor = new RegistryEditor(panelConfig);
 		var tracker = new OperationTracker(TimeProvider.System);
 		var schemas = new WorldSchemaReader();
+		var ports = new GamePorts(registry, editor, new GameFirewall(panelConfig));
 		var content = new ContentOperations(
 			new ModBackend(staging, TimeProvider.System),
 			new WorldBackend(staging, TimeProvider.System),
@@ -190,7 +191,7 @@ public static class Program
 			new GameEventLog(),
 			[
 				content,
-				new ConfigOperations(new ConfigBackend(staging, TimeProvider.System)),
+				new ConfigOperations(new ConfigBackend(staging, TimeProvider.System), ports),
 				new WorldSchemaOperations(schemas),
 				new MetricsCollector(service, telemetry, backups),
 				new GameOperations(new GameBackend(staging, TimeProvider.System), service, editor),
@@ -198,7 +199,7 @@ public static class Program
 			],
 			[
 				new RegistryOperations(registry, editor, service),
-				new ProvisionOperations(new ProvisionBackend(panelConfig, registry, editor, staging, platform)),
+				new ProvisionOperations(new ProvisionBackend(panelConfig, registry, editor, staging, platform, ports)),
 			],
 			tracker);
 	}

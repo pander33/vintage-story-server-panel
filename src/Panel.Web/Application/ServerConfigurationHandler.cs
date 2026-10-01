@@ -163,6 +163,7 @@ public sealed class ServerConfigurationHandler
 			Backup = written.Value.Backup,
 			RestartRequired = written.Value.RestartRequired,
 			AutoRestarted = restart,
+			FirewallWarning = written.Value.FirewallWarning,
 			ApplyState = value,
 		});
 	}
@@ -223,6 +224,7 @@ public sealed class ServerConfigurationHandler
 			SafetyBackup = restored.Value.SafetyBackup,
 			RestartRequired = restored.Value.RestartRequired,
 			AutoRestarted = service.Value.Active,
+			FirewallWarning = restored.Value.FirewallWarning,
 			ApplyState = value,
 		});
 	}

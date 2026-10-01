@@ -571,15 +571,19 @@ internal sealed class WindowsInstaller
 	/// </summary>
 	private async Task OpenGamePortAsync(int port)
 	{
+		// Те же правила ставит демон для серверов из панели (GamePortRule): так он снимет и эти.
 		var text = port.ToString(CultureInfo.InvariantCulture);
-		foreach (var protocol in new[] { "TCP", "UDP" })
+		foreach (var rule in GamePortRule.NetshDelete(port))
 		{
-			var name = $"Vintage Story {text} {protocol}";
-			await Shell.RunAsync("netsh.exe", ["advfirewall", "firewall", "delete", "rule", $"name={name}"]).ConfigureAwait(false);
-			var added = await Shell.RunAsync("netsh.exe", ["advfirewall", "firewall", "add", "rule", $"name={name}", "dir=in", "action=allow", $"protocol={protocol}", $"localport={text}"]).ConfigureAwait(false);
+			await Shell.RunAsync("netsh.exe", rule).ConfigureAwait(false);
+		}
+
+		foreach (var rule in GamePortRule.NetshAdd(port))
+		{
+			var added = await Shell.RunAsync("netsh.exe", rule).ConfigureAwait(false);
 			if (!added.Succeeded)
 			{
-				this.host.Warn($"port {text}/{protocol} was not opened in Windows Firewall: {added.Reason}");
+				this.host.Warn($"port {text} was not opened in Windows Firewall: {added.Reason}");
 				return;
 			}
 		}

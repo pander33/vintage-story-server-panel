@@ -37,6 +37,9 @@ public sealed record ConfigWritePayload
 	[JsonPropertyName("ok")] public bool Ok { get; init; } = true;
 	[JsonPropertyName("backup")] public string? Backup { get; init; }
 	[JsonPropertyName("restart_required")] public bool RestartRequired { get; init; } = true;
+
+	/// <summary>Порт сменился, а новый в брандмауэре не открылся; настройки записаны.</summary>
+	[JsonPropertyName("firewall_warning")] public Phrase? FirewallWarning { get; init; }
 }
 
 /// <summary>Ответ <c>config-rollback</c>. <c>safety_backup</c> — имя, а не путь.</summary>
@@ -46,6 +49,9 @@ public sealed record ConfigRollbackPayload
 	[JsonPropertyName("restored")] public string Restored { get; init; } = string.Empty;
 	[JsonPropertyName("safety_backup")] public string? SafetyBackup { get; init; }
 	[JsonPropertyName("restart_required")] public bool RestartRequired { get; init; } = true;
+
+	/// <summary>Копия с другим портом, а он в брандмауэре не открылся; копия восстановлена.</summary>
+	[JsonPropertyName("firewall_warning")] public Phrase? FirewallWarning { get; init; }
 }
 
 /// <summary>Один стиль игры из ответа <c>world-config-schema</c>, с готовыми значениями параметров.</summary>

@@ -45,7 +45,8 @@ administrator account there, and the panel is ready. Details — in [Installatio
 
 **Overview.** The list of servers and the state of the selected one: is it running, is it
 ready to accept players, how many are online, how loaded it is. Start, stop and restart
-with one button. Creating a new server: the panel downloads the official game package
+with one button. A summary of the machine itself: CPU and memory load, swap, free space on
+the disks that hold the panel, servers and backups, and how much memory the panel uses. Creating a new server: the panel downloads the official game package
 itself, verifies its checksum and prepares the directories.
 
 **Players and console.** Who is online and how good their connection is. Chat and game
@@ -302,16 +303,99 @@ system uses another firewall (firewalld, nftables), open the port there yourself
 install the panel with `--firewall off`. Access from the internet behind a router also
 needs port forwarding to the machine.
 
-> **The panel speaks plain HTTP.** On the local network the password and the session travel
-> in clear text. For access from the internet put HTTPS in front of the panel (nginx, Caddy
-> and the like) and enable `--secure-cookie true`. Otherwise keep `--access lan` or
-> `--access localhost`.
+**Game ports.** Every game server's port is open to everyone, TCP and UDP: players come
+from anywhere. The rule is added when a server is created (by the installer or in the
+panel), moved when `Port` changes in the server settings or a settings backup with another
+port is restored, and removed when the server is deleted. A port used by another server of
+the panel cannot be saved. As with the panel port, on Linux this is done only in ufw and
+only when it is enabled; with `--firewall off` the panel leaves the firewall alone. If the
+rule could not be added, the panel shows why: open the port yourself.
+
+> **The panel speaks plain HTTP.** The password and the session travel in clear text. On
+> your own local network that is usually acceptable; for the internet HTTPS is better, see
+> [Publishing on the internet](#publishing-on-the-internet).
+
+An **SSH tunnel** is the safest option: the panel listens on the machine only, nothing is
+exposed.
+
+```bash
+ssh -L 8080:localhost:8080 server
+# then open http://localhost:8080 in the browser
+```
+
+### Publishing on the internet
+
+This is how the panel is set up on a VPS or a home server reachable from the internet. A
+domain and HTTPS are optional: the panel works by IP address too. Below are three options,
+from the simplest to the safest. Players do not care which one you pick: they connect to
+the game port, not to the panel.
+
+**Firewall first.** On an Ubuntu VPS ufw is usually disabled, and then everything is open.
+Enable it **before installing**, allowing SSH first or you will lock yourself out:
+
+```bash
+sudo ufw allow OpenSSH
+sudo ufw enable
+```
+
+The installer and the panel then open the panel port and the game ports themselves. If ufw
+was enabled after installation, run `sudo vs-panel repair --access internet` (or with the
+option you choose below) and open the game ports yourself: `sudo ufw allow 42420/tcp` and
+`sudo ufw allow 42420/udp`.
+
+**Many VPS providers have their own firewall** (security groups, "Firewall" in the provider's
+control panel). The panel cannot see it: open the panel port there (`8080/tcp` by default),
+the game ports (`42420` and up, TCP and UDP), and for HTTPS `80/tcp` and `443/tcp`.
+
+**Players connect** in the game via "Multiplayer → Add server" to an address like
+`203.0.113.10:42420` or `play.example.com:42420`. Overview shows it in **ADDRESS TO
+CONNECT**. The web panel address does not work in the game.
+
+#### Option 1. By IP address, no domain, no HTTPS
+
+The simplest: the panel opens at `http://<server IP>:8080`.
+
+```bash
+curl -fsSL …/deploy/get.sh | sudo sh -s -- --access internet
+# or for an installed panel:
+sudo vs-panel repair --access internet
+```
+
+The password and the session travel in clear text and can be seen by anyone whose network
+carries the traffic: public Wi-Fi, an ISP. If you choose this option:
+- set a long unique password and enable two-factor sign-in (TOTP) in the account settings;
+- do not sign in from other people's or public networks;
+- give helpers no more than the role they need (Viewer, Operator).
+
+You can change the panel port (`--port 9000`): it does not stop a targeted attack but cuts
+down automated guessing.
+
+#### Option 2. By domain, no HTTPS
+
+Easier to remember, the same protection as option 1. You need a DNS **A** record for a
+name (for example, `panel.example.com`) pointing at the server IP. No domain of your own —
+a free name from a dynamic DNS service such as [DuckDNS](https://www.duckdns.org/) will do.
+
+```bash
+sudo vs-panel repair --access internet --allowed-hosts panel.example.com,203.0.113.10
+```
+
+`--allowed-hosts` is optional (default `*`, any name), but with it the panel answers only
+to its own names and not to other names pointed at your IP.
+
+#### Option 3. By domain with HTTPS (recommended)
+
+The password and the session are encrypted; the certificate is free and renews itself. You
+need the DNS record from option 2 and ports `80` and `443` open (in ufw and at the
+provider). The panel port no longer needs to be open to the outside: only Caddy on the
+same machine talks to it.
 
 #### HTTPS with Caddy
 
-[Caddy](https://caddyserver.com/) gets a certificate on its own; it
-needs a domain name pointing at the machine and ports 80 and 443 open. The whole
-`/etc/caddy/Caddyfile`:
+[Caddy](https://caddyserver.com/) gets and renews a Let's Encrypt certificate on its own.
+Debian 12 and Ubuntu 24.04 have it in the repository (`sudo apt install caddy`); for other
+systems, Windows included, see the [Caddy install guide](https://caddyserver.com/docs/install).
+The whole `/etc/caddy/Caddyfile`:
 
 ```
 panel.example.com {
@@ -319,11 +403,21 @@ panel.example.com {
 }
 ```
 
-The panel then listens on the machine only and trusts the domain name:
+```bash
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo systemctl reload caddy
+```
+
+The panel then listens on the machine only, trusts the domain name and sends its cookie
+over HTTPS only:
 
 ```bash
 sudo vs-panel repair --access localhost --allowed-hosts panel.example.com --secure-cookie true
 ```
+
+Open `https://panel.example.com`. If no certificate was issued, check
+`sudo journalctl -u caddy`: most often the DNS record has not updated yet or port 80 is closed.
 
 **Visitor addresses.** Behind a proxy the panel takes the visitor's address from
 `X-Forwarded-For` — for the audit log and for the limit on failed sign-ins. It believes the
@@ -338,14 +432,6 @@ sudo vs-panel repair --trusted-proxies 127.0.0.1,::1,10.0.0.2
 List only your own proxies, never the networks your visitors come from: anyone connecting
 from a trusted address can put any address into the header.
 
-An **SSH tunnel** is the safest option: the panel listens on the machine only, nothing is
-exposed.
-
-```bash
-ssh -L 8080:localhost:8080 server
-# then open http://localhost:8080 in the browser
-```
-
 ### Settings file
 
 All of this lives in `/etc/vs-panel.env` on Linux and `C:\ProgramData\vs-panel\vs-panel.env`
@@ -358,7 +444,7 @@ A manual edit does not update the firewall rule: run `vs-panel repair`.
 | `PANEL_PORT` | `8080` | panel port |
 | `PANEL_ALLOWED_HOSTS` | `*` | host names the panel may be reached by |
 | `PANEL_SECURE_COOKIE` | `false` | sign-in over HTTPS only |
-| `PANEL_FIREWALL` | `lan` | whom the panel port is open to: `lan`, `internet` or `off` |
+| `PANEL_FIREWALL` | `lan` | whom the panel port is open to: `lan`, `internet` or `off`; with `off` the panel leaves the game ports alone too |
 | `PANEL_SESSION_HOURS` | `12` | how long a sign-in lasts |
 | `PANEL_MAX_UPLOAD_MB` | `256` | upload limit for a mod or a file |
 | `PANEL_MAX_WORLD_UPLOAD_MB` | `4096` | upload limit for a world |

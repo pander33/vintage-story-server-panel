@@ -136,6 +136,8 @@
 			const applied = data.apply_state?.state;
 			if (data.auto_restarted && applied !== 'applied') toast(I18N.t('settingsDynamic.s030'), 'error');
 			else toast(data.auto_restarted ? I18N.t('settingsDynamic.s031') : (applied === 'restart_required' ? I18N.t('settingsDynamic.s032') : (applied === 'start_required' ? I18N.t('settingsDynamic.s033') : I18N.t('settingsDynamic.s034'))), 'ok');
+			// Настройки записаны, но новый игровой порт в брандмауэре не открылся: игроки не подключатся.
+			if (data.firewall_warning) toast(data.firewall_warning, 'error');
 		} catch (error) { fail(error); }
 	});
 	$('#config-json-apply').addEventListener('click', () => {
@@ -156,6 +158,7 @@
 			await loadConfig();
 			const failed = data.auto_restarted && data.apply_state?.state !== 'applied';
 			toast(failed ? I18N.t('settingsDynamic.s042') : `${I18N.t('settingsDynamic.s043')}${data.restored}`, failed ? 'error' : 'ok');
+			if (data.firewall_warning) toast(data.firewall_warning, 'error');
 		} catch (error) { fail(error); }
 	});
 	$('#config-apply-action').addEventListener('click', async event => {

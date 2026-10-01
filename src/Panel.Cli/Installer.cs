@@ -498,10 +498,13 @@ internal sealed class Installer
 			return;
 		}
 
-		var text = port.ToString(CultureInfo.InvariantCulture);
-		await Shell.RunAsync("ufw", ["allow", text + "/tcp"]).ConfigureAwait(false);
-		await Shell.RunAsync("ufw", ["allow", text + "/udp"]).ConfigureAwait(false);
-		Output.WriteLine($"Game port {text} is open in ufw (TCP and UDP).");
+		// Те же правила ставит демон для серверов из панели (GamePortRule): так он снимет и эти.
+		foreach (var rule in GamePortRule.UfwAllow(port))
+		{
+			await Shell.RunAsync("ufw", rule).ConfigureAwait(false);
+		}
+
+		Output.WriteLine($"Game port {port.ToString(CultureInfo.InvariantCulture)} is open in ufw (TCP and UDP).");
 	}
 
 	private void ReportFirewall(FirewallOutcome? outcome)

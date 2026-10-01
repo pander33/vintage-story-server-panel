@@ -104,6 +104,7 @@ public sealed record ConfigSaveResponse
 	[JsonPropertyName("backup")] public string? Backup { get; init; }
 	[JsonPropertyName("restart_required")] public bool RestartRequired { get; init; }
 	[JsonPropertyName("auto_restarted")] public bool AutoRestarted { get; init; }
+	[JsonPropertyName("firewall_warning")] public Phrase? FirewallWarning { get; init; }
 	[JsonPropertyName("apply_state")] public ApplyStateResponse ApplyState { get; init; } = new();
 }
 
@@ -114,6 +115,7 @@ public sealed record ConfigRollbackResponse
 	[JsonPropertyName("safety_backup")] public string? SafetyBackup { get; init; }
 	[JsonPropertyName("restart_required")] public bool RestartRequired { get; init; } = true;
 	[JsonPropertyName("auto_restarted")] public bool AutoRestarted { get; init; }
+	[JsonPropertyName("firewall_warning")] public Phrase? FirewallWarning { get; init; }
 	[JsonPropertyName("apply_state")] public ApplyStateResponse ApplyState { get; init; } = new();
 }
 

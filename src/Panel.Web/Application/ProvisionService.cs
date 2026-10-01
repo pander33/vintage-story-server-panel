@@ -320,8 +320,13 @@ public sealed partial class ProvisionService : IHostedService
 			operation.Advance(new OperationStep(StepAction.Create, StepResult.Ok) { Root = created.Root, TelemetryMod = created.TelemetryMod });
 			await SaveAsync(operation).ConfigureAwait(false);
 
-			Require(await host.InstallServiceAsync(spec.Id, ct).ConfigureAwait(false));
-			operation.Advance(new OperationStep(StepAction.Service, StepResult.Ok) { Unit = created.Unit });
+			// Неоткрытый игровой порт не отменяет созданного сервера: оператор откроет его сам.
+			var service = Require(await host.InstallServiceAsync(spec.Id, ct).ConfigureAwait(false));
+			operation.Advance(new OperationStep(StepAction.Service, service.FirewallWarning is null ? StepResult.Ok : StepResult.Warning)
+			{
+				Unit = created.Unit,
+				Detail = service.FirewallWarning,
+			});
 			await SaveAsync(operation).ConfigureAwait(false);
 
 			Require(await runtime.ServiceAsync(spec.Id, ServiceAction.Start, serviceTimeout, ct).ConfigureAwait(false));

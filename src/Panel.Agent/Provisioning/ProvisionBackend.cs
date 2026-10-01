@@ -60,24 +60,28 @@ public sealed class ProvisionBackend
 	private readonly RegistryEditor editor;
 	private readonly StagingArea staging;
 	private readonly IProvisioningPlatform platform;
+	private readonly GamePorts ports;
 
 	public ProvisionBackend(
 		string panelConfigPath,
 		IRegistryStore registry,
 		RegistryEditor editor,
 		StagingArea staging,
-		IProvisioningPlatform platform)
+		IProvisioningPlatform platform,
+		GamePorts ports)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(panelConfigPath);
 		ArgumentNullException.ThrowIfNull(registry);
 		ArgumentNullException.ThrowIfNull(editor);
 		ArgumentNullException.ThrowIfNull(staging);
 		ArgumentNullException.ThrowIfNull(platform);
+		ArgumentNullException.ThrowIfNull(ports);
 		this.panelConfigPath = panelConfigPath;
 		this.registry = registry;
 		this.editor = editor;
 		this.staging = staging;
 		this.platform = platform;
+		this.ports = ports;
 	}
 
 	/// <summary>Проверить привязанный к длине и SHA256 переносимый пакет без записи его содержимого.</summary>
@@ -739,7 +743,16 @@ public sealed class ProvisionBackend
 				: "Only the fifo transport has a generated unit");
 		}
 
-		return await platform.InstallServiceAsync(paths, server, ct).ConfigureAwait(false);
+		var installed = await platform.InstallServiceAsync(paths, server, ct).ConfigureAwait(false);
+		if (!installed.IsSuccess)
+		{
+			return installed;
+		}
+
+		// Игрокам нужен порт, записанный в настройки сервера; реестр — если настройки не читаются.
+		var port = await GamePorts.ConfiguredPortAsync(server, ct).ConfigureAwait(false);
+		var warning = await ports.OpenAsync(port > 0 ? port : GamePorts.PortOf(server), ct).ConfigureAwait(false);
+		return installed.Value with { FirewallWarning = warning };
 	}
 
 	/// <summary>
@@ -804,6 +817,8 @@ public sealed class ProvisionBackend
 			return Failure.Conflict("This instance was not created by the panel; its files are managed elsewhere");
 		}
 
+		// Порт читается до того, как дерево сервера вместе с настройками будет стёрто.
+		var port = await GamePorts.ConfiguredPortAsync(server, ct).ConfigureAwait(false);
 		var removed = await platform.RemoveServiceAsync(paths, server, ct).ConfigureAwait(false);
 		if (!removed.IsSuccess)
 		{
@@ -842,6 +857,8 @@ public sealed class ProvisionBackend
 			return written.Failure!;
 		}
 
+		// Сервера больше нет, и правило его порта не нужно. Порт другого сервера не снимается.
+		await ports.CloseAsync(instance, port > 0 ? port : GamePorts.PortOf(server), ct).ConfigureAwait(false);
 		return new InstanceDeletedPayload
 		{
 			Id = instance.Value,
@@ -913,7 +930,7 @@ public sealed class ProvisionBackend
 	}
 
 	/// <summary>Строки <c>KEY=VALUE</c> файла окружения; комментарии и пустые строки пропускаются.</summary>
-	private static Dictionary<string, string> EnvironmentValues(IEnumerable<string> lines)
+	internal static Dictionary<string, string> EnvironmentValues(IEnumerable<string> lines)
 	{
 		var values = new Dictionary<string, string>(StringComparer.Ordinal);
 		foreach (var line in lines.Select(item => item.Trim()))

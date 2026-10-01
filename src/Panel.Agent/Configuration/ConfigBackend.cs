@@ -86,11 +86,15 @@ public sealed class ConfigBackend
 			})],
 		};
 
+	/// <param name="admit">Последняя проверка документа перед заменой, например что порт не занят.</param>
 	public async Task<Result<ConfigWritePayload>> WriteAsync(
 		RegisteredServer server,
 		StagedFile staged,
+		Func<JsonObject, Failure?> admit,
 		CancellationToken ct)
 	{
+		ArgumentNullException.ThrowIfNull(admit);
+
 		var source = await staging.ResolveAsync(staged, ".json", ct).ConfigureAwait(false);
 		if (!source.IsSuccess)
 		{
@@ -102,6 +106,11 @@ public sealed class ConfigBackend
 		if (!document.IsSuccess)
 		{
 			return Result.Fail<ConfigWritePayload>(document.Failure!);
+		}
+
+		if (admit(document.Value) is { } refused)
+		{
+			return refused;
 		}
 
 		var target = server.ConfigFile;
@@ -124,8 +133,10 @@ public sealed class ConfigBackend
 	public async Task<Result<ConfigRollbackPayload>> RollbackAsync(
 		RegisteredServer server,
 		ConfigBackupName requested,
+		Func<JsonObject, Failure?> admit,
 		CancellationToken ct)
 	{
+		ArgumentNullException.ThrowIfNull(admit);
 		var target = server.ConfigFile;
 
 		// Имя сверяется ещё раз — теперь с именем файла, которое знает только демон.
@@ -148,6 +159,11 @@ public sealed class ConfigBackend
 		if (!document.IsSuccess)
 		{
 			return Result.Fail<ConfigRollbackPayload>(document.Failure!);
+		}
+
+		if (admit(document.Value) is { } refused)
+		{
+			return refused;
 		}
 
 		var safety = FreeBackupPath(target, avoid: source.FullName);
