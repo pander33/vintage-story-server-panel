@@ -163,6 +163,112 @@ public static class AutomationEndpoints
 			return PanelResults.Json(new JsonObject { ["ok"] = true, ["run_id"] = launched.Value });
 		});
 
+		// Объявления по расписанию: текст игрокам раз в N минут.
+		routes.MapPost("/api/automation/announcements", async (
+			HttpContext http,
+			JsonObject body,
+			CommandAuthorizer authorizer,
+			AutomationService automation,
+			AuditLog audit,
+			CancellationToken ct) =>
+		{
+			var allowed = PanelResults.Authorize(http, authorizer, typeof(ChangeAutomation));
+			if (!allowed.IsSuccess)
+			{
+				return PanelResults.Refuse(allowed.Failure!);
+			}
+
+			var created = await automation
+				.AddAnnouncementAsync(Instance(http), ScheduledAnnouncement.Draft(body), ct)
+				.ConfigureAwait(false);
+			if (!created.IsSuccess)
+			{
+				return PanelResults.Refuse(created.Failure!);
+			}
+
+			await audit.RecordAsync(http, "announcement_created", TelemetryText(created.Value["id"]), ct).ConfigureAwait(false);
+			return PanelResults.Json(created.Value);
+		});
+
+		routes.MapPut("/api/automation/announcements/{announcement_id}", async (
+			HttpContext http,
+			string announcement_id,
+			JsonObject body,
+			CommandAuthorizer authorizer,
+			AutomationService automation,
+			AuditLog audit,
+			CancellationToken ct) =>
+		{
+			var allowed = PanelResults.Authorize(http, authorizer, typeof(ChangeAutomation));
+			if (!allowed.IsSuccess)
+			{
+				return PanelResults.Refuse(allowed.Failure!);
+			}
+
+			var draft = ScheduledAnnouncement.Draft(body);
+			var updated = await automation
+				.UpdateAnnouncementAsync(Instance(http), announcement_id, _ => draft, ct)
+				.ConfigureAwait(false);
+			if (!updated.IsSuccess)
+			{
+				return PanelResults.Refuse(updated.Failure!);
+			}
+
+			await audit.RecordAsync(http, "announcement_updated", announcement_id, ct).ConfigureAwait(false);
+			return PanelResults.Json(updated.Value);
+		});
+
+		routes.MapPost("/api/automation/announcements/{announcement_id}/toggle", async (
+			HttpContext http,
+			string announcement_id,
+			ToggleRequest body,
+			CommandAuthorizer authorizer,
+			AutomationService automation,
+			AuditLog audit,
+			CancellationToken ct) =>
+		{
+			var allowed = PanelResults.Authorize(http, authorizer, typeof(ChangeAutomation));
+			if (!allowed.IsSuccess)
+			{
+				return PanelResults.Refuse(allowed.Failure!);
+			}
+
+			var updated = await automation
+				.UpdateAnnouncementAsync(Instance(http), announcement_id, current => current with { Enabled = body.Enabled }, ct)
+				.ConfigureAwait(false);
+			if (!updated.IsSuccess)
+			{
+				return PanelResults.Refuse(updated.Failure!);
+			}
+
+			await audit.RecordAsync(http, "announcement_toggled", $"{announcement_id}:{PythonBool(body.Enabled)}", ct).ConfigureAwait(false);
+			return PanelResults.Json(updated.Value);
+		});
+
+		routes.MapDelete("/api/automation/announcements/{announcement_id}", async (
+			HttpContext http,
+			string announcement_id,
+			CommandAuthorizer authorizer,
+			AutomationService automation,
+			AuditLog audit,
+			CancellationToken ct) =>
+		{
+			var allowed = PanelResults.Authorize(http, authorizer, typeof(ChangeAutomation));
+			if (!allowed.IsSuccess)
+			{
+				return PanelResults.Refuse(allowed.Failure!);
+			}
+
+			var deleted = await automation.DeleteAnnouncementAsync(Instance(http), announcement_id, ct).ConfigureAwait(false);
+			if (!deleted.IsSuccess)
+			{
+				return PanelResults.Refuse(deleted.Failure!);
+			}
+
+			await audit.RecordAsync(http, "announcement_deleted", announcement_id, ct).ConfigureAwait(false);
+			return PanelResults.Json(new JsonObject { ["ok"] = true });
+		});
+
 		routes.MapPut("/api/automation/watchdog", async (
 			HttpContext http,
 			JsonObject body,

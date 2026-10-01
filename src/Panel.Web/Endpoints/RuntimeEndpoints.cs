@@ -1,11 +1,14 @@
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Panel.Access.Authorization;
+using Panel.Configuration.Ports;
 using Panel.Contracts.Http;
 using Panel.Contracts.Privacy;
 using Panel.Contracts.ServerCommands;
 using Panel.Runtime.Domain;
+using Panel.Runtime.Ports;
 using Panel.SharedKernel;
 using Panel.Web.Application;
 using Panel.Web.Middleware;
@@ -38,7 +41,7 @@ public static class RuntimeEndpoints
 			}
 
 			var instance = PanelContext.Get(http)!.Instance;
-			var result = await handler.ServiceAsync(instance, action.Value, ct).ConfigureAwait(false);
+			var result = await handler.OperatorServiceAsync(instance, action.Value, ct).ConfigureAwait(false);
 			if (!result.IsSuccess)
 			{
 				return PanelResults.Refuse(result.Failure!);
@@ -48,6 +51,57 @@ public static class RuntimeEndpoints
 				.ConfigureAwait(false);
 
 			return PanelResults.Json(new ServiceActionResponse { Action = body.Action });
+		});
+
+		// Виден ли игровой порт из интернета. Проверять имеет смысл только работающий сервер: порт
+		// остановленного никто не слушает, и ответ «закрыт» ничего бы не значил.
+		routes.MapPost("/api/reachability", async (
+			HttpContext http,
+			CommandAuthorizer authorizer,
+			IServerRuntime runtime,
+			IServerConfigStore configs,
+			PortReachability reachability,
+			CancellationToken ct) =>
+		{
+			var allowed = PanelResults.Authorize(http, authorizer, typeof(CheckReachability));
+			if (!allowed.IsSuccess)
+			{
+				return PanelResults.Refuse(allowed.Failure!);
+			}
+
+			var instance = PanelContext.Get(http)!.Instance;
+			var status = await runtime.StatusAsync(instance, ct).ConfigureAwait(false);
+			if (!status.IsSuccess)
+			{
+				return PanelResults.Refuse(status.Failure!);
+			}
+
+			if (!status.Value.IsActive)
+			{
+				return PanelResults.Refuse(Failure.Conflict("Сервер остановлен, и порт никто не слушает. Запустите сервер и проверьте снова"));
+			}
+
+			if (await GameEndpoint.ReadAsync(configs, instance, ct).ConfigureAwait(false) is not { } endpoint)
+			{
+				return PanelResults.Refuse(Failure.Unavailable("Не удалось прочитать порт из serverconfig.json"));
+			}
+
+			var checkedPort = await reachability.CheckAsync(endpoint.Port, ct).ConfigureAwait(false);
+			if (!checkedPort.IsSuccess)
+			{
+				return PanelResults.Refuse(checkedPort.Failure!);
+			}
+
+			var result = checkedPort.Value;
+			return PanelResults.Json(new JsonObject
+			{
+				["public_address"] = result.PublicAddress,
+				["port"] = result.Port,
+				["protocol"] = "tcp",
+				["reachable"] = result.Reachable,
+				["checked_at"] = result.CheckedAt.ToUnixTimeSeconds(),
+				["checker"] = result.Checker,
+			});
 		});
 
 		routes.MapGet("/api/server/actions", async (

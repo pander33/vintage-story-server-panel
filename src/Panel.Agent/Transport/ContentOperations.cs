@@ -506,6 +506,16 @@ public sealed class ContentOperations : IServerOperations
 			}
 
 			var exported = await backups.ExportAsync(server, path.Value, ct, scope).ConfigureAwait(false);
+			if (exported.IsSuccess)
+			{
+				var handed = await StagingArea.HandOverAsync(path.Value, ct).ConfigureAwait(false);
+				if (!handed.IsSuccess)
+				{
+					File.Delete(path.Value);
+					return Failed(handed.Failure!);
+				}
+			}
+
 			return Reply(exported.Map(size => new WorldExportPayload
 			{
 				Name = $"server-{server.Id.Value}.tar.gz",

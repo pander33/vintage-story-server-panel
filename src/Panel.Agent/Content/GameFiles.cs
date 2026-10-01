@@ -148,6 +148,13 @@ public static class GameFiles
 	public static Task<Result<Done>> ChangeGroupAsync(string path, string group, CancellationToken ct) =>
 		ChownAsync($":{group}", path, ct);
 
+	/// <summary>
+	/// Отдать файл владельцу каталога: <c>chown --reference</c>. Так файл, записанный root для
+	/// веб-процесса, получает его учётную запись без перевода имени в uid.
+	/// </summary>
+	public static Task<Result<Done>> ChangeOwnerLikeAsync(string path, string reference, CancellationToken ct) =>
+		ChownAsync($"--reference={reference}", path, ct);
+
 	private static async Task<Result<Done>> ChownAsync(string owner, string path, CancellationToken ct)
 	{
 		if (OperatingSystem.IsWindows())

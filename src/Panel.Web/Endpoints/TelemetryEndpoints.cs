@@ -101,6 +101,37 @@ public static class TelemetryEndpoints
 			});
 		});
 
+		// История игроков: кто и когда заходил, сколько наиграл. Ведётся по снимкам телеметрии,
+		// поэтому без мода пуста. UID наблюдателю не показывается, как и в ленте событий.
+		routes.MapGet("/api/players/history", async (
+			HttpContext http,
+			CommandAuthorizer authorizer,
+			ServerMonitors monitors) =>
+		{
+			var allowed = PanelResults.Authorize(http, authorizer, typeof(ReadTelemetry), requireCsrf: false);
+			if (!allowed.IsSuccess)
+			{
+				return PanelResults.Refuse(allowed.Failure!);
+			}
+
+			var hide = allowed.Value.HidesAddresses;
+			var (players, since) = (await monitors.GetAsync(Instance(http)).ConfigureAwait(false)).Roster();
+			return PanelResults.Json(new JsonObject
+			{
+				["since"] = since > 0 ? since : null,
+				["players"] = new JsonArray([.. players.Select(entry => (JsonNode?) new JsonObject
+				{
+					["name"] = entry.Player.Name,
+					["uid"] = hide || entry.Player.Uid.Length == 0 ? null : entry.Player.Uid,
+					["online"] = entry.Online,
+					["first_seen"] = entry.Player.FirstSeen,
+					["last_seen"] = entry.Player.LastSeen,
+					["playtime_seconds"] = entry.Player.PlaytimeSeconds,
+					["sessions"] = entry.Player.Sessions,
+				})]),
+			});
+		});
+
 		routes.MapGet("/api/telemetry", async (
 			HttpContext http,
 			CommandAuthorizer authorizer,

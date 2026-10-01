@@ -132,6 +132,8 @@ public sealed class WorldBackend
 			return Result.Fail<WorldExport>(target.Failure!);
 		}
 
+		// Без пула: соединение из пула держало бы открытыми и мир, и снимок. Удалённый панелью снимок
+		// занимал бы место до перезапуска демона, а на Windows мир нельзя было бы переместить.
 		try
 		{
 			await using var from = new SqliteConnection(
@@ -139,9 +141,10 @@ public sealed class WorldBackend
 				{
 					DataSource = source,
 					Mode = SqliteOpenMode.ReadOnly,
+					Pooling = false,
 				}.ToString());
 			await using var to = new SqliteConnection(
-				new SqliteConnectionStringBuilder { DataSource = target.Value }.ToString());
+				new SqliteConnectionStringBuilder { DataSource = target.Value, Pooling = false }.ToString());
 
 			await from.OpenAsync(ct).ConfigureAwait(false);
 			await to.OpenAsync(ct).ConfigureAwait(false);
@@ -154,6 +157,13 @@ public sealed class WorldBackend
 		}
 
 		GameFiles.SetMode(target.Value, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+		var handed = await StagingArea.HandOverAsync(target.Value, ct).ConfigureAwait(false);
+		if (!handed.IsSuccess)
+		{
+			File.Delete(target.Value);
+			return Result.Fail<WorldExport>(handed.Failure!);
+		}
+
 		return new WorldExport(name, staged, new FileInfo(target.Value).Length);
 	}
 

@@ -38,6 +38,9 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 
 	private static readonly TimeSpan readinessPoll = TimeSpan.FromSeconds(5);
 
+	/// <summary>Предел объявлений одного сервера: два десятка уже превращают чат в рекламу.</summary>
+	private const int maxAnnouncements = 20;
+
 	private readonly ConcurrentDictionary<InstanceId, Lazy<Task<Workspace>>> workspaces = new();
 	private readonly IRegistryStore registry;
 	private readonly IServerRuntime runtime;
@@ -130,6 +133,8 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 		await CheckWatchdogAsync(instance, ct).ConfigureAwait(false);
 
 		var workspace = await WorkspaceAsync(instance).ConfigureAwait(false);
+		await AnnounceDueAsync(instance, workspace, ct).ConfigureAwait(false);
+
 		var now = clock.GetUtcNow();
 		MaintenanceJob? due = null;
 		var skipped = new List<MaintenanceJob>();
@@ -333,6 +338,8 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 					.OrderBy(job => job.NextRun ?? long.MaxValue)
 					.Select(job => (JsonNode?)job.ToJson())]),
 				["runs"] = new JsonArray([.. runs.Select(run => (JsonNode?) run)]),
+				["announcements"] = new JsonArray([.. workspace.Announcements
+					.Select(item => (JsonNode?) item.ToJson())]),
 				["running"] = workspace.Running?.ToJson(),
 				["watchdog"] = WatchdogSettingsJson.ToJson(workspace.Watchdog),
 				["health"] = health,
@@ -571,6 +578,144 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 		}
 	}
 
+	// ----- объявления по расписанию ---------------------------------------------------
+
+	/// <summary>
+	/// Объявления, срок которых наступил. Остановленному серверу и пустому (если так задано)
+	/// объявление не отправляется, но срок всё равно переходит к следующему: копить пропущенные
+	/// незачем.
+	/// </summary>
+	private async Task AnnounceDueAsync(InstanceId instance, Workspace workspace, CancellationToken ct)
+	{
+		var now = clock.GetUtcNow();
+		List<ScheduledAnnouncement> due;
+		lock (workspace.Sync)
+		{
+			due = [.. workspace.Announcements.Where(item => item.IsDue(now))];
+		}
+
+		if (due.Count == 0)
+		{
+			return;
+		}
+
+		// Вердикт только что записал такт наблюдателя; без него сервер считается остановленным.
+		var active = TelemetryNumbers.Truthy(workspace.Health["active"]);
+		int? online = null;
+		if (active && due.Any(item => item.PlayersOnly)
+			&& await telemetry.ReadAsync(instance, ct).ConfigureAwait(false) is TelemetryReading.Fresh fresh)
+		{
+			// Без свежей телеметрии число игроков неизвестно, и объявление уходит: лучше лишнее
+			// сообщение, чем молчание на сервере без мода.
+			online = fresh.Snapshot.Players.Count;
+		}
+
+		var outcomes = new Dictionary<string, AnnouncementOutcome>(StringComparer.Ordinal);
+		foreach (var item in due)
+		{
+			if (!active || (item.PlayersOnly && online == 0))
+			{
+				outcomes[item.Id] = AnnouncementOutcome.Skipped;
+				continue;
+			}
+
+			var sent = await announcements.SendTextAsync(instance, item.Text, ct).ConfigureAwait(false);
+			if (!sent.IsSuccess)
+			{
+				AnnouncementFailed(log, instance.Value, sent.Failure!.Message);
+			}
+
+			outcomes[item.Id] = sent.IsSuccess ? AnnouncementOutcome.Sent : AnnouncementOutcome.Failed;
+		}
+
+		lock (workspace.Sync)
+		{
+			for (var index = 0; index < workspace.Announcements.Count; index++)
+			{
+				// Объявление могли изменить, пока шла отправка: итог записывается в текущую версию.
+				if (outcomes.TryGetValue(workspace.Announcements[index].Id, out var outcome))
+				{
+					workspace.Announcements[index] = workspace.Announcements[index].Advance(now, outcome);
+				}
+			}
+		}
+
+		await workspace.SaveAsync(ct).ConfigureAwait(false);
+	}
+
+	public async Task<Result<JsonObject>> AddAnnouncementAsync(InstanceId instance, AnnouncementDraft draft, CancellationToken ct)
+	{
+		var created = ScheduledAnnouncement.Create(draft, null, clock.GetUtcNow());
+		if (!created.IsSuccess)
+		{
+			return Result.Fail<JsonObject>(created.Failure!);
+		}
+
+		var workspace = await WorkspaceAsync(instance).ConfigureAwait(false);
+		lock (workspace.Sync)
+		{
+			if (workspace.Announcements.Count >= maxAnnouncements)
+			{
+				return Failure.Invalid($"Не больше {maxAnnouncements} объявлений на сервер");
+			}
+
+			workspace.Announcements.Add(created.Value);
+		}
+
+		await workspace.SaveAsync(ct).ConfigureAwait(false);
+		return created.Value.ToJson();
+	}
+
+	/// <summary>Изменение и переключение: присланное накладывается на объявление.</summary>
+	public async Task<Result<JsonObject>> UpdateAnnouncementAsync(
+		InstanceId instance,
+		string id,
+		Func<AnnouncementDraft, AnnouncementDraft> change,
+		CancellationToken ct)
+	{
+		var workspace = await WorkspaceAsync(instance).ConfigureAwait(false);
+		Result<ScheduledAnnouncement> updated;
+
+		lock (workspace.Sync)
+		{
+			var index = workspace.Announcements.FindIndex(item => item.Id == id);
+			if (index < 0)
+			{
+				return Failure.NotFound("Объявление не найдено");
+			}
+
+			var current = workspace.Announcements[index];
+			updated = ScheduledAnnouncement.Create(change(current.ToDraft()), id, clock.GetUtcNow(), current);
+			if (updated.IsSuccess)
+			{
+				workspace.Announcements[index] = updated.Value;
+			}
+		}
+
+		if (!updated.IsSuccess)
+		{
+			return Result.Fail<JsonObject>(updated.Failure!);
+		}
+
+		await workspace.SaveAsync(ct).ConfigureAwait(false);
+		return updated.Value.ToJson();
+	}
+
+	public async Task<Result<Done>> DeleteAnnouncementAsync(InstanceId instance, string id, CancellationToken ct)
+	{
+		var workspace = await WorkspaceAsync(instance).ConfigureAwait(false);
+		lock (workspace.Sync)
+		{
+			if (workspace.Announcements.RemoveAll(item => item.Id == id) == 0)
+			{
+				return Failure.NotFound("Объявление не найдено");
+			}
+		}
+
+		await workspace.SaveAsync(ct).ConfigureAwait(false);
+		return Done.Ok;
+	}
+
 	/// <summary>
 	/// Ожидание готовности. Сервер без мода телеметрии готовность подтвердить не может, поэтому
 	/// «ограниченная проверка» завершает ожидание сразу, а не по таймауту.
@@ -660,6 +805,9 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 	[LoggerMessage(Level = LogLevel.Warning, Message = "Такт автоматизации сервера {Instance} не удался")]
 	private static partial void TickFailed(ILogger logger, string instance, Exception exception);
 
+	[LoggerMessage(Level = LogLevel.Warning, Message = "Объявление по расписанию на сервере {Instance} не отправлено: {Reason}")]
+	private static partial void AnnouncementFailed(ILogger logger, string instance, string reason);
+
 	/// <summary>Отказ шага, который прерывает прогон; его причина становится итогом.</summary>
 	private sealed class MaintenanceFailed(Failure reason) : Exception(reason.Message)
 	{
@@ -687,6 +835,8 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 		public SemaphoreSlim WatchdogGate { get; } = new(1, 1);
 
 		public List<MaintenanceJob> Jobs { get; private set; } = [];
+
+		public List<ScheduledAnnouncement> Announcements { get; private set; } = [];
 
 		public WatchdogSettings Watchdog { get; set; } = WatchdogSettings.Default;
 
@@ -728,6 +878,13 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 					.Where(job => job.IsSuccess)
 					.Select(job => job.Value)];
 
+				// В файле, записанном до появления объявлений, ключа нет: список пуст.
+				workspace.Announcements = [.. (root["announcements"] as JsonArray ?? [])
+					.OfType<JsonObject>()
+					.Select(item => ScheduledAnnouncement.FromJson(item, now))
+					.Where(item => item.IsSuccess)
+					.Select(item => item.Value)];
+
 				if (root["health"] is JsonObject health)
 				{
 					workspace.Health = (JsonObject) health.DeepClone();
@@ -748,7 +905,7 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 		}
 
 		/// <summary>
-		/// <c>{"version": 1, "jobs", "watchdog", "health", "restart_history"}</c>, отступ в два
+		/// <c>{"version": 1, "jobs", "announcements", "watchdog", "health", "restart_history"}</c>, отступ в два
 		/// пробела, права 0600, не больше двадцати последних перезапусков.
 		/// </summary>
 		public async Task SaveAsync(CancellationToken ct)
@@ -760,6 +917,7 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 				{
 					["version"] = 1,
 					["jobs"] = new JsonArray([.. Jobs.Select(job => (JsonNode?) job.ToJson())]),
+					["announcements"] = new JsonArray([.. Announcements.Select(item => (JsonNode?) item.ToJson())]),
 					["watchdog"] = WatchdogSettingsJson.ToJson(Watchdog),
 					["health"] = Health.DeepClone(),
 					["restart_history"] = new JsonArray([.. Restarts.TakeLast(20).Select(moment => (JsonNode?) moment.ToUnixTimeSeconds())]),

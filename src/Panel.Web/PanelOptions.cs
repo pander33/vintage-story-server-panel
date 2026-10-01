@@ -103,6 +103,12 @@ public sealed record PanelOptions
 	/// </summary>
 	public IReadOnlyList<System.Net.IPAddress> ModDbCdnAddresses { get; init; } = Addresses(DefaultCdnAddresses);
 
+	/// <summary>
+	/// PANEL_PORT_CHECK_URL: сервис проверки игрового порта из интернета, <c>{port}</c> заменяется
+	/// портом; <c>off</c> выключает проверку.
+	/// </summary>
+	public string PortCheckUrl { get; init; } = Application.PortReachability.DefaultChecker;
+
 	/// <summary>Узел BunnyCDN, доступный из РФ на 2026-10-01.</summary>
 	public const string DefaultCdnAddresses = "79.127.134.133";
 
@@ -163,7 +169,13 @@ public sealed record PanelOptions
 		int Number(string key, int fallback) =>
 			int.TryParse(Text(key, string.Empty), CultureInfo.InvariantCulture, out var value) ? value : fallback;
 
-		return Build(windows, Text, Number);
+		var options = Build(windows, Text, Number);
+
+		// Относительный путь служба разрешила бы от System32 (Windows) или корня (systemd) и молча
+		// завела бы там второе состояние, а демон писал бы выгрузки в настоящий каталог.
+		return Path.IsPathFullyQualified(options.StateDirectory)
+			? options
+			: throw new InvalidOperationException($"PANEL_STATE_DIR must be an absolute path, got '{options.StateDirectory}'. Fix it with vs-panel repair.");
 	}
 
 	/// <summary>
@@ -229,6 +241,7 @@ public sealed record PanelOptions
 		MaxWorldUploadMegabytes = number("PANEL_MAX_WORLD_UPLOAD_MB", 4096),
 		GameVersion = text("PANEL_GAME_VERSION", "1.22.7"),
 		ModDbCdnAddresses = Addresses(text(Catalogues.Infrastructure.Reachability.CdnAddressesKey, DefaultCdnAddresses)),
+		PortCheckUrl = text(Application.PortReachability.CheckerKey, Application.PortReachability.DefaultChecker),
 
 		// Нижние границы интервалов.
 		TelemetryIntervalSeconds = Math.Max(2, number("PANEL_TELEMETRY_INTERVAL", 2)),

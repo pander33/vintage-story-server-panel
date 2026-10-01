@@ -1,3 +1,4 @@
+using Panel.Configuration.Ports;
 using Panel.Contracts.ServerCommands;
 using Panel.Fleet.Domain;
 using Panel.Fleet.Ports;
@@ -24,6 +25,8 @@ public sealed class ServerControlHandler
 	private readonly ReadinessPolicy policy;
 	private readonly ReadinessLog log;
 	private readonly TimeProvider time;
+	private readonly IServerConfigStore configs;
+	private readonly IGamePortProbe ports;
 
 	public ServerControlHandler(
 		IRegistryStore registry,
@@ -31,7 +34,9 @@ public sealed class ServerControlHandler
 		ITelemetryReader telemetry,
 		ReadinessPolicy policy,
 		ReadinessLog log,
-		TimeProvider time)
+		TimeProvider time,
+		IServerConfigStore configs,
+		IGamePortProbe ports)
 	{
 		this.registry = registry;
 		this.runtime = runtime;
@@ -39,9 +44,22 @@ public sealed class ServerControlHandler
 		this.policy = policy;
 		this.log = log;
 		this.time = time;
+		this.configs = configs;
+		this.ports = ports;
 	}
 
-	public async Task<Result<Done>> ServiceAsync(InstanceId instance, ServiceAction action, CancellationToken ct)
+	public Task<Result<Done>> ServiceAsync(InstanceId instance, ServiceAction action, CancellationToken ct) =>
+		ServiceAsync(instance, action, probePort: false, ct);
+
+	/// <summary>
+	/// Действие оператора. Запуск остановленного сервера сначала проверяет игровой порт: занятый
+	/// другой программой порт — отказ с причиной, а не упавшая игра. Обслуживание и обновления
+	/// запускают сервер без проверки: сразу после остановки порт мог ещё не освободиться.
+	/// </summary>
+	public Task<Result<Done>> OperatorServiceAsync(InstanceId instance, ServiceAction action, CancellationToken ct) =>
+		ServiceAsync(instance, action, probePort: true, ct);
+
+	private async Task<Result<Done>> ServiceAsync(InstanceId instance, ServiceAction action, bool probePort, CancellationToken ct)
 	{
 		var server = await LoadAsync(instance, ct).ConfigureAwait(false);
 		if (!server.IsSuccess)
@@ -53,6 +71,19 @@ public sealed class ServerControlHandler
 		if (!planned.IsSuccess)
 		{
 			return Result.Fail<Done>(planned.Failure!);
+		}
+
+		if (probePort && planned.Value == ServiceAction.Start && !server.Value.Service.IsActive
+			&& await GameEndpoint.ReadAsync(configs, instance, ct).ConfigureAwait(false) is { } endpoint)
+		{
+			var port = endpoint.Port.ToString(System.Globalization.CultureInfo.InvariantCulture);
+			switch (ports.Probe(endpoint.Address, endpoint.Port))
+			{
+				case PortAvailability.InUse:
+					return Failure.Conflict($"Порт {port} уже занят другой программой, и сервер не сможет его открыть. Остановите её или смените Port в настройках сервера");
+				case PortAvailability.Denied:
+					return Failure.Conflict($"Система не даёт занять порт {port}: на Windows это бывает с портами, зарезервированными Hyper-V (netsh interface ipv4 show excludedportrange protocol=tcp). Смените Port в настройках сервера");
+			}
 		}
 
 		return await runtime

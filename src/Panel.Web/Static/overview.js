@@ -53,6 +53,8 @@
 		const server = VS.currentServer();
 		$('#selected-name').textContent = server ? (server.name || server.id) : (state.current || I18N.t('overviewDynamic.o035'));
 		$('#selected-address').textContent = server?.port ? `${location.hostname}:${server.port}` : '—';
+		// Ответ проверки относится к серверу, для которого её запускали.
+		if ($('#reachability-result').dataset.server !== (server?.id || '')) $('#reachability-result').classList.add('hidden');
 		const locked = !server || state.instances.length < 2;
 		$('#server-forget').disabled = locked;
 		$('#server-delete').disabled = locked;
@@ -72,6 +74,23 @@
 		if (text === '—') return;
 		try { await navigator.clipboard.writeText(text); toast(I18N.t('overviewDynamic.o037'), 'ok'); }
 		catch { toast(`${I18N.t('overviewDynamic.o038')}${text}`); }
+	});
+
+	// Проверка из интернета: внешний сервис подключается к внешнему адресу машины по TCP.
+	$('#check-reachability').addEventListener('click', async event => {
+		const box = $('#reachability-result');
+		try {
+			const data = await busy(event.currentTarget, () => api('/api/reachability', {method: 'POST'}));
+			const address = `${data.public_address}:${data.port}`;
+			box.className = `notice ${data.reachable ? 'ok' : 'warn'}`;
+			box.innerHTML = data.reachable
+				? `<strong>${esc(I18N.t('overview.reachableTitle', {address}))}</strong><p>${esc(I18N.t('overview.reachableText'))}</p>`
+				: `<strong>${esc(I18N.t('overview.unreachableTitle', {address}))}</strong><p>${esc(I18N.t('overview.unreachableText', {port: data.port}))}</p>`;
+			box.dataset.server = VS.currentServer()?.id || '';
+		} catch (error) {
+			box.classList.add('hidden');
+			fail(error);
+		}
 	});
 
 	$('#server-rename').addEventListener('click', async () => {

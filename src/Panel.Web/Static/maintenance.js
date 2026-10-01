@@ -31,8 +31,53 @@
 				<span class="row-actions"><button class="button small" type="button" data-job="run" data-id="${esc(job.id)}" ${admin}${I18N.t('maintenanceDynamic.m28')}${esc(job.id)}" data-enabled="${job.enabled ? '0' : '1'}" ${admin}>${job.enabled ? I18N.t('maintenanceDynamic.m29') : I18N.t('maintenanceDynamic.m30')}</button><button class="button small danger" type="button" data-job="delete" data-id="${esc(job.id)}" ${admin}${I18N.t('maintenanceDynamic.m31')}`;
 		}).join('') || I18N.t('maintenanceDynamic.m32');
 		$('#automation-runs').innerHTML = (data.runs || []).map(run => `<div><time>${esc(fmtDateTime(run.started_at))}</time><span class="event-kind ${esc(RUN_LEVEL[run.status] || 'info')}">${esc(RUNS[run.status] || run.status)}</span><span><strong>${esc(run.name)}</strong> ${esc(run.detail || '')}</span></div>`).join('') || I18N.t('maintenanceDynamic.m33');
+		renderAnnouncements(data.announcements || []);
 		renderWatchdog(data, hydrate);
 	}
+
+	// ---------- объявления по расписанию ----------
+
+	const ANNOUNCEMENT_RESULTS = {sent: 'maintenance.announcementSent', skipped: 'maintenance.announcementSkipped', failed: 'maintenance.announcementFailed'};
+
+	function renderAnnouncements(items) {
+		const admin = VS.can('admin') ? '' : 'disabled';
+		$('#announcement-list').innerHTML = items.map(item => {
+			const result = item.last_result ? I18N.t(ANNOUNCEMENT_RESULTS[item.last_result] || 'maintenance.announcementFailed') : I18N.t('maintenance.announcementNever');
+			const plan = [
+				I18N.t('maintenance.announcementEvery', {minutes: item.interval_minutes}),
+				item.players_only ? I18N.t('maintenance.announcementWithPlayers') : '',
+				`${I18N.t('maintenance.announcementNext')} ${item.next_run ? fmtDateTime(item.next_run) : '—'}`,
+				`${I18N.t('maintenance.announcementLast')} ${result}${item.last_sent_at ? ` (${fmtDateTime(item.last_sent_at)})` : ''}`,
+			].filter(Boolean).join(' · ');
+			return `<div><span class="item-symbol">✉</span><span class="grow"><b>${esc(item.text)}</b><small>${esc(plan)}</small></span>
+				<em class="${item.enabled ? 'ok' : 'off'}">${item.enabled ? I18N.t('maintenanceDynamic.m26') : I18N.t('maintenanceDynamic.m27')}</em>
+				<span class="row-actions"><button class="button small" type="button" data-announcement="toggle" data-id="${esc(item.id)}" data-enabled="${item.enabled ? '0' : '1'}" ${admin}>${item.enabled ? I18N.t('maintenanceDynamic.m29') : I18N.t('maintenanceDynamic.m30')}</button><button class="button small danger" type="button" data-announcement="delete" data-id="${esc(item.id)}" ${admin}>${esc(I18N.t('common.delete'))}</button></span></div>`;
+		}).join('') || `<div class="empty">${esc(I18N.t('maintenance.announcementsEmpty'))}</div>`;
+	}
+
+	$('#announcement-list').addEventListener('click', async event => {
+		const button = event.target.closest('[data-announcement]');
+		if (!button) return;
+		const action = button.dataset.announcement, id = encodeURIComponent(button.dataset.id);
+		if (action === 'delete' && !await VS.confirmAction(I18N.t('maintenance.announcementDeleteTitle'), I18N.t('maintenance.announcementDeleteText'), I18N.t('common.delete'), true)) return;
+		try {
+			await busy(button, () => action === 'delete' ? api(`/api/automation/announcements/${id}`, {method: 'DELETE'})
+				: api(`/api/automation/announcements/${id}/toggle`, {method: 'POST', body: {enabled: button.dataset.enabled === '1'}}));
+			toast(I18N.t('maintenance.announcementChanged'), 'ok');
+			await loadAutomation(false);
+		} catch (error) { fail(error); }
+	});
+
+	$('#announcement-form').addEventListener('submit', async event => {
+		event.preventDefault();
+		const body = {text: $('#announcement-text').value.trim(), enabled: true, interval_minutes: Number($('#announcement-interval').value), players_only: $('#announcement-players-only').checked};
+		try {
+			await busy(event.submitter, () => api('/api/automation/announcements', {method: 'POST', body}));
+			$('#announcement-text').value = '';
+			toast(I18N.t('maintenance.announcementAdded'), 'ok');
+			await loadAutomation(false);
+		} catch (error) { fail(error); }
+	});
 
 	function renderWatchdog(data, hydrate) {
 		const health = data.health || {}, watchdog = data.watchdog || {};

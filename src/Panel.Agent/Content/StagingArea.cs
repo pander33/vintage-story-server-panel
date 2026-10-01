@@ -101,4 +101,14 @@ public sealed class StagingArea
 			? Failure.Conflict("Временный файл с таким именем уже существует")
 			: path;
 	}
+
+	/// <summary>
+	/// Отдать выгрузку веб-процессу: владелец — тот же, что у каталога промежуточного хранения.
+	/// </summary>
+	/// <remarks>
+	/// Демон пишет файл от root, а панель отдаёт его от своей учётной записи. Без смены владельца
+	/// снимок мира с правами 0600 панель не открыла бы, и скачивание обрывалось бы ошибкой.
+	/// </remarks>
+	public static Task<Result<Done>> HandOverAsync(string path, CancellationToken ct) =>
+		GameFiles.ChangeOwnerLikeAsync(path, Path.GetDirectoryName(path)!, ct);
 }

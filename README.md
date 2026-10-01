@@ -45,12 +45,13 @@ administrator account there, and the panel is ready. Details — in [Installatio
 
 **Overview.** The list of servers and the state of the selected one: is it running, is it
 ready to accept players, how many are online, how loaded it is. Start, stop and restart
-with one button. A summary of the machine itself: CPU and memory load, swap, free space on
+with one button, and a check that the game port is reachable from the internet. A summary of the machine itself: CPU and memory load, swap, free space on
 the disks that hold the panel, servers and backups, and how much memory the panel uses. Creating a new server: the panel downloads the official game package
 itself, verifies its checksum and prepares the directories.
 
 **Players and console.** Who is online and how good their connection is. Chat and game
-events. Ready-made console commands from a catalogue: kick, ban, whitelist, granting
+events. Player history: when each player was last seen, total time played, number of
+sessions. Ready-made console commands from a catalogue: kick, ban, whitelist, granting
 roles. Administrators also get a free-form game console; every command is recorded in the
 audit log.
 
@@ -71,6 +72,10 @@ cleanup rules for old backups.
 
 **Maintenance.**
 - Scheduled restarts and backups, with a warning to players in chat.
+- Scheduled announcements: the same message to players every N minutes (rules, a Discord
+  link), optionally only when someone is online.
+- Before starting a stopped server the panel checks that its game port is not taken by
+  another program.
 - Watchdog: makes sure the server actually responds and restarts it when it hangs — no
   more often than a set limit.
 - Updates for mods and for the game itself. Before updating the game the panel takes a
@@ -349,7 +354,10 @@ the game ports (`42420` and up, TCP and UDP), and for HTTPS `80/tcp` and `443/tc
 
 **Players connect** in the game via "Multiplayer → Add server" to an address like
 `203.0.113.10:42420` or `play.example.com:42420`. Overview shows it in **ADDRESS TO
-CONNECT**. The web panel address does not work in the game.
+CONNECT**. The web panel address does not work in the game. The **Check from the
+internet** button next to it asks an outside service (`ifconfig.co`) to connect to the
+machine's public address on the game port, so you can see whether the port forwarding and
+the provider's firewall let players in. Only TCP is checked; keep UDP open too.
 
 #### Option 1. By IP address, no domain, no HTTPS
 
@@ -450,6 +458,7 @@ A manual edit does not update the firewall rule: run `vs-panel repair`.
 | `PANEL_MAX_WORLD_UPLOAD_MB` | `4096` | upload limit for a world |
 | `PANEL_AUDIT_RETENTION_DAYS` | `90` | how long to keep the audit log |
 | `PANEL_TRUSTED_PROXIES` | `127.0.0.1,::1` | reverse proxies whose `X-Forwarded-For` is trusted: addresses and networks such as `10.0.0.0/8` |
+| `PANEL_PORT_CHECK_URL` | `https://ifconfig.co/port/{port}` | the service behind "Check from the internet"; `off` turns the check off |
 
 ## Command line
 

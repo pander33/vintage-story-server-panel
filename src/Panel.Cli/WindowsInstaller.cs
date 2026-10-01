@@ -86,6 +86,7 @@ internal sealed class WindowsInstaller
 		}
 
 		await StopServicesAsync(options.WaitSeconds).ConfigureAwait(false);
+		FillDataRoot();
 
 		this.host.Step(options.Repair ? $"Repairing version {artifact.Value.Version}" : $"Installing version {artifact.Value.Version}");
 		foreach (var directory in new[] { Paths.ProgramRoot, Paths.Releases, Paths.DataRoot, this.host.StateDirectory(), Path.Combine(this.host.StateDirectory(), "staging"), Paths.ServersDirectory, Paths.RunDirectory, Paths.TelemetryDirectory })
@@ -687,6 +688,37 @@ internal sealed class WindowsInstaller
 		}
 
 		Output.WriteLine("Commands: vs-panel help (in an Administrator command prompt)");
+	}
+
+	/// <summary>
+	/// Подставить каталог данных вместо <c>@DATA_ROOT@</c>, оставшегося в <c>vs-panel.env</c>.
+	/// </summary>
+	/// <remarks>
+	/// Файл окружения при обновлении не переписывается, поэтому незаполненный шаблон оставался бы
+	/// навсегда. С ним <c>PANEL_STATE_DIR</c> относительный, и служба панели держит состояние в
+	/// <c>System32\@DATA_ROOT@\state</c>, а демон кладёт выгрузки в настоящий каталог: скачивание
+	/// мира и пакета отвечает 500. Это делается до создания каталогов, которые выводятся из файла.
+	/// </remarks>
+	private void FillDataRoot()
+	{
+		if (!File.Exists(Paths.PanelEnv))
+		{
+			return;
+		}
+
+		var text = File.ReadAllText(Paths.PanelEnv);
+		if (!text.Contains(Templates.DataRootPlaceholder, StringComparison.Ordinal))
+		{
+			return;
+		}
+
+		var stray = Path.Combine(Environment.SystemDirectory, Templates.DataRootPlaceholder, "state");
+		WriteFile(Paths.PanelEnv, text.Replace(Templates.DataRootPlaceholder, Paths.DataRoot, StringComparison.Ordinal));
+		this.host.Warn($"{Paths.PanelEnv} contained an unfilled {Templates.DataRootPlaceholder}; it now points to {Paths.DataRoot}.");
+		if (Directory.Exists(stray))
+		{
+			this.host.Warn($"The panel kept its state in {stray} until now (accounts, sessions key, audit). It is not moved automatically: to keep it, run vs-panel stop, copy it over {this.host.StateDirectory()} and run vs-panel start.");
+		}
 	}
 
 	/// <summary>Запись во временный файл и переименование: читатель видит либо старое, либо новое содержимое.</summary>

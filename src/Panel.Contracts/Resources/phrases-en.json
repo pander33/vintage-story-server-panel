@@ -810,5 +810,15 @@
   "пустота": "void",
   "самоубийство": "suicide",
   "существо": "creature",
-  "утопление": "drowning"
+  "утопление": "drowning",
+  "Интервал объявления должен быть от {0} до {1} минут": "The announcement interval must be between {0} and {1} minutes",
+  "Не больше {0} объявлений на сервер": "No more than {0} announcements per server",
+  "Не удалось прочитать порт из serverconfig.json": "Could not read the port from serverconfig.json",
+  "Объявление не найдено": "Announcement not found",
+  "Порт {0} уже занят другой программой, и сервер не сможет его открыть. Остановите её или смените Port в настройках сервера": "Port {0} is already taken by another program, and the server will not be able to open it. Stop that program or change Port in the server settings",
+  "Проверка порта из интернета выключена ({0}=off)": "Checking the port from the internet is turned off ({0}=off)",
+  "Сервер остановлен, и порт никто не слушает. Запустите сервер и проверьте снова": "The server is stopped, so nothing listens on the port. Start the server and check again",
+  "Сервис проверки {0} ответил {1}": "The checking service {0} answered {1}",
+  "Сервис проверки {0} ответил не в ожидаемом формате": "The checking service {0} answered in an unexpected format",
+  "Система не даёт занять порт {0}: на Windows это бывает с портами, зарезервированными Hyper-V (netsh interface ipv4 show excludedportrange protocol=tcp). Смените Port в настройках сервера": "The system does not allow taking port {0}: on Windows this happens with ports reserved by Hyper-V (netsh interface ipv4 show excludedportrange protocol=tcp). Change Port in the server settings"
 }

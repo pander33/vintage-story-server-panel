@@ -4,7 +4,7 @@
 // над игроками, объявления, чат и события мира, история ping.
 
 (() => {
-	const {$, $$, esc, fmtTime, fmtShortTime, state, api, toast, fail, busy} = VS;
+	const {$, $$, esc, fmtTime, fmtShortTime, fmtDateTime, fmtDuration, state, api, toast, fail, busy} = VS;
 
 	const QUALITY = {excellent: I18N.t('playersDynamic.p001'), good: I18N.t('playersDynamic.p002'), unstable: I18N.t('playersDynamic.p003'), poor: I18N.t('playersDynamic.p004'), unavailable: I18N.t('playersDynamic.p005')};
 	const CHAT_KINDS = {chat: I18N.t('playersDynamic.p006'), join: I18N.t('playersDynamic.p007'), leave: I18N.t('playersDynamic.p008'), death: I18N.t('playersDynamic.p009'), respawn: I18N.t('playersDynamic.p010')};
@@ -495,6 +495,34 @@
 		VS.applyBusyLock($('#lists-table'));
 	}
 
+	// ---------- история игроков ----------
+
+	let history = {players: [], since: null};
+
+	function renderHistory() {
+		$('#history-since').textContent = history.since
+			? I18N.t('players.historySince', {date: fmtDateTime(history.since)})
+			: I18N.t('players.historySub');
+		const query = $('#history-search').value.trim().toLowerCase();
+		const key = $('#history-sort').value;
+		const rows = history.players
+			.filter(player => !query || player.name.toLowerCase().includes(query))
+			.sort((a, b) => key === 'first_seen' ? a.first_seen - b.first_seen : (b[key] || 0) - (a[key] || 0));
+		$('#history-table').innerHTML = rows.map(player => `<tr><td><b>${esc(player.name)}</b>${player.uid ? `<small class="mono">${esc(player.uid)}</small>` : ''}</td>`
+			+ `<td>${player.online ? `<span class="status-chip ok">${esc(I18N.t('players.historyOnline'))}</span>` : esc(fmtDateTime(player.last_seen))}</td>`
+			+ `<td>${esc(fmtDuration(player.playtime_seconds))}</td><td>${esc(player.sessions)}</td><td>${esc(fmtDateTime(player.first_seen))}</td></tr>`).join('')
+			|| `<tr><td colspan="5" class="muted">${esc(I18N.t(query ? 'players.historyNotFound' : 'players.historyEmpty'))}</td></tr>`;
+	}
+
+	async function loadHistory() {
+		history = await api('/api/players/history');
+		renderHistory();
+	}
+
+	$('#history-search').addEventListener('input', renderHistory);
+	$('#history-sort').addEventListener('change', renderHistory);
+	$('#history-refresh').addEventListener('click', event => busy(event.currentTarget, loadHistory).catch(fail));
+
 	async function loadLists() {
 		lists = await api('/api/players/lists');
 		renderLists();
@@ -554,6 +582,7 @@
 			else VS.closeStream('chat');
 			if (view === 'quality') loadPing().catch(fail);
 			if (view === 'lists') loadLists().catch(fail);
+			if (view === 'history') loadHistory().catch(fail);
 		},
 	};
 })();

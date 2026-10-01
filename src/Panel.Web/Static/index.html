@@ -127,7 +127,8 @@
             <div><div class="eyebrow" data-i18n="overview.currentServer">CURRENT SERVER</div><h2 id="selected-name">—</h2><p id="selected-description" data-i18n="overview.checkingState">Checking status…</p></div>
             <div class="server-actions"><button class="button soft" type="button" data-service="start" data-min-role="operator" data-mutates><svg><use href="#i-play"/></svg> <span data-i18n="overview.start">Start</span></button><button class="button" type="button" data-service="restart" data-min-role="operator" data-mutates><svg><use href="#i-refresh"/></svg> <span data-i18n="overview.restart">Restart</span></button><button class="button danger" type="button" data-service="stop" data-min-role="operator" data-mutates><svg><use href="#i-stop"/></svg> <span data-i18n="overview.stop">Stop</span></button></div>
           </div>
-          <div class="server-address"><span data-i18n="overview.connectAddress">ADDRESS TO CONNECT</span><strong id="selected-address">—</strong><button class="text-button" type="button" id="copy-address" data-i18n="common.copy">Copy</button></div>
+          <div class="server-address"><span data-i18n="overview.connectAddress">ADDRESS TO CONNECT</span><strong id="selected-address">—</strong><button class="text-button" type="button" id="copy-address" data-i18n="common.copy">Copy</button><button class="text-button" type="button" id="check-reachability" data-min-role="operator" data-i18n="overview.checkReachability">Check from the internet</button></div>
+          <div class="notice hidden" id="reachability-result" aria-live="polite"></div>
           <div class="server-admin-actions" data-min-role="admin" data-hide-denied><button class="text-button" type="button" id="server-rename" data-i18n="overview.rename">Rename</button><button class="text-button" type="button" id="server-forget" data-i18n="overview.forget">Remove from panel</button><button class="text-button danger-text" type="button" id="server-delete" data-i18n="overview.deleteDisk">Delete from disk</button></div>
 
           <div class="status-banner" id="status-banner"><div class="status-emblem" id="status-emblem">✳</div><div><span class="banner-kicker" data-i18n="overview.serverStatus">SERVER STATUS</span><strong id="banner-title" data-i18n="common.checking">Checking…</strong><p id="banner-description" data-i18n="overview.bannerWaiting">The panel is requesting service state and telemetry.</p></div><span class="banner-status"><span class="pulse-dot" id="banner-dot"></span> <span id="banner-state">—</span></span></div>
@@ -175,7 +176,7 @@
         <section class="page" id="page-players">
           <div class="page-heading"><div><div class="eyebrow" data-i18n="players.eyebrow">GAME WORLD / PLAYERS</div><h1 data-i18n="nav.players">Players &amp; console</h1><p data-i18n="players.subtitle">Connection to the world, player events and commands for the selected server.</p></div><span class="page-counter" id="players-count" data-i18n="players.countOnline">— online</span></div>
           <div class="context-line"><span class="pulse-dot" id="telemetry-dot"></span> <span data-i18n="players.contextLine">Commands and events apply to server</span> <strong class="current-server-id">—</strong><span class="context-sep">·</span><span id="telemetry-detail" data-i18n="common.awaitingTelemetry">Waiting for telemetry</span></div>
-          <div class="work-tabs" role="tablist" data-tabs="players"><button class="work-tab active" type="button" data-view="live" data-i18n="players.tabLive">Players &amp; console</button><button class="work-tab" type="button" data-view="activity" data-i18n="players.tabActivity">Chat &amp; events</button><button class="work-tab" type="button" data-view="lists" data-i18n="players.tabLists">Bans &amp; whitelist</button><button class="work-tab" type="button" data-view="quality" data-i18n="players.tabQuality">Connection quality</button></div>
+          <div class="work-tabs" role="tablist" data-tabs="players"><button class="work-tab active" type="button" data-view="live" data-i18n="players.tabLive">Players &amp; console</button><button class="work-tab" type="button" data-view="activity" data-i18n="players.tabActivity">Chat &amp; events</button><button class="work-tab" type="button" data-view="history" data-i18n="players.tabHistory">History</button><button class="work-tab" type="button" data-view="lists" data-i18n="players.tabLists">Bans &amp; whitelist</button><button class="work-tab" type="button" data-view="quality" data-i18n="players.tabQuality">Connection quality</button></div>
 
           <section class="work-panel active" data-panel="players:live">
             <div class="players-workspace">
@@ -230,6 +231,15 @@
               <div class="filter-row"><label class="form-field"><span data-i18n="players.eventType">Event type</span><select id="chat-kind"><option value="all" data-i18n="players.allEvents">All events</option><option value="chat" data-i18n="players.chat">Chat</option><option value="join" data-i18n="players.joins">Joins</option><option value="leave" data-i18n="players.leaves">Leaves</option><option value="death" data-i18n="players.deaths">Deaths</option><option value="respawn" data-i18n="players.respawns">Respawns</option></select></label><label class="form-field"><span data-i18n="common.search">Search</span><input id="chat-search" type="search" maxlength="120" data-i18n-placeholder="players.searchPlaceholder" placeholder="Player or text"></label><button class="button" type="button" id="chat-refresh"><svg><use href="#i-refresh"/></svg> <span data-i18n="common.refresh">Refresh</span></button></div>
               <div class="notice hidden" id="chat-support"></div>
               <div class="event-feed" id="chat-feed"></div>
+            </article>
+          </section>
+
+          <section class="work-panel" data-panel="players:history">
+            <article class="surface work-card">
+              <div class="card-header"><div><h3 data-i18n="players.historyTitle">Player history</h3><p id="history-since" data-i18n="players.historySub">Who played and for how long, from telemetry snapshots</p></div><button class="button small" type="button" id="history-refresh"><svg><use href="#i-refresh"/></svg> <span data-i18n="common.refresh">Refresh</span></button></div>
+              <div class="filter-row"><label class="form-field"><span data-i18n="common.search">Search</span><input id="history-search" type="search" maxlength="32" data-i18n-placeholder="common.playerName" placeholder="Player name"></label><label class="form-field"><span data-i18n="players.historySort">Sort</span><select id="history-sort"><option value="last_seen" data-i18n="players.historyLastSeen">Last seen</option><option value="playtime_seconds" data-i18n="players.historyPlaytime">Time played</option><option value="sessions" data-i18n="players.historySessions">Sessions</option><option value="first_seen" data-i18n="players.historyFirstSeen">First seen</option></select></label></div>
+              <div class="table-wrap"><table><thead><tr><th data-i18n="common.player">Player</th><th data-i18n="players.historyLastSeen">Last seen</th><th data-i18n="players.historyPlaytime">Time played</th><th data-i18n="players.historySessions">Sessions</th><th data-i18n="players.historyFirstSeen">First seen</th></tr></thead><tbody id="history-table"></tbody></table></div>
+              <p class="muted-copy" data-i18n="players.historyNote">Counted only while the panel runs and the telemetry mod writes snapshots. Addresses are not stored.</p>
             </article>
           </section>
 
@@ -438,7 +448,7 @@
         <section class="page" id="page-maintenance">
           <div class="page-heading"><div><div class="eyebrow" data-i18n="maintenance.eyebrow">RELIABILITY / MAINTENANCE</div><h1 data-i18n="nav.maintenance">Maintenance</h1><p data-i18n="maintenance.subtitle">Schedules, the watchdog and safe server updates.</p></div></div>
           <div class="notice warn hidden" id="maintenance-running"></div>
-          <div class="work-tabs" role="tablist" data-tabs="maintenance"><button class="work-tab active" type="button" data-view="schedule" data-i18n="maintenance.tabSchedule">Schedule</button><button class="work-tab" type="button" data-view="watchdog" data-i18n="maintenance.tabWatchdog">Watchdog</button><button class="work-tab" type="button" data-view="updates" data-i18n="maintenance.tabUpdates">Updates</button></div>
+          <div class="work-tabs" role="tablist" data-tabs="maintenance"><button class="work-tab active" type="button" data-view="schedule" data-i18n="maintenance.tabSchedule">Schedule</button><button class="work-tab" type="button" data-view="announcements" data-i18n="maintenance.tabAnnouncements">Announcements</button><button class="work-tab" type="button" data-view="watchdog" data-i18n="maintenance.tabWatchdog">Watchdog</button><button class="work-tab" type="button" data-view="updates" data-i18n="maintenance.tabUpdates">Updates</button></div>
 
           <section class="work-panel active" data-panel="maintenance:schedule">
             <div class="detail-grid first">
@@ -451,6 +461,21 @@
                   <div class="check-group"><label><input type="checkbox" id="schedule-backup" checked> <span data-i18n="maintenance.createBackup">Create a backup</span></label><label><input type="checkbox" id="schedule-restart" checked> <span data-i18n="overview.restart">Restart</span></label></div>
                   <p class="muted-copy subheading" data-i18n="maintenance.timeNote">Time is counted from the first warning: the server stops once the countdown ends.</p>
                   <div class="inline-actions"><button class="button primary" type="submit" data-i18n="maintenance.addSchedule">Add schedule</button></div>
+                </form>
+              </article>
+            </div>
+          </section>
+
+          <section class="work-panel" data-panel="maintenance:announcements">
+            <div class="detail-grid first">
+              <article class="surface work-card"><div class="card-header"><div><h3 data-i18n="maintenance.announcementsTitle">Scheduled announcements</h3><p data-i18n="maintenance.announcementsSub">The same message to players every few minutes: rules, a Discord link, a wipe reminder</p></div></div><div class="data-list" id="announcement-list"></div></article>
+              <article class="surface work-card" data-min-role="admin">
+                <h3 data-i18n="maintenance.newAnnouncement">New announcement</h3>
+                <form id="announcement-form">
+                  <div class="form-grid"><label class="form-field span-all"><span data-i18n="maintenance.announcementText">Message</span><textarea id="announcement-text" rows="3" maxlength="300" required></textarea></label><label class="form-field"><span data-i18n="maintenance.announcementInterval">Every, minutes</span><input id="announcement-interval" type="number" min="5" max="1440" value="60" required></label></div>
+                  <div class="check-group"><label><input type="checkbox" id="announcement-players-only" checked> <span data-i18n="maintenance.announcementPlayersOnly">Only when someone is online</span></label></div>
+                  <p class="muted-copy subheading" data-i18n="maintenance.announcementNote">The message is sent as written, in any language. A stopped server gets nothing; missed announcements are not repeated.</p>
+                  <div class="inline-actions"><button class="button primary" type="submit" data-i18n="maintenance.addAnnouncement">Add announcement</button></div>
                 </form>
               </article>
             </div>

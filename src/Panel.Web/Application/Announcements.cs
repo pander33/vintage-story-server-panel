@@ -32,6 +32,18 @@ public sealed class Announcements(IPlayerCommands players, IServerConfigStore co
 		return await players.SendAsync(instance, command.Value, ct).ConfigureAwait(false);
 	}
 
+	/// <summary>Текст администратора как есть: он уже написан на нужном языке.</summary>
+	public async Task<Result<PlayerActionPayload>> SendTextAsync(InstanceId instance, string text, CancellationToken ct)
+	{
+		var command = PlayerCommand.Create("announce", string.Empty, text);
+		if (!command.IsSuccess)
+		{
+			return command.Failure!;
+		}
+
+		return await players.SendAsync(instance, command.Value, ct).ConfigureAwait(false);
+	}
+
 	private async Task<PanelLanguage> LanguageAsync(InstanceId instance, CancellationToken ct)
 	{
 		var file = await configs.ReadAsync(instance, ct).ConfigureAwait(false);

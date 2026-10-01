@@ -109,6 +109,8 @@ public static class PanelServices
 		services.AddSingleton<ReadinessPolicy>();
 		services.AddSingleton<ReadinessLog>();
 		services.AddSingleton<GetServerStatusHandler>();
+		services.AddSingleton<IGamePortProbe, GamePortProbe>();
+		services.AddSingleton(_ => new PortReachability(PortReachability.Ipv4Client(), options.PortCheckUrl, TimeProvider.System));
 		services.AddSingleton<ServerControlHandler>();
 		services.AddSingleton<ServerConfigurationHandler>();
 

@@ -41,9 +41,11 @@ internal static class WindowsDoctor
 
 		findings.Add(Doctor.CheckPanelConfig(paths.PanelConfig));
 		findings.Add(Doctor.CheckRegistry(paths.Registry));
-		findings.Add(File.Exists(paths.PanelEnv)
-			? new(Severity.Ok, $"Environment file: {paths.PanelEnv}")
-			: new(Severity.Problem, $"Missing environment file {paths.PanelEnv}. Fix with {command} repair"));
+		findings.Add(!File.Exists(paths.PanelEnv)
+			? new(Severity.Problem, $"Missing environment file {paths.PanelEnv}. Fix with {command} repair")
+			: !Path.IsPathFullyQualified(stateDirectory)
+				? new(Severity.Problem, $"PANEL_STATE_DIR in {paths.PanelEnv} is not an absolute path: {stateDirectory}. Fix with {command} repair")
+				: new(Severity.Ok, $"Environment file: {paths.PanelEnv}"));
 		findings.AddRange(Doctor.CheckState(stateDirectory, command));
 
 		findings.Add(Directory.Exists(paths.TelemetryDirectory) && Directory.GetFiles(paths.TelemetryDirectory, "vspaneltelemetry_*.zip").Length > 0
