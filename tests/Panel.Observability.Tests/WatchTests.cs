@@ -52,6 +52,41 @@ public sealed class WatchTests
 		Assert.Contains(new ServerWatch().Observe(none, now), item => item.Kind == "backup.stale");
 	}
 
+	/// <summary>Замер каждую минуту не повторяет событие: только наступление и напоминание.</summary>
+	[Fact]
+	public void Отсутствие_копии_не_повторяется_на_каждом_замере()
+	{
+		var watch = new ServerWatch();
+		var none = Metrics();
+		none.Remove("last_backup");
+
+		Assert.Single(watch.Observe(none, now), IsStale);
+		Assert.DoesNotContain(watch.Observe(none, now.AddMinutes(1)), IsStale);
+		Assert.DoesNotContain(watch.Observe(none, now + ServerWatch.BackupReminder - TimeSpan.FromMinutes(1)), IsStale);
+		Assert.Single(watch.Observe(none, now + ServerWatch.BackupReminder), IsStale);
+
+		// Свежая копия сбрасывает состояние: следующее устаревание сообщается сразу.
+		var later = now + ServerWatch.BackupReminder + TimeSpan.FromMinutes(1);
+		Assert.DoesNotContain(watch.Observe(Metrics(backupAge: TimeSpan.Zero, at: later), later), IsStale);
+		Assert.Single(watch.Observe(none, later.AddMinutes(1)), IsStale);
+
+		static bool IsStale(PanelEvent item) => item.Kind == "backup.stale";
+	}
+
+	[Fact]
+	public void Нехватка_места_напоминается_раз_в_час()
+	{
+		var watch = new ServerWatch();
+		var metrics = Metrics();
+		metrics["disk_warning"] = true;
+
+		Assert.Single(watch.Observe(metrics, now), IsLow);
+		Assert.DoesNotContain(watch.Observe(metrics, now.AddMinutes(30)), IsLow);
+		Assert.Single(watch.Observe(metrics, now + ServerWatch.DiskReminder), IsLow);
+
+		static bool IsLow(PanelEvent item) => item.Kind == "disk.low";
+	}
+
 	[Fact]
 	public void Входы_и_выходы_игроков()
 	{
@@ -122,14 +157,14 @@ public sealed class WatchTests
 		Assert.Equal("server.long_tick", alert.NotificationKey);
 	}
 
-	private static JsonObject Metrics(bool active = true, TimeSpan? backupAge = null) => new()
+	private static JsonObject Metrics(bool active = true, TimeSpan? backupAge = null, DateTimeOffset? at = null) => new()
 	{
 		["active"] = active,
 		["disk_warning"] = false,
 		["last_backup"] = new JsonObject
 		{
 			["name"] = "vintagestory-a.tar.gz",
-			["modified"] = (now - (backupAge ?? TimeSpan.FromHours(1))).ToUnixTimeSeconds(),
+			["modified"] = ((at ?? now) - (backupAge ?? TimeSpan.FromHours(1))).ToUnixTimeSeconds(),
 		},
 	};
 

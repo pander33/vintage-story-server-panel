@@ -10,14 +10,24 @@ namespace Panel.Observability.Domain;
 /// </summary>
 /// <remarks>
 /// Переход «работает → остановлен» сообщается только при смене состояния, поэтому первый
-/// замер после старта панели ничего не сообщает. Место и копия проверяются при каждом замере:
-/// повторные уведомления гасит пауза, а в ленту событий они попадают каждый раз.
+/// замер после старта панели ничего не сообщает. Нехватка места и устаревшая копия — тоже
+/// при наступлении, а пока держатся, — напоминанием раз в <see cref="DiskReminder"/> и
+/// <see cref="BackupReminder"/>: замер идёт каждую минуту, и событие на каждый засоряло ленту
+/// и диагностику, когда копий просто ещё не делали.
 /// </remarks>
 public sealed class ServerWatch
 {
+	/// <summary>Как часто напоминать, что места всё ещё мало.</summary>
+	public static readonly TimeSpan DiskReminder = TimeSpan.FromHours(1);
+
+	/// <summary>Как часто напоминать, что свежей копии всё ещё нет.</summary>
+	public static readonly TimeSpan BackupReminder = TimeSpan.FromDays(1);
+
 	private static readonly TimeSpan backupFreshness = TimeSpan.FromDays(3);
 
 	private bool? previousActive;
+	private DateTimeOffset? diskReported;
+	private DateTimeOffset? backupReported;
 
 	public IReadOnlyList<PanelEvent> Observe(JsonObject metrics, DateTimeOffset now)
 	{
@@ -38,7 +48,7 @@ public sealed class ServerWatch
 
 		previousActive = active;
 
-		if (TelemetryNumbers.Truthy(metrics["disk_warning"]))
+		if (Due(TelemetryNumbers.Truthy(metrics["disk_warning"]), ref diskReported, DiskReminder, now))
 		{
 			var freeGigabytes = (long) TelemetryNumbers.Number(metrics["disk_free"]) / (1024L * 1024 * 1024);
 			events.Add(Event(
@@ -50,8 +60,9 @@ public sealed class ServerWatch
 		}
 
 		var backup = metrics["last_backup"] as JsonObject;
-		if (backup is null
-			|| now.ToUnixTimeSeconds() - (long) TelemetryNumbers.Number(backup["modified"]) > (long) backupFreshness.TotalSeconds)
+		var stale = backup is null
+					|| now.ToUnixTimeSeconds() - (long) TelemetryNumbers.Number(backup["modified"]) > (long) backupFreshness.TotalSeconds;
+		if (Due(stale, ref backupReported, BackupReminder, now))
 		{
 			events.Add(Event(
 				"backup.stale",
@@ -62,6 +73,27 @@ public sealed class ServerWatch
 		}
 
 		return events;
+	}
+
+	/// <summary>
+	/// Сообщить ли о состоянии: при наступлении и затем раз в <paramref name="reminder"/>.
+	/// Прошедшее состояние забывается, и следующее наступление сообщается сразу.
+	/// </summary>
+	private static bool Due(bool holds, ref DateTimeOffset? reported, TimeSpan reminder, DateTimeOffset now)
+	{
+		if (!holds)
+		{
+			reported = null;
+			return false;
+		}
+
+		if (reported is { } last && now - last < reminder)
+		{
+			return false;
+		}
+
+		reported = now;
+		return true;
 	}
 
 	private static PanelEvent Event(string kind, EventSeverity severity, Phrase title, Phrase? detail, DateTimeOffset now) =>
