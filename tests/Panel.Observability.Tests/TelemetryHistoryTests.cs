@@ -151,6 +151,84 @@ public sealed class TelemetryHistoryTests
 		Assert.Same(recent, history.Latest);
 	}
 
+	[Theory]
+	[InlineData(0)]
+	[InlineData(1)]
+	[InlineData(2)]
+	[InlineData(719)]
+	[InlineData(720)]
+	[InlineData(721)]
+	[InlineData(1439)]
+	[InlineData(1440)]
+	[InlineData(1500)]
+	[InlineData(43200)]
+	public void Ряды_ограничены_и_сохраняют_края(int count)
+	{
+		var history = new TelemetryHistory(TimeSpan.FromDays(2));
+		for (var index = 0; index < count; index++)
+		{
+			var sample = Snapshot(("Alice", index));
+			sample["generated_at"] = index + 1;
+			history.Record(sample, start.AddSeconds(index));
+		}
+		var now = start.AddSeconds(count);
+		var pings = history.PlayerHistory(TelemetryPlayer.Create("alice").Value, now, TimeSpan.FromDays(2));
+		var series = history.Performance(now, TimeSpan.FromDays(2)).Series;
+		Assert.Equal(Math.Min(count, 720), pings.Count);
+		Assert.Equal(pings.Select(point => point.Ts), series.Select(point => point.Ts));
+		if (count > 0)
+		{
+			Assert.Equal(start.ToUnixTimeSeconds(), pings[0].Ts);
+			Assert.Equal(start.AddSeconds(count - 1).ToUnixTimeSeconds(), pings[^1].Ts);
+			Assert.Equal(pings.Count, pings.Select(point => point.Ts).Distinct().Count());
+			Assert.Equal(pings.OrderBy(point => point.Ts), pings);
+		}
+	}
+
+	[Fact]
+	public void Оценка_пинга_берёт_последние_150_значений_и_первое_совпадение_имени()
+	{
+		var history = new TelemetryHistory(TimeSpan.FromHours(1));
+		for (var index = 0; index < 160; index++)
+		{
+			history.Record(Snapshot(("Alice", index), ("ALICE", 999)), start.AddSeconds(index));
+		}
+		var player = history.Players(start.AddSeconds(159))[0];
+		Assert.Equal(84.5, player["average_ping_ms"]!.GetValue<double>());
+		Assert.Equal(159, player["max_ping_ms"]!.GetValue<double>());
+		Assert.Equal(1, player["jitter_ms"]!.GetValue<double>());
+	}
+
+	[Fact]
+	public void Истечение_истории_после_многих_записей_сохраняет_порядок()
+	{
+		var history = new TelemetryHistory(TimeSpan.FromSeconds(10));
+		for (var index = 0; index < 3000; index++)
+		{
+			history.Record(Snapshot(("Alice", index)), start.AddSeconds(index));
+		}
+		Assert.Equal(11, history.Count);
+		var pings = history.PlayerHistory(TelemetryPlayer.Create("Alice").Value, start.AddSeconds(2999), TimeSpan.FromHours(1));
+		Assert.Equal(Enumerable.Range(2989, 11).Select(value => (double) value), pings.Select(point => point.PingMilliseconds));
+		history.Record(Snapshot(("Alice", 1)), start.AddDays(1));
+		Assert.Equal(1, history.Count);
+	}
+
+	[Fact]
+	public void Числа_из_JSON_и_программных_значений_читаются_одинаково()
+	{
+		JsonNode?[] values = [JsonValue.Create(42L), JsonValue.Create(42), JsonValue.Create(42u),
+			JsonValue.Create(42UL), JsonValue.Create(42m), JsonValue.Create(42f), JsonValue.Create((short)42),
+			JsonNode.Parse("42"), JsonValue.Create(" 42 ")];
+		Assert.All(values, value => Assert.Equal(42, TelemetryNumbers.Number(value)));
+		Assert.Equal(1, TelemetryNumbers.Number(JsonValue.Create(true)));
+		Assert.Equal(0, TelemetryNumbers.Number(JsonValue.Create(false)));
+		Assert.Equal(7, TelemetryNumbers.Number(JsonValue.Create(double.NaN), 7));
+		Assert.Equal(7, TelemetryNumbers.Number(JsonValue.Create(double.PositiveInfinity), 7));
+		Assert.Equal(7, TelemetryNumbers.Number(JsonValue.Create("bad"), 7));
+		Assert.Equal(7, TelemetryNumbers.Number(null, 7));
+	}
+
 	private static JsonObject Snapshot(params (string Name, double? Ping)[] players) => new()
 	{
 		["available"] = true,

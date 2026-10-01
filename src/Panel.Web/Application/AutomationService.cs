@@ -1,15 +1,10 @@
-using System.Collections.Concurrent;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Panel.Content.Ports;
-using Panel.Contracts;
-using Panel.Contracts.ServerCommands;
 using Panel.Fleet.Domain;
 using Panel.Fleet.Ports;
 using Panel.Maintenance.Domain;
-using Panel.Observability.Domain;
 using Panel.Runtime.Domain;
 using Panel.Runtime.Ports;
 using Panel.SharedKernel;
@@ -36,21 +31,12 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 	/// <summary>Задание, пропустившее срок больше чем на шесть часов, не выполняется.</summary>
 	private static readonly TimeSpan missedTooLong = TimeSpan.FromHours(6);
 
-	private static readonly TimeSpan readinessPoll = TimeSpan.FromSeconds(5);
-
-	/// <summary>Предел объявлений одного сервера: два десятка уже превращают чат в рекламу.</summary>
-	private const int maxAnnouncements = 20;
-
-	private readonly ConcurrentDictionary<InstanceId, Lazy<Task<Workspace>>> workspaces = new();
 	private readonly IRegistryStore registry;
-	private readonly IServerRuntime runtime;
-	private readonly ITelemetryReader telemetry;
-	private readonly ReadinessPolicy policy;
-	private readonly ReadinessLog readiness;
-	private readonly ServerControlHandler control;
-	private readonly Announcements announcements;
-	private readonly IBackupStore backups;
-	private readonly EventBus events;
+	private readonly AutomationRunJournal journal;
+	private readonly ScheduledMaintenanceRunner runner;
+	private readonly AutomationWorkspaceStore workspaces;
+	private readonly WatchdogService watchdog;
+	private readonly ScheduledAnnouncementService scheduledAnnouncements;
 	private readonly MaintenanceCoordinator coordinator;
 	private readonly PanelOptions options;
 	private readonly TimeProvider clock;
@@ -74,14 +60,11 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 		ILogger<AutomationService> log)
 	{
 		this.registry = registry;
-		this.runtime = runtime;
-		this.telemetry = telemetry;
-		this.policy = policy;
-		this.readiness = readiness;
-		this.control = control;
-		this.announcements = announcements;
-		this.backups = backups;
-		this.events = events;
+		journal = new AutomationRunJournal(events);
+		workspaces = new AutomationWorkspaceStore(options, readiness, clock, zone);
+		watchdog = new WatchdogService(workspaces, runtime, telemetry, policy, readiness, control, events, coordinator, journal, clock);
+		scheduledAnnouncements = new ScheduledAnnouncementService(workspaces, telemetry, announcements, clock, log);
+		runner = new ScheduledMaintenanceRunner(runtime, control, announcements, backups, this, journal, clock, log);
 		this.coordinator = coordinator;
 		this.options = options;
 		this.clock = clock;
@@ -130,10 +113,10 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 
 	private async Task TickAsync(InstanceId instance, CancellationToken ct)
 	{
-		await CheckWatchdogAsync(instance, ct).ConfigureAwait(false);
+		await watchdog.TickAsync(instance, ct).ConfigureAwait(false);
 
-		var workspace = await WorkspaceAsync(instance).ConfigureAwait(false);
-		await AnnounceDueAsync(instance, workspace, ct).ConfigureAwait(false);
+		var workspace = await workspaces.GetAsync(instance).ConfigureAwait(false);
+		await scheduledAnnouncements.AnnounceDueAsync(instance, workspace, ct).ConfigureAwait(false);
 
 		var now = clock.GetUtcNow();
 		MaintenanceJob? due = null;
@@ -177,7 +160,7 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 		{
 			var run = new MaintenanceRun(Guid.NewGuid().ToString("N"), job.Id, job.Name, "schedule", now.ToUnixTimeSeconds());
 			run.SkipMissed(now.ToUnixTimeSeconds());
-			await RecordRunAsync(instance, workspace, run, withTrigger: false, ct).ConfigureAwait(false);
+			await journal.RecordAsync(instance, workspace, run, withTrigger: false, ct).ConfigureAwait(false);
 		}
 
 		if (due is not null)
@@ -185,149 +168,29 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 			Launch(instance, workspace, due, "schedule");
 		}
 
-		await workspace.SaveAsync(ct).ConfigureAwait(false);
+		await workspace.SaveRequiredAsync(ct).ConfigureAwait(false);
 	}
 
 	// ----- наблюдатель ---------------------------------------------------------------
 
-	/// <summary>
-	/// Проверка готовности; при вердикте «завис» и разрешённом автоперезапуске сервер
-	/// перезапускается в пределах бюджета.
-	/// </summary>
-	public async Task<JsonObject> CheckWatchdogAsync(InstanceId instance, CancellationToken ct)
-	{
-		var workspace = await WorkspaceAsync(instance).ConfigureAwait(false);
+	public Task<JsonObject> CheckWatchdogAsync(InstanceId instance, CancellationToken ct) =>
+		watchdog.CheckWatchdogAsync(instance, ct);
 
-		await workspace.WatchdogGate.WaitAsync(ct).ConfigureAwait(false);
-		try
-		{
-			var now = clock.GetUtcNow();
-			var previousState = TelemetryNumbers.Text(workspace.Health["state"]);
+	public Task<(ReadinessVerdict? Verdict, JsonObject Health)> CurrentHealthAsync(InstanceId instance) =>
+		watchdog.CurrentHealthAsync(instance);
 
-			var status = await runtime.StatusAsync(instance, ct).ConfigureAwait(false);
-			if (!status.IsSuccess)
-			{
-				workspace.Health = new JsonObject
-				{
-					["state"] = "unknown",
-					["detail"] = PhraseJsonConverter.ToNode(status.Failure!.Text),
-					["checked_at"] = now.ToUnixTimeSeconds(),
-					["failures"] = 0,
-				};
-				workspace.Chain = null;
-			}
-			else
-			{
-				var telemetry = await this.telemetry.ReadAsync(instance, ct).ConfigureAwait(false);
-				var verdict = policy.Evaluate(status.Value, telemetry, workspace.Watchdog, workspace.Chain, now);
-				workspace.Chain = verdict;
-				workspace.Health = HealthJson(verdict);
+	public Task<WatchdogSettings> WatchdogAsync(InstanceId instance) =>
+		watchdog.WatchdogAsync(instance);
 
-				if (verdict.AuthorizesAutomaticRecovery && workspace.Watchdog.AutoRestart)
-				{
-					await RecoverAsync(instance, workspace, now, ct).ConfigureAwait(false);
-				}
-			}
-
-			// Перезапуски старше часа забываются при каждой проверке, а не только при попытке
-			// восстановления; так же выглядит restart_history.
-			workspace.Restarts = [.. RecoveryBudget.Recent(workspace.Restarts, now)];
-			readiness.Record(instance, workspace.Chain, RecoveryBlocked(workspace.Health));
-			await workspace.SaveAsync(ct).ConfigureAwait(false);
-
-			var state = TelemetryNumbers.Text(workspace.Health["state"]);
-			if (state != previousState && state is "ready" or "hung" or "stopped")
-			{
-				await events.EmitAsync(
-						instance,
-						"watchdog." + state,
-						state == "hung" ? EventSeverity.Critical : state == "stopped" ? EventSeverity.Warning : EventSeverity.Info,
-						Phrase.Format($"Watchdog: {PhraseJsonConverter.FromNode(workspace.Health["detail"]) ?? Phrase.From(string.Empty)}"),
-						source: "watchdog",
-						ct: ct)
-					.ConfigureAwait(false);
-			}
-
-			return (JsonObject) workspace.Health.DeepClone();
-		}
-		finally
-		{
-			workspace.WatchdogGate.Release();
-		}
-	}
-
-	/// <summary>Последний вердикт наблюдателя; его отдаёт <c>/api/status</c>.</summary>
-	public async Task<(ReadinessVerdict? Verdict, JsonObject Health)> CurrentHealthAsync(InstanceId instance)
-	{
-		var workspace = await WorkspaceAsync(instance).ConfigureAwait(false);
-		return (workspace.Chain, (JsonObject) workspace.Health.DeepClone());
-	}
-
-	public async Task<WatchdogSettings> WatchdogAsync(InstanceId instance) =>
-		(await WorkspaceAsync(instance).ConfigureAwait(false)).Watchdog;
-
-	private async Task RecoverAsync(InstanceId instance, Workspace workspace, DateTimeOffset now, CancellationToken ct)
-	{
-		workspace.Restarts = [.. RecoveryBudget.Recent(workspace.Restarts, now)];
-		var blocker = RecoveryBudget.Blocker(workspace.Restarts, workspace.Watchdog, now);
-		if (blocker is not null)
-		{
-			workspace.Health["recovery_blocked"] = PhraseJsonConverter.ToNode(blocker);
-			return;
-		}
-
-		using var lease = coordinator.TryAcquire(instance, LeasePurpose.WatchdogRecovery);
-		if (lease is null)
-		{
-			workspace.Health["recovery_blocked"] = PhraseJsonConverter.ToNode(Phrase.From("Выполняется другая общая операция"));
-			return;
-		}
-
-		var restarted = await control.ServiceAsync(instance, ServiceAction.Restart, ct).ConfigureAwait(false);
-		if (!restarted.IsSuccess)
-		{
-			workspace.Health["recovery_blocked"] = PhraseJsonConverter.ToNode(Phrase.Format($"Ошибка перезапуска: {restarted.Failure!}"));
-			return;
-		}
-
-		workspace.Restarts.Add(now);
-
-		// После перезапуска цепочка начинается заново: у нового процесса свой счёт.
-		workspace.Chain = null;
-		workspace.Health = new JsonObject
-		{
-			["state"] = "recovering",
-			["detail"] = PhraseJsonConverter.ToNode(Phrase.From("Watchdog перезапустил зависший сервер")),
-			["checked_at"] = now.ToUnixTimeSeconds(),
-			["failures"] = 0,
-		};
-
-		var run = new MaintenanceRun(Guid.NewGuid().ToString("N"), null, "Watchdog recovery", "watchdog", now.ToUnixTimeSeconds());
-		run.Recovered(Now());
-		await RecordRunAsync(instance, workspace, run, withTrigger: true, ct).ConfigureAwait(false);
-	}
-
-	public async Task<Result<JsonObject>> SetWatchdogAsync(InstanceId instance, JsonObject values, CancellationToken ct)
-	{
-		var settings = WatchdogSettingsJson.FromJson(values);
-		if (!settings.IsSuccess)
-		{
-			return Result.Fail<JsonObject>(settings.Failure!);
-		}
-
-		var workspace = await WorkspaceAsync(instance).ConfigureAwait(false);
-		workspace.Watchdog = settings.Value;
-		readiness.Configure(instance, settings.Value);
-		await workspace.SaveAsync(ct).ConfigureAwait(false);
-		return WatchdogSettingsJson.ToJson(settings.Value);
-	}
+	public Task<Result<JsonObject>> SetWatchdogAsync(InstanceId instance, JsonObject values, CancellationToken ct) =>
+		watchdog.SetWatchdogAsync(instance, values, ct);
 
 	// ----- задания -------------------------------------------------------------------
 
 	public async Task<JsonObject> SnapshotAsync(InstanceId instance, CancellationToken ct)
 	{
-		var health = await CheckWatchdogAsync(instance, ct).ConfigureAwait(false);
-		var workspace = await WorkspaceAsync(instance).ConfigureAwait(false);
+		var (_, health) = await CurrentHealthAsync(instance).ConfigureAwait(false);
+		var workspace = await workspaces.GetAsync(instance).ConfigureAwait(false);
 		var runs = await workspace.RecentRunsAsync(30, ct).ConfigureAwait(false);
 
 		lock (workspace.Sync)
@@ -355,14 +218,14 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 			return Result.Fail<JsonObject>(job.Failure!);
 		}
 
-		var workspace = await WorkspaceAsync(instance).ConfigureAwait(false);
+		var workspace = await workspaces.GetAsync(instance).ConfigureAwait(false);
 		lock (workspace.Sync)
 		{
 			workspace.Jobs.Add(job.Value);
 		}
 
-		await workspace.SaveAsync(ct).ConfigureAwait(false);
-		return job.Value.ToJson();
+		var written = await workspace.SaveAsync(ct).ConfigureAwait(false);
+		return written.IsSuccess ? job.Value.ToJson() : written.Failure!;
 	}
 
 	/// <summary>Изменение и переключение: присланное накладывается на задание, как <c>current | raw</c>.</summary>
@@ -372,7 +235,7 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 		Func<JobDraft, JobDraft> change,
 		CancellationToken ct)
 	{
-		var workspace = await WorkspaceAsync(instance).ConfigureAwait(false);
+		var workspace = await workspaces.GetAsync(instance).ConfigureAwait(false);
 		Result<MaintenanceJob> updated;
 
 		lock (workspace.Sync)
@@ -396,13 +259,13 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 			return Result.Fail<JsonObject>(updated.Failure!);
 		}
 
-		await workspace.SaveAsync(ct).ConfigureAwait(false);
-		return updated.Value.ToJson();
+		var written = await workspace.SaveAsync(ct).ConfigureAwait(false);
+		return written.IsSuccess ? updated.Value.ToJson() : written.Failure!;
 	}
 
 	public async Task<Result<Done>> DeleteJobAsync(InstanceId instance, string id, CancellationToken ct)
 	{
-		var workspace = await WorkspaceAsync(instance).ConfigureAwait(false);
+		var workspace = await workspaces.GetAsync(instance).ConfigureAwait(false);
 		lock (workspace.Sync)
 		{
 			if (workspace.Jobs.RemoveAll(job => job.Id == id) == 0)
@@ -411,14 +274,13 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 			}
 		}
 
-		await workspace.SaveAsync(ct).ConfigureAwait(false);
-		return Done.Ok;
+		return await workspace.SaveAsync(ct).ConfigureAwait(false);
 	}
 
 	/// <summary>Запуск вручную. Если панель занята, 409.</summary>
 	public async Task<Result<string>> LaunchAsync(InstanceId instance, string id)
 	{
-		var workspace = await WorkspaceAsync(instance).ConfigureAwait(false);
+		var workspace = await workspaces.GetAsync(instance).ConfigureAwait(false);
 		MaintenanceJob? job;
 		lock (workspace.Sync)
 		{
@@ -438,7 +300,7 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 	/// Аренда берётся здесь, синхронно с проверкой занятости, и только потом создаётся задача,
 	/// поэтому два запроса не могут одновременно получить «свободно».
 	/// </summary>
-	private string? Launch(InstanceId instance, Workspace workspace, MaintenanceJob job, string trigger)
+	private string? Launch(InstanceId instance, AutomationWorkspace workspace, MaintenanceJob job, string trigger)
 	{
 		MaintenanceRun run;
 		lock (workspace.Sync)
@@ -456,541 +318,34 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 
 			run = new MaintenanceRun(Guid.NewGuid().ToString("N"), job.Id, job.Name, trigger, clock.GetUtcNow().ToUnixTimeSeconds());
 			workspace.Running = run;
-			_ = Task.Run(() => ExecuteRunAsync(instance, workspace, job, run, lease));
+			_ = Task.Run(() => runner.RunAsync(instance, workspace, job, run, lease, stopping.Token));
 		}
 
 		return run.Id;
 	}
 
-	/// <summary>
-	/// Прогон: предупреждения игрокам, остановка, копия, запуск, ожидание готовности, либо только
-	/// копия.
-	/// </summary>
-	private async Task ExecuteRunAsync(
-		InstanceId instance,
-		Workspace workspace,
-		MaintenanceJob job,
-		MaintenanceRun run,
-		MaintenanceCoordinator.Lease lease)
-	{
-		var ct = stopping.Token;
-		using (lease)
-		{
-			run.Begin();
-			try
-			{
-				var status = await runtime.StatusAsync(instance, ct).ConfigureAwait(false);
-				var active = status.IsSuccess && status.Value.IsActive;
-				var warnings = active ? job.WarningMinutes : [];
-
-				if (job.WarningMinutes.Count > 0 && !active)
-				{
-					run.Step(new RunStep("countdown", "skipped", Phrase.From("Сервер уже остановлен")));
-				}
-
-				var previous = warnings.Count > 0 ? warnings[0] : 0;
-				for (var index = 0; index < warnings.Count; index++)
-				{
-					var minutes = warnings[index];
-					if (index > 0)
-					{
-						await Task.Delay(TimeSpan.FromMinutes(previous - minutes), ct).ConfigureAwait(false);
-					}
-
-					var sent = await announcements.SendAsync(instance, Phrase.Format($"Плановое обслуживание через {minutes} мин."), ct).ConfigureAwait(false);
-					run.Step(sent.IsSuccess
-						? new RunStep("announce", "ok", Minutes: minutes)
-						: new RunStep("announce", "warning", sent.Failure!.Text));
-					previous = minutes;
-				}
-
-				if (warnings.Count > 0 && previous > 0)
-				{
-					await Task.Delay(TimeSpan.FromMinutes(previous), ct).ConfigureAwait(false);
-				}
-
-				if (job.Restart)
-				{
-					Require(await control.ServiceAsync(instance, ServiceAction.Stop, ct).ConfigureAwait(false));
-					run.Step(new RunStep("stop", "ok"));
-
-					try
-					{
-						if (job.Backup)
-						{
-							var backup = Require(await backups.CreateAsync(instance, offline: true, ct).ConfigureAwait(false));
-							run.Step(new RunStep("backup", "ok", BackupName: backup.Name));
-						}
-					}
-					finally
-					{
-						// После неудачной копии сервер не должен остаться остановленным.
-						Require(await control.ServiceAsync(instance, ServiceAction.Start, CancellationToken.None).ConfigureAwait(false));
-					}
-
-					run.Step(new RunStep("start", "ok"));
-
-					if (!await WaitReadyAsync(instance, TimeSpan.FromSeconds(job.ReadinessTimeoutSeconds), ct).ConfigureAwait(false))
-					{
-						throw new MaintenanceFailed(Failure.Unavailable("Сервер не перешёл в состояние «Готов» за отведённое время"));
-					}
-
-					run.Step(new RunStep("wait_ready", "ok"));
-				}
-				else if (job.Backup)
-				{
-					var backup = Require(await backups.CreateAsync(instance, offline: false, ct).ConfigureAwait(false));
-					run.Step(new RunStep("backup", "ok", BackupName: backup.Name));
-				}
-
-				run.Succeed(Now());
-			}
-			catch (OperationCanceledException)
-			{
-				run.Cancel(Now());
-			}
-			catch (MaintenanceFailed failure)
-			{
-				run.Fail(failure.Reason, Now());
-			}
-			catch (Exception exception) when (exception is not OperationCanceledException)
-			{
-				// Любой отказ означает неудачный прогон: задача запущена без наблюдения, и исключение иначе
-				// нигде бы не записалось.
-				run.Fail(Failure.Unavailable(exception.Message), Now());
-			}
-			finally
-			{
-				lock (workspace.Sync)
-				{
-					var index = workspace.Jobs.FindIndex(item => item.Id == job.Id);
-					if (index >= 0)
-					{
-						workspace.Jobs[index] = workspace.Jobs[index].WithResult(run.StartedAt, run.Status);
-					}
-
-					workspace.Running = null;
-				}
-
-				await RecordRunAsync(instance, workspace, run, withTrigger: true, CancellationToken.None).ConfigureAwait(false);
-				await workspace.SaveAsync(CancellationToken.None).ConfigureAwait(false);
-			}
-		}
-	}
-
 	// ----- объявления по расписанию ---------------------------------------------------
 
-	/// <summary>
-	/// Объявления, срок которых наступил. Остановленному серверу и пустому (если так задано)
-	/// объявление не отправляется, но срок всё равно переходит к следующему: копить пропущенные
-	/// незачем.
-	/// </summary>
-	private async Task AnnounceDueAsync(InstanceId instance, Workspace workspace, CancellationToken ct)
-	{
-		var now = clock.GetUtcNow();
-		List<ScheduledAnnouncement> due;
-		lock (workspace.Sync)
-		{
-			due = [.. workspace.Announcements.Where(item => item.IsDue(now))];
-		}
+	public Task<Result<JsonObject>> AddAnnouncementAsync(InstanceId instance, AnnouncementDraft draft, CancellationToken ct) =>
+		scheduledAnnouncements.AddAnnouncementAsync(instance, draft, ct);
 
-		if (due.Count == 0)
-		{
-			return;
-		}
-
-		// Вердикт только что записал такт наблюдателя; без него сервер считается остановленным.
-		var active = TelemetryNumbers.Truthy(workspace.Health["active"]);
-		int? online = null;
-		if (active && due.Any(item => item.PlayersOnly)
-			&& await telemetry.ReadAsync(instance, ct).ConfigureAwait(false) is TelemetryReading.Fresh fresh)
-		{
-			// Без свежей телеметрии число игроков неизвестно, и объявление уходит: лучше лишнее
-			// сообщение, чем молчание на сервере без мода.
-			online = fresh.Snapshot.Players.Count;
-		}
-
-		var outcomes = new Dictionary<string, AnnouncementOutcome>(StringComparer.Ordinal);
-		foreach (var item in due)
-		{
-			if (!active || (item.PlayersOnly && online == 0))
-			{
-				outcomes[item.Id] = AnnouncementOutcome.Skipped;
-				continue;
-			}
-
-			var sent = await announcements.SendTextAsync(instance, item.Text, ct).ConfigureAwait(false);
-			if (!sent.IsSuccess)
-			{
-				AnnouncementFailed(log, instance.Value, sent.Failure!.Message);
-			}
-
-			outcomes[item.Id] = sent.IsSuccess ? AnnouncementOutcome.Sent : AnnouncementOutcome.Failed;
-		}
-
-		lock (workspace.Sync)
-		{
-			for (var index = 0; index < workspace.Announcements.Count; index++)
-			{
-				// Объявление могли изменить, пока шла отправка: итог записывается в текущую версию.
-				if (outcomes.TryGetValue(workspace.Announcements[index].Id, out var outcome))
-				{
-					workspace.Announcements[index] = workspace.Announcements[index].Advance(now, outcome);
-				}
-			}
-		}
-
-		await workspace.SaveAsync(ct).ConfigureAwait(false);
-	}
-
-	public async Task<Result<JsonObject>> AddAnnouncementAsync(InstanceId instance, AnnouncementDraft draft, CancellationToken ct)
-	{
-		var created = ScheduledAnnouncement.Create(draft, null, clock.GetUtcNow());
-		if (!created.IsSuccess)
-		{
-			return Result.Fail<JsonObject>(created.Failure!);
-		}
-
-		var workspace = await WorkspaceAsync(instance).ConfigureAwait(false);
-		lock (workspace.Sync)
-		{
-			if (workspace.Announcements.Count >= maxAnnouncements)
-			{
-				return Failure.Invalid($"Не больше {maxAnnouncements} объявлений на сервер");
-			}
-
-			workspace.Announcements.Add(created.Value);
-		}
-
-		await workspace.SaveAsync(ct).ConfigureAwait(false);
-		return created.Value.ToJson();
-	}
-
-	/// <summary>Изменение и переключение: присланное накладывается на объявление.</summary>
-	public async Task<Result<JsonObject>> UpdateAnnouncementAsync(
+	public Task<Result<JsonObject>> UpdateAnnouncementAsync(
 		InstanceId instance,
 		string id,
 		Func<AnnouncementDraft, AnnouncementDraft> change,
-		CancellationToken ct)
-	{
-		var workspace = await WorkspaceAsync(instance).ConfigureAwait(false);
-		Result<ScheduledAnnouncement> updated;
+		CancellationToken ct) =>
+		scheduledAnnouncements.UpdateAnnouncementAsync(instance, id, change, ct);
 
-		lock (workspace.Sync)
-		{
-			var index = workspace.Announcements.FindIndex(item => item.Id == id);
-			if (index < 0)
-			{
-				return Failure.NotFound("Объявление не найдено");
-			}
+	public Task<Result<Done>> DeleteAnnouncementAsync(InstanceId instance, string id, CancellationToken ct) =>
+		scheduledAnnouncements.DeleteAnnouncementAsync(instance, id, ct);
 
-			var current = workspace.Announcements[index];
-			updated = ScheduledAnnouncement.Create(change(current.ToDraft()), id, clock.GetUtcNow(), current);
-			if (updated.IsSuccess)
-			{
-				workspace.Announcements[index] = updated.Value;
-			}
-		}
+	public Task<bool> WaitReadyAsync(InstanceId instance, TimeSpan timeout, CancellationToken ct) =>
+		watchdog.WaitReadyAsync(instance, timeout, ct);
 
-		if (!updated.IsSuccess)
-		{
-			return Result.Fail<JsonObject>(updated.Failure!);
-		}
+	internal static JsonObject HealthJson(ReadinessVerdict verdict) => WatchdogService.HealthJson(verdict);
 
-		await workspace.SaveAsync(ct).ConfigureAwait(false);
-		return updated.Value.ToJson();
-	}
-
-	public async Task<Result<Done>> DeleteAnnouncementAsync(InstanceId instance, string id, CancellationToken ct)
-	{
-		var workspace = await WorkspaceAsync(instance).ConfigureAwait(false);
-		lock (workspace.Sync)
-		{
-			if (workspace.Announcements.RemoveAll(item => item.Id == id) == 0)
-			{
-				return Failure.NotFound("Объявление не найдено");
-			}
-		}
-
-		await workspace.SaveAsync(ct).ConfigureAwait(false);
-		return Done.Ok;
-	}
-
-	/// <summary>
-	/// Ожидание готовности. Сервер без мода телеметрии готовность подтвердить не может, поэтому
-	/// «ограниченная проверка» завершает ожидание сразу, а не по таймауту.
-	/// </summary>
-	public async Task<bool> WaitReadyAsync(InstanceId instance, TimeSpan timeout, CancellationToken ct)
-	{
-		var deadline = clock.GetUtcNow() + timeout;
-		while (clock.GetUtcNow() < deadline)
-		{
-			var health = await CheckWatchdogAsync(instance, ct).ConfigureAwait(false);
-			switch (TelemetryNumbers.Text(health["state"]))
-			{
-				case "ready":
-					return true;
-				case "degraded":
-					return false;
-			}
-
-			await Task.Delay(readinessPoll, ct).ConfigureAwait(false);
-		}
-
-		return false;
-	}
-
-	private async Task RecordRunAsync(InstanceId instance, Workspace workspace, MaintenanceRun run, bool withTrigger, CancellationToken ct)
-	{
-		var record = run.ToJson();
-		if (!withTrigger)
-		{
-			record.Remove("trigger");
-			record.Remove("steps");
-		}
-
-		await workspace.AppendRunAsync(record, ct).ConfigureAwait(false);
-
-		var status = RunStatusWire.ToWire(run.Status);
-		await events.EmitAsync(
-				instance,
-				"automation." + status,
-				run.Status is RunStatus.Success or RunStatus.Skipped ? EventSeverity.Info : EventSeverity.Error,
-				Phrase.Format($"Обслуживание: {run.Name}"),
-				run.Detail,
-				"automation",
-				ct: ct)
-			.ConfigureAwait(false);
-	}
-
-	private long Now() => clock.GetUtcNow().ToUnixTimeSeconds();
-
-	private static T Require<T>(Result<T> result) =>
-		result.IsSuccess ? result.Value : throw new MaintenanceFailed(result.Failure!);
-
-	internal static JsonObject HealthJson(ReadinessVerdict verdict) => new()
-	{
-		["checked_at"] = verdict.CheckedAt.ToUnixTimeSeconds(),
-		["instance"] = verdict.Observed.Serialize(),
-		["active"] = verdict.ServiceActive,
-		["state"] = verdict.State.ToWire(),
-		["detail"] = PhraseJsonConverter.ToNode(verdict.Detail),
-		["failures"] = verdict.ConsecutiveFailures,
-	};
-
-	private static Phrase? RecoveryBlocked(JsonObject health) =>
-		PhraseJsonConverter.FromNode(health["recovery_blocked"]) is { } blocked && blocked.ToString().Length > 0 ? blocked : null;
-
-	private Task<Workspace> WorkspaceAsync(InstanceId instance) =>
-		workspaces.GetOrAdd(instance, id => new Lazy<Task<Workspace>>(() => OpenAsync(id))).Value;
-
-	/// <summary>
-	/// Состояние сервера из файла. Вердикт и настройки сразу видны в <c>/api/status</c>, а
-	/// сохранённая цепочка продолжается после перезапуска панели.
-	/// </summary>
-	private async Task<Workspace> OpenAsync(InstanceId instance)
-	{
-		var workspace = await Workspace.OpenAsync(
-				Path.Combine(options.InstanceDirectory(instance), "automation.json"),
-				Path.Combine(options.InstanceDirectory(instance), "automation-runs.jsonl"),
-				clock,
-				zone)
-			.ConfigureAwait(false);
-
-		readiness.Configure(instance, workspace.Watchdog);
-		readiness.Record(instance, workspace.Chain, RecoveryBlocked(workspace.Health));
-		return workspace;
-	}
 
 	[LoggerMessage(Level = LogLevel.Warning, Message = "Такт автоматизации сервера {Instance} не удался")]
 	private static partial void TickFailed(ILogger logger, string instance, Exception exception);
 
-	[LoggerMessage(Level = LogLevel.Warning, Message = "Объявление по расписанию на сервере {Instance} не отправлено: {Reason}")]
-	private static partial void AnnouncementFailed(ILogger logger, string instance, string reason);
-
-	/// <summary>Отказ шага, который прерывает прогон; его причина становится итогом.</summary>
-	private sealed class MaintenanceFailed(Failure reason) : Exception(reason.Message)
-	{
-		public Failure Reason { get; } = reason;
-	}
-
-	/// <summary>
-	/// Состояние автоматизации одного сервера: <c>automation.json</c> и
-	/// <c>automation-runs.jsonl</c> (ADR-04).
-	/// </summary>
-	private sealed class Workspace
-	{
-		private readonly string stateFile;
-		private readonly JsonLinesFile runs;
-		private readonly SemaphoreSlim saving = new(1, 1);
-
-		private Workspace(string stateFile, string runsFile, TimeProvider clock)
-		{
-			this.stateFile = stateFile;
-			runs = new JsonLinesFile(runsFile, keep: 5000, time: clock);
-		}
-
-		public object Sync { get; } = new();
-
-		public SemaphoreSlim WatchdogGate { get; } = new(1, 1);
-
-		public List<MaintenanceJob> Jobs { get; private set; } = [];
-
-		public List<ScheduledAnnouncement> Announcements { get; private set; } = [];
-
-		public WatchdogSettings Watchdog { get; set; } = WatchdogSettings.Default;
-
-		public JsonObject Health { get; set; } = new()
-		{
-			["state"] = "unknown",
-			["detail"] = PhraseJsonConverter.ToNode(Phrase.From("Проверка ещё не выполнялась")),
-			["failures"] = 0,
-		};
-
-		/// <summary>Предыдущий вердикт, от которого считаются неудачи подряд.</summary>
-		public ReadinessVerdict? Chain { get; set; }
-
-		public List<DateTimeOffset> Restarts { get; set; } = [];
-
-		public MaintenanceRun? Running { get; set; }
-
-		public static async Task<Workspace> OpenAsync(string stateFile, string runsFile, TimeProvider clock, TimeZoneInfo zone)
-		{
-			var workspace = new Workspace(stateFile, runsFile, clock);
-			if (!File.Exists(stateFile))
-			{
-				return workspace;
-			}
-
-			try
-			{
-				if (JsonNode.Parse(await File.ReadAllTextAsync(stateFile).ConfigureAwait(false)) is not JsonObject root)
-				{
-					return workspace;
-				}
-
-				var now = clock.GetUtcNow();
-				var watchdog = WatchdogSettingsJson.FromJson(root["watchdog"] as JsonObject);
-				workspace.Watchdog = watchdog.IsSuccess ? watchdog.Value : WatchdogSettings.Default;
-				workspace.Jobs = [.. (root["jobs"] as JsonArray ?? [])
-					.OfType<JsonObject>()
-					.Select(item => MaintenanceJob.FromJson(item, now, zone))
-					.Where(job => job.IsSuccess)
-					.Select(job => job.Value)];
-
-				// В файле, записанном до появления объявлений, ключа нет: список пуст.
-				workspace.Announcements = [.. (root["announcements"] as JsonArray ?? [])
-					.OfType<JsonObject>()
-					.Select(item => ScheduledAnnouncement.FromJson(item, now))
-					.Where(item => item.IsSuccess)
-					.Select(item => item.Value)];
-
-				if (root["health"] is JsonObject health)
-				{
-					workspace.Health = (JsonObject) health.DeepClone();
-					workspace.Chain = Verdict(health);
-				}
-
-				workspace.Restarts = [.. (root["restart_history"] as JsonArray ?? [])
-					.Select(item => (long)TelemetryNumbers.Number(item))
-					.Where(seconds => seconds > 0)
-					.Select(DateTimeOffset.FromUnixTimeSeconds)];
-			}
-			catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
-			{
-				// Нечитаемое состояние заменяется умолчаниями, чтобы панель запустилась.
-			}
-
-			return workspace;
-		}
-
-		/// <summary>
-		/// <c>{"version": 1, "jobs", "announcements", "watchdog", "health", "restart_history"}</c>, отступ в два
-		/// пробела, права 0600, не больше двадцати последних перезапусков.
-		/// </summary>
-		public async Task SaveAsync(CancellationToken ct)
-		{
-			JsonObject document;
-			lock (Sync)
-			{
-				document = new JsonObject
-				{
-					["version"] = 1,
-					["jobs"] = new JsonArray([.. Jobs.Select(job => (JsonNode?) job.ToJson())]),
-					["announcements"] = new JsonArray([.. Announcements.Select(item => (JsonNode?) item.ToJson())]),
-					["watchdog"] = WatchdogSettingsJson.ToJson(Watchdog),
-					["health"] = Health.DeepClone(),
-					["restart_history"] = new JsonArray([.. Restarts.TakeLast(20).Select(moment => (JsonNode?) moment.ToUnixTimeSeconds())]),
-				};
-			}
-
-			await saving.WaitAsync(ct).ConfigureAwait(false);
-			try
-			{
-				var directory = Path.GetDirectoryName(stateFile)!;
-				if (!Directory.Exists(directory))
-				{
-					Directory.CreateDirectory(directory);
-					if (!OperatingSystem.IsWindows())
-					{
-						File.SetUnixFileMode(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-					}
-				}
-
-				var written = await AtomicFile
-					.WriteAsync(stateFile, document.ToJsonString(PanelJson.Indented) + "\n", ct)
-					.ConfigureAwait(false);
-				if (written.IsSuccess && !OperatingSystem.IsWindows())
-				{
-					File.SetUnixFileMode(stateFile, UnixFileMode.UserRead | UnixFileMode.UserWrite);
-				}
-			}
-			finally
-			{
-				saving.Release();
-			}
-		}
-
-		public Task AppendRunAsync(JsonObject record, CancellationToken ct) =>
-			runs.AppendAsync(record.ToJsonString(PanelJson.Options), ct);
-
-		/// <summary>Последние прогоны, новые первыми.</summary>
-		public async Task<IReadOnlyList<JsonObject>> RecentRunsAsync(int limit, CancellationToken ct)
-		{
-			var lines = await runs.TailAsync(limit, ct).ConfigureAwait(false);
-			var result = new List<JsonObject>();
-			foreach (var line in lines.Reverse())
-			{
-				try
-				{
-					if (JsonNode.Parse(line) is JsonObject item)
-					{
-						result.Add(item);
-					}
-				}
-				catch (JsonException)
-				{
-					// Битая строка пропускается.
-				}
-			}
-
-			return result;
-		}
-
-		/// <summary>Сохранённый вердикт как звено цепочки: состояние, счёт, процесс.</summary>
-		private static ReadinessVerdict Verdict(JsonObject health)
-		{
-			var identity = ProcessIdentity.Parse(TelemetryNumbers.Text(health["instance"]));
-
-			return new ReadinessVerdict
-			{
-				State = HealthStateWire.FromWire(TelemetryNumbers.Text(health["state"])),
-				Detail = PhraseJsonConverter.FromNode(health["detail"]) ?? Phrase.From(string.Empty),
-				ConsecutiveFailures = (int) TelemetryNumbers.Number(health["failures"]),
-				Observed = identity.IsSuccess ? identity.Value : ProcessIdentity.Unknown,
-				ServiceActive = TelemetryNumbers.Truthy(health["active"]),
-				CheckedAt = DateTimeOffset.FromUnixTimeSeconds((long) TelemetryNumbers.Number(health["checked_at"])),
-			};
-		}
-	}
 }

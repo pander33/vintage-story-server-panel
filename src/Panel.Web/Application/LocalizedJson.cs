@@ -49,7 +49,7 @@ public static class LocalizedJson
 		var options = new JsonSerializerOptions(PanelJson.Options);
 		options.Converters.Add(new TranslatedPhrase(language));
 		options.Converters.Add(new TranslatedNodes(language));
-		// Копия PanelJson.Options, которые ещё ни разу не сериализовали, приходит без резолвера типов.
+		// Общий резолвер метаданных и резервный reflection-резолвер сохраняются вместе с options.
 		options.MakeReadOnly(populateMissingResolver: true);
 		return options;
 	}

@@ -76,7 +76,7 @@ public sealed class EventLog
 public sealed class NotificationSettingsFile
 {
 	private readonly string path;
-	private readonly object sync = new();
+	private readonly Lock sync = new();
 	private NotificationSettings cached = NotificationSettings.Defaults;
 	private DateTime stamp = DateTime.MinValue;
 

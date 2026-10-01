@@ -82,10 +82,9 @@ public static class TelemetryNumbers
 		double result;
 		switch (value.GetValueKind())
 		{
-			// Через текст JSON, а не GetValue<double>(): для значения, созданного из long (sampled_at
-			// ставит сама панель), GetValue<double>() бросает исключение.
+			// Читаем исходный числовой тип: GetValue<double>() не подходит для JsonValue из long.
 			case JsonValueKind.Number:
-				result = double.Parse(value.ToJsonString(), NumberStyles.Float, CultureInfo.InvariantCulture);
+				result = NumericValue(value);
 				break;
 			case JsonValueKind.True:
 				return 1;
@@ -100,6 +99,23 @@ public static class TelemetryNumbers
 		}
 
 		return double.IsFinite(result) ? result : fallback;
+	}
+
+	private static double NumericValue(JsonValue value)
+	{
+		if (value.TryGetValue<double>(out var number)) return number;
+		if (value.TryGetValue<long>(out var signed)) return signed;
+		if (value.TryGetValue<ulong>(out var unsigned)) return unsigned;
+		if (value.TryGetValue<int>(out var integer)) return integer;
+		if (value.TryGetValue<uint>(out var positive)) return positive;
+		if (value.TryGetValue<decimal>(out var precise)) return (double) precise;
+		if (value.TryGetValue<float>(out var single)) return single;
+		if (value.TryGetValue<short>(out var small)) return small;
+		if (value.TryGetValue<ushort>(out var smallPositive)) return smallPositive;
+		if (value.TryGetValue<byte>(out var octet)) return octet;
+		if (value.TryGetValue<sbyte>(out var signedOctet)) return signedOctet;
+		// Редкие пользовательские числовые представления сохраняют прежний путь.
+		return double.Parse(value.ToJsonString(), NumberStyles.Float, CultureInfo.InvariantCulture);
 	}
 
 	/// <summary>Истинность значения: <c>0</c>, <c>""</c>, <c>false</c>, <c>null</c> ложны.</summary>
@@ -152,7 +168,7 @@ public static class ConnectionQuality
 }
 
 /// <summary>Точка графика пинга одного игрока.</summary>
-public sealed record PingSample(long Ts, double PingMilliseconds);
+public readonly record struct PingSample(long Ts, double PingMilliseconds);
 
 /// <summary>
 /// Имя игрока в запросе истории телеметрии.
@@ -202,9 +218,6 @@ public sealed class TelemetryHistory
 	/// <summary>Порог критического пинга в мс.</summary>
 	public const int PingCriticalMilliseconds = 400;
 
-	/// <summary>Сколько точек отдаёт ряд; больше график не покажет.</summary>
-	private const int maxSeries = 720;
-
 	private const int spikeFromMilliseconds = 250;
 
 	/// <summary>
@@ -215,7 +228,7 @@ public sealed class TelemetryHistory
 
 	private static readonly TimeSpan playerWindow = TimeSpan.FromMinutes(5);
 
-	private readonly List<TelemetryPoint> points = [];
+	private readonly RetainedHistory<TelemetryPoint> points = new();
 	private readonly HashSet<string> names = new(StringComparer.Ordinal);
 
 	public TelemetryHistory(TimeSpan maxAge)
@@ -271,8 +284,7 @@ public sealed class TelemetryHistory
 		points.Add(TelemetryPoint.FromSample(stored, Shared));
 
 		var cutoff = sampledAt - (long) MaxAge.TotalSeconds;
-		var expired = points.FindIndex(point => point.SampledAt >= cutoff);
-		points.RemoveRange(0, expired < 0 ? points.Count : expired);
+		points.DiscardBefore(point => point.SampledAt >= cutoff);
 
 		return stored;
 	}
@@ -301,12 +313,13 @@ public sealed class TelemetryHistory
 		}
 
 		var cutoff = now.ToUnixTimeSeconds() - (long) playerWindow.TotalSeconds;
+		var recent = RecentPings(cutoff);
 		var result = new List<JsonObject>();
 
 		foreach (var player in (Latest["players"] as JsonArray ?? []).OfType<JsonObject>())
 		{
 			var name = TelemetryNumbers.Text(player["name"]);
-			var pings = PingsOf(name, cutoff).TakeLast(150).Select(sample => sample.PingMilliseconds).ToList();
+			IReadOnlyCollection<double> pings = recent.TryGetValue(name, out var readings) ? readings : [];
 			double? current = player["ping_ms"] is { } ping && ping.GetValueKind() != JsonValueKind.Null
 				? TelemetryNumbers.Number(ping)
 				: null;
@@ -334,7 +347,8 @@ public sealed class TelemetryHistory
 			return [];
 		}
 
-		return Downsample(PingsOf(player.Name, now.ToUnixTimeSeconds() - (long) window.TotalSeconds).ToList());
+		var samples = PingsOf(player.Name, now.ToUnixTimeSeconds() - (long) window.TotalSeconds);
+		return SeriesSampling.Select(samples, samples.Count(), static sample => sample);
 	}
 
 	/// <summary>
@@ -345,35 +359,19 @@ public sealed class TelemetryHistory
 	public PerformanceReport Performance(DateTimeOffset now, TimeSpan window)
 	{
 		var cutoff = now.ToUnixTimeSeconds() - (long) window.TotalSeconds;
-		var seenGenerated = new HashSet<double>();
-		var seenSampled = new HashSet<long>();
-		var series = new List<PerformancePoint>();
-		var longTicks = new List<LongTick>();
-		var spikes = new List<PingSpike>();
+		var selected = FreshPoints(cutoff);
+		var count = 0;
+		var longTicks = new Queue<LongTick>();
+		var spikes = new Queue<PingSpike>();
 		var lastSpike = new Dictionary<string, long>(StringComparer.Ordinal);
 
-		for (var index = Since(cutoff); index < points.Count; index++)
+		foreach (var point in selected)
 		{
-			var point = points[index];
-			if (point.SampledAt < cutoff || !point.Available || point.Stale)
+			count++;
+			foreach (var tick in point.LongTicks)
 			{
-				continue;
+				KeepLast(longTicks, tick);
 			}
-
-			var fresh = point.GeneratedAt is { } generated
-				? seenGenerated.Add(generated)
-				: seenSampled.Add(point.SampledAt);
-			if (!fresh)
-			{
-				continue;
-			}
-
-			series.Add(new PerformancePoint(
-				point.SampledAt,
-				Math.Round(point.ObservedTps, 2),
-				Math.Round(point.MaximumTickGapMilliseconds, 1),
-				point.LongTickCount));
-			longTicks.AddRange(point.LongTicks);
 
 			foreach (var player in point.Players)
 			{
@@ -388,16 +386,17 @@ public sealed class TelemetryHistory
 				}
 
 				lastSpike[player.Name] = point.SampledAt;
-				spikes.Add(new PingSpike(point.SampledAt, player.Name, Math.Round(ping, 1)));
+				KeepLast(spikes, new PingSpike(point.SampledAt, player.Name, Math.Round(ping, 1)));
 			}
 		}
 
 		var threshold = TelemetryNumbers.Number(Latest?["long_tick_threshold_ms"]);
 
 		return new PerformanceReport(
-			Downsample(series),
-			longTicks.TakeLast(200).ToList(),
-			spikes.TakeLast(200).ToList(),
+			SeriesSampling.Select(selected, count, static point => new PerformancePoint(
+				point.SampledAt, Math.Round(point.ObservedTps, 2), Math.Round(point.MaximumTickGapMilliseconds, 1), point.LongTickCount)),
+			longTicks.ToArray(),
+			spikes.ToArray(),
 			threshold != 0 ? Math.Round(threshold, 1) : null,
 			threshold > 0,
 			PingCriticalMilliseconds);
@@ -470,15 +469,49 @@ public sealed class TelemetryHistory
 		return name;
 	}
 
-	/// <summary>Не больше 720 точек: каждая n-я, как <c>series[::step]</c>.</summary>
-	private static IReadOnlyList<T> Downsample<T>(IReadOnlyList<T> items)
+	private IEnumerable<TelemetryPoint> FreshPoints(long cutoff)
 	{
-		if (items.Count <= maxSeries)
+		var seenGenerated = new HashSet<double>();
+		var seenSampled = new HashSet<long>();
+		for (var index = Since(cutoff); index < points.Count; index++)
 		{
-			return items;
+			var point = points[index];
+			if (point.SampledAt >= cutoff && point.Available && !point.Stale
+				&& (point.GeneratedAt is { } generated ? seenGenerated.Add(generated) : seenSampled.Add(point.SampledAt)))
+			{
+				yield return point;
+			}
 		}
+	}
 
-		var step = Math.Max(1, items.Count / maxSeries);
-		return [.. items.Where((_, index) => index % step == 0)];
+	private Dictionary<string, Queue<double>> RecentPings(long cutoff)
+	{
+		var recent = new Dictionary<string, Queue<double>>(StringComparer.OrdinalIgnoreCase);
+		var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		for (var index = Since(cutoff); index < points.Count; index++)
+		{
+			var point = points[index];
+			if (point.SampledAt < cutoff || !point.Available) continue;
+			seen.Clear();
+			foreach (var player in point.Players)
+			{
+				// Как PingsOf: первое совпадение имени в снимке, даже если пинг неизвестен.
+				if (!seen.Add(player.Name) || player.PingMilliseconds is not { } ping) continue;
+				if (!recent.TryGetValue(player.Name, out var readings))
+				{
+					readings = new Queue<double>();
+					recent.Add(player.Name, readings);
+				}
+				readings.Enqueue(ping);
+				if (readings.Count > 150) readings.Dequeue();
+			}
+		}
+		return recent;
+	}
+
+	private static void KeepLast<T>(Queue<T> items, T value)
+	{
+		items.Enqueue(value);
+		if (items.Count > 200) items.Dequeue();
 	}
 }

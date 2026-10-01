@@ -60,4 +60,41 @@ public sealed class JsonLinesFileTests : IDisposable
 
 		Assert.Equal(await File.ReadAllLinesAsync(path), await new JsonLinesFile(path).TailAsync(10, default));
 	}
+
+	[Theory]
+	[InlineData(0)]
+	[InlineData(1)]
+	[InlineData(3)]
+	public async Task Уплотнение_оставляет_последние_свежие_записи_и_пропускает_битые(int keep)
+	{
+		const long now = 1_800_000_000;
+		var rows = new[]
+		{
+			"broken", "[]", "{}", "{\"ts\":\"bad\"}", "{\"ts\":1e100}",
+			$"{{\"ts\":{now - 86_401},\"text\":\"старое\"}}",
+			$"{{\"ts\":{now - 86_400},\"text\":\"граница\"}}",
+			$"{{\"ts\":null,\"started_at\":{now - 10},\"text\":\"операция\"}}",
+			$"{{\"ts\":{now - 5},\"text\":\"событие\"}}",
+		};
+		await File.WriteAllLinesAsync(path, rows, new UTF8Encoding(false));
+		var appended = $"{{\"ts\":{now},\"text\":\"новое ё\"}}";
+		var file = new JsonLinesFile(path, keep: keep, retentionDays: 1, time: new FixedTime(now));
+
+		Assert.True((await file.AppendAsync(appended, default)).IsSuccess);
+		Assert.Equal(rows.TakeLast(3).Append(appended).TakeLast(keep), await File.ReadAllLinesAsync(path));
+		var bytes = await File.ReadAllBytesAsync(path);
+		Assert.DoesNotContain((byte) '\r', bytes);
+		Assert.False(bytes.AsSpan().StartsWith(new byte[] { 0xEF, 0xBB, 0xBF }));
+		Assert.Single(Directory.GetFiles(directory));
+	}
+
+	[Fact]
+	public void Отрицательный_предел_журнала_отклоняется() =>
+		Assert.Throws<ArgumentOutOfRangeException>(() => new JsonLinesFile(path, keep: -1));
+
+	private sealed class FixedTime(long seconds) : TimeProvider
+	{
+		public override DateTimeOffset GetUtcNow() => DateTimeOffset.FromUnixTimeSeconds(seconds);
+	}
+
 }

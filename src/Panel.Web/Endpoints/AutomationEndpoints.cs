@@ -16,8 +16,7 @@ public static class AutomationEndpoints
 {
 	public static void MapAutomation(this IEndpointRouteBuilder routes)
 	{
-		// Чтение тоже проверяет сервер: вкладка показывает вердикт на момент открытия, а не на момент
-		// прошлого такта.
+		// Чтение показывает последний вердикт: цепочку и автоматическое восстановление ведёт такт.
 		routes.MapGet("/api/automation", async (
 			HttpContext http,
 			CommandAuthorizer authorizer,

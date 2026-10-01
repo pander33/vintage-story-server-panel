@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 
 namespace Panel.Contracts;
 
@@ -7,9 +8,9 @@ namespace Panel.Contracts;
 /// Общие настройки сериализации панели.
 /// </summary>
 /// <remarks>
-/// ADR-04 и ADR-16: формат файлов состояния и форма HTTP-ответов заморожены. Кириллица в
-/// ответах не превращается в <c>\uXXXX</c>-последовательности. Имена полей заданы атрибутами,
-/// а не политикой именования, чтобы замороженный контракт не зависел от её правил.
+/// Кириллица не превращается в <c>\uXXXX</c>-последовательности. Имена полей заданы
+/// атрибутами. ADR-18/19 разрешают менять HTTP вместе с фронтендом; состояние прежних
+/// установок продолжает читаться при обновлении.
 /// </remarks>
 public static class PanelJson
 {
@@ -20,6 +21,7 @@ public static class PanelJson
 		Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
 		NumberHandling = JsonNumberHandling.AllowReadingFromString,
 		WriteIndented = false,
+		TypeInfoResolver = JsonTypeInfoResolver.Combine(PanelJsonContext.Default, new DefaultJsonTypeInfoResolver()),
 	};
 
 	/// <summary>

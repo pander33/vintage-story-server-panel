@@ -34,7 +34,7 @@ public sealed class ServerMonitor
 	/// <summary>Как часто записывается история игроков, если состав не менялся: время в игре копится.</summary>
 	private static readonly TimeSpan rosterSaving = TimeSpan.FromMinutes(1);
 
-	private readonly object sync = new();
+	private readonly Lock sync = new();
 	private readonly SemaphoreSlim metricsGate = new(1, 1);
 	private readonly TelemetryHistory telemetry;
 	private readonly MetricsHistory metrics;

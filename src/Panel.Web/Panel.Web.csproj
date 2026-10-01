@@ -30,6 +30,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Panel.Contracts.Tests" />
+    <InternalsVisibleTo Include="Panel.Web.Tests" />
     <InternalsVisibleTo Include="Panel.Architecture.Tests" />
   </ItemGroup>
 

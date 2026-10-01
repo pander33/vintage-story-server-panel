@@ -7,20 +7,32 @@ namespace Panel.SharedKernel;
 public readonly struct Result<T>
 {
 	private readonly T? value;
+	private readonly Failure? failure;
+	private readonly bool initialized;
 
 	private Result(T value)
 	{
 		this.value = value;
-		Failure = null;
+		failure = null;
+		initialized = true;
 	}
 
 	private Result(Failure failure)
 	{
+		ArgumentNullException.ThrowIfNull(failure);
 		value = default;
-		Failure = failure;
+		this.failure = failure;
+		initialized = true;
 	}
 
-	public Failure? Failure { get; }
+	public Failure? Failure
+	{
+		get
+		{
+			EnsureInitialized();
+			return failure;
+		}
+	}
 
 	public bool IsSuccess => Failure is null;
 
@@ -44,6 +56,14 @@ public readonly struct Result<T>
 
 	public TOut Match<TOut>(Func<T, TOut> onSuccess, Func<Failure, TOut> onFailure) =>
 		IsSuccess ? onSuccess(value!) : onFailure(Failure!);
+
+	private void EnsureInitialized()
+	{
+		if (!initialized)
+		{
+			throw new InvalidOperationException("Result must be initialized with Ok or Fail.");
+		}
+	}
 }
 
 public static class Result

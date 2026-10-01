@@ -70,9 +70,7 @@ public sealed record MetricsPoint(
 /// </remarks>
 public sealed class MetricsHistory
 {
-	private const int maxPoints = 720;
-
-	private readonly List<MetricsPoint> points = [];
+	private readonly RetainedHistory<MetricsPoint> points = new();
 	private (DateTimeOffset At, long CpuNanoseconds)? lastCpu;
 
 	public MetricsHistory(TimeSpan maxAge)
@@ -141,23 +139,16 @@ public sealed class MetricsHistory
 
 		points.Add(point);
 		var cutoff = point.Ts - (long) MaxAge.TotalSeconds;
-		var expired = points.FindIndex(item => item.Ts >= cutoff);
-		points.RemoveRange(0, expired < 0 ? points.Count : expired);
+		points.DiscardBefore(item => item.Ts >= cutoff);
 
 		return point;
 	}
 
-	/// <summary>Точки за окно, не больше 720: берётся каждая n-я.</summary>
+	/// <summary>Точки за окно, не больше 720, включая первую и последнюю.</summary>
 	public IReadOnlyList<MetricsPoint> Window(DateTimeOffset now, TimeSpan window)
 	{
 		var cutoff = now.ToUnixTimeSeconds() - (long) window.TotalSeconds;
-		var selected = points.Where(point => point.Ts >= cutoff).ToList();
-		if (selected.Count <= maxPoints)
-		{
-			return selected;
-		}
-
-		var step = Math.Max(1, selected.Count / maxPoints);
-		return [.. selected.Where((_, index) => index % step == 0)];
+		var selected = points.Where(point => point.Ts >= cutoff);
+		return SeriesSampling.Select(selected, selected.Count(), static point => point);
 	}
 }

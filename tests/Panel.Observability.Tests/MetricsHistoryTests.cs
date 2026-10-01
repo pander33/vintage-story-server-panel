@@ -66,19 +66,35 @@ public sealed class MetricsHistoryTests
 			line.Select(pair => pair.Key));
 	}
 
-	[Fact]
-	public void Окно_прореживается_до_720_точек()
+	[Theory]
+	[InlineData(0)]
+	[InlineData(1)]
+	[InlineData(2)]
+	[InlineData(719)]
+	[InlineData(720)]
+	[InlineData(721)]
+	[InlineData(1000)]
+	[InlineData(1439)]
+	[InlineData(1440)]
+	[InlineData(1500)]
+	public void Окно_прореживается_до_720_точек(int count)
 	{
 		var history = new MetricsHistory(TimeSpan.FromDays(7));
-		for (var minute = 0; minute < 1500; minute++)
+		for (var minute = 0; minute < count; minute++)
 		{
 			history.Record(Sample(), start.AddMinutes(minute));
 		}
 
-		var window = history.Window(start.AddMinutes(1500), TimeSpan.FromDays(2));
+		var window = history.Window(start.AddMinutes(count), TimeSpan.FromDays(2));
 
-		Assert.True(window.Count <= 750);
-		Assert.Equal(start.ToUnixTimeSeconds(), window[0].Ts);
+		Assert.Equal(Math.Min(count, 720), window.Count);
+		if (count > 0)
+		{
+			Assert.Equal(start.ToUnixTimeSeconds(), window[0].Ts);
+			Assert.Equal(start.AddMinutes(count - 1).ToUnixTimeSeconds(), window[^1].Ts);
+			Assert.Equal(window.Count, window.Select(point => point.Ts).Distinct().Count());
+			Assert.Equal(window.OrderBy(point => point.Ts), window);
+		}
 	}
 
 	private static JsonObject Sample(long cpuNanoseconds = 0) => new()

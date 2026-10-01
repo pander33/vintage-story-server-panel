@@ -53,7 +53,7 @@ public sealed partial class UpdateService : IHostedService
 	private static readonly TimeSpan serviceTimeout = TimeSpan.FromSeconds(240);
 
 	private readonly ConcurrentDictionary<InstanceId, Lazy<Task<Workspace>>> workspaces = new();
-	private readonly ConcurrentDictionary<Task, byte> running = new();
+	private readonly OperationTasks running = new();
 	private readonly GameVersions versions;
 	private readonly IServerRuntime runtime;
 	private readonly Announcements announcements;
@@ -105,7 +105,7 @@ public sealed partial class UpdateService : IHostedService
 
 	/// <summary>Остановка ждёт идущие операции.</summary>
 	public Task StopAsync(CancellationToken cancellationToken) =>
-		Task.WhenAll(running.Keys).WaitAsync(cancellationToken);
+		running.WaitAsync(cancellationToken);
 
 	/// <summary>
 	/// Открыть рабочее место сервера. При первом открытии в процессе запись, оставшаяся от
@@ -284,8 +284,7 @@ public sealed partial class UpdateService : IHostedService
 				}
 			});
 
-			running.TryAdd(task, 0);
-			_ = task.ContinueWith(done => running.TryRemove(done, out _), TaskScheduler.Default);
+			running.Track(task);
 			return id.ToString();
 		}
 	}
@@ -604,16 +603,8 @@ public sealed partial class UpdateService : IHostedService
 	/// </summary>
 	private async Task FinishAsync(InstanceId instance, Workspace workspace, Operation operation, Failure? reason)
 	{
-		if (reason is null)
-		{
-			operation.Succeed(Now());
-		}
-		else
-		{
-			operation.Fail(reason, Now());
-		}
+		await OperationCompletion.ArchiveAsync(workspace.Store, operation, reason, Now()).ConfigureAwait(false);
 
-		await workspace.Store.ArchiveAsync(operation, CancellationToken.None).ConfigureAwait(false);
 		lock (workspace.Sync)
 		{
 			workspace.Current = null;
@@ -667,7 +658,7 @@ public sealed partial class UpdateService : IHostedService
 
 	private sealed class Workspace(OperationStore store)
 	{
-		public object Sync { get; } = new();
+		public Lock Sync { get; } = new();
 
 		public OperationStore Store { get; } = store;
 

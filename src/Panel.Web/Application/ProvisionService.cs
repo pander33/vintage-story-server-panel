@@ -39,8 +39,8 @@ public sealed partial class ProvisionService : IHostedService
 {
 	private static readonly TimeSpan serviceTimeout = TimeSpan.FromSeconds(300);
 
-	private readonly ConcurrentDictionary<Task, byte> running = new();
-	private readonly object sync = new();
+	private readonly OperationTasks running = new();
+	private readonly Lock sync = new();
 	private readonly IProvisioningHost host;
 	private readonly IRegistryAdministration registry;
 	private readonly VersionCatalogue catalogue;
@@ -122,7 +122,7 @@ public sealed partial class ProvisionService : IHostedService
 
 	/// <summary>Остановка ждёт идущее создание: наполовину созданное дерево хуже ожидания.</summary>
 	public Task StopAsync(CancellationToken cancellationToken) =>
-		Task.WhenAll(running.Keys).WaitAsync(cancellationToken);
+		running.WaitAsync(cancellationToken);
 
 	/// <summary>
 	/// Запись, оставшаяся от прошлого процесса, переносится в историю как прерванная. Один раз на
@@ -273,8 +273,7 @@ public sealed partial class ProvisionService : IHostedService
 				}
 			});
 
-			running.TryAdd(task, 0);
-			_ = task.ContinueWith(done => running.TryRemove(done, out _), TaskScheduler.Default);
+			running.Track(task);
 			return id;
 		}
 	}
@@ -450,16 +449,8 @@ public sealed partial class ProvisionService : IHostedService
 	/// <summary><c>_finish</c>: итог, история, очистка current, событие <c>provision.*</c>.</summary>
 	private async Task FinishAsync(Operation operation, Failure? reason)
 	{
-		if (reason is null)
-		{
-			operation.Succeed(Now());
-		}
-		else
-		{
-			operation.Fail(reason, Now());
-		}
+		await OperationCompletion.ArchiveAsync(store, operation, reason, Now()).ConfigureAwait(false);
 
-		await store.ArchiveAsync(operation, CancellationToken.None).ConfigureAwait(false);
 		lock (sync)
 		{
 			current = null;

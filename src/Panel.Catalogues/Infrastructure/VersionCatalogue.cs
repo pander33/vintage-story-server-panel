@@ -23,6 +23,10 @@ public sealed class VersionCatalogue
 	private readonly Func<CancellationToken, Task<Result<JsonObject>>> fetch;
 	private readonly TimeProvider clock;
 	private readonly long ttlSeconds;
+	private readonly Lock sync = new();
+	private CatalogueSnapshot? cached;
+	private bool loaded;
+	private Task<Result<CatalogueSnapshot>>? updating;
 
 	public VersionCatalogue(
 		string cacheFile,
@@ -45,24 +49,81 @@ public sealed class VersionCatalogue
 
 	public async Task<Result<CatalogueSnapshot>> SnapshotAsync(bool refresh, CancellationToken ct)
 	{
-		var cached = ReadCache();
-		var now = clock.GetUtcNow().ToUnixTimeSeconds();
-		if (cached is { } fresh && !refresh && now - fresh.FetchedAt < ttlSeconds)
+		ct.ThrowIfCancellationRequested();
+		Task<Result<CatalogueSnapshot>> task;
+		TaskCompletionSource<Result<CatalogueSnapshot>>? completion = null;
+		lock (sync)
 		{
-			return Present(fresh.Raw, fresh.FetchedAt, fromNetwork: false, stale: false);
+			if (!loaded)
+			{
+				cached = ReadCache();
+				loaded = true;
+			}
+
+			if (updating is { } running)
+			{
+				task = running;
+			}
+			else if (cached is { } fresh && !refresh && clock.GetUtcNow().ToUnixTimeSeconds() - fresh.FetchedAt < ttlSeconds)
+			{
+				return fresh with { FromNetwork = false, Stale = false };
+			}
+			else
+			{
+				completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+				task = updating = completion.Task;
+			}
 		}
 
-		var fetched = await fetch(ct).ConfigureAwait(false);
-		if (!fetched.IsSuccess)
+		if (completion is not null)
 		{
-			// Сеть недоступна, кэш устарел: каталог отдаётся с пометкой.
-			return cached is { } old
-				? Present(old.Raw, old.FetchedAt, fromNetwork: false, stale: true)
-				: Result.Fail<CatalogueSnapshot>(fetched.Failure!);
+			_ = RefreshAsync(completion);
 		}
 
-		await WriteCacheAsync(fetched.Value, now, ct).ConfigureAwait(false);
-		return Present(fetched.Value, now, fromNetwork: true, stale: false);
+		// Отмена одного зрителя не отменяет общий запрос, у сетевого fetch свой таймаут.
+		return await task.WaitAsync(ct).ConfigureAwait(false);
+	}
+
+	private async Task RefreshAsync(TaskCompletionSource<Result<CatalogueSnapshot>> completion)
+	{
+		try
+		{
+			var fetched = await fetch(CancellationToken.None).ConfigureAwait(false);
+			Result<CatalogueSnapshot> result;
+			if (fetched.IsSuccess)
+			{
+				var now = clock.GetUtcNow().ToUnixTimeSeconds();
+				var snapshot = Present(fetched.Value, now, fromNetwork: true, stale: false);
+				await WriteCacheAsync(fetched.Value, now, CancellationToken.None).ConfigureAwait(false);
+				lock (sync)
+				{
+					cached = snapshot;
+				}
+				result = snapshot;
+			}
+			else
+			{
+				lock (sync)
+				{
+					result = cached is { } old
+						? old with { FromNetwork = false, Stale = true }
+						: Result.Fail<CatalogueSnapshot>(fetched.Failure!);
+				}
+			}
+			lock (sync)
+			{
+				updating = null;
+				completion.SetResult(result);
+			}
+		}
+		catch (Exception exception)
+		{
+			lock (sync)
+			{
+				updating = null;
+				completion.SetException(exception);
+			}
+		}
 	}
 
 	/// <summary>Пакет нужной версии; если его нет в каталоге, отказ с номером версии.</summary>
@@ -134,10 +195,10 @@ public sealed class VersionCatalogue
 		}
 	};
 
-	private Result<CatalogueSnapshot> Present(JsonObject raw, long fetchedAt, bool fromNetwork, bool stale) =>
-		new CatalogueSnapshot(ReleaseManifest.Parse(raw, Platform), fetchedAt, fromNetwork, stale, Platform);
+	private CatalogueSnapshot Present(JsonObject raw, long fetchedAt, bool fromNetwork, bool stale) =>
+		new(Array.AsReadOnly(ReleaseManifest.Parse(raw, Platform).ToArray()), fetchedAt, fromNetwork, stale, Platform);
 
-	private (JsonObject Raw, long FetchedAt)? ReadCache()
+	private CatalogueSnapshot? ReadCache()
 	{
 		try
 		{
@@ -151,7 +212,7 @@ public sealed class VersionCatalogue
 			var fetchedAt = cache["fetched_at"] is JsonValue stamp && stamp.TryGetValue<double>(out var seconds)
 				? (long) seconds
 				: 0;
-			return ((JsonObject) raw.DeepClone(), fetchedAt);
+			return Present(raw, fetchedAt, fromNetwork: false, stale: false);
 		}
 		catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
 		{

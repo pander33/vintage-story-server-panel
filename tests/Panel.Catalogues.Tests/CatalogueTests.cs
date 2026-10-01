@@ -146,6 +146,74 @@ public sealed class CatalogueTests : IDisposable
 		Assert.Equal("Версия 9.9.9 отсутствует в каталоге", (await catalogue.FindAsync("9.9.9", false, default)).Failure!.Message);
 	}
 
+	[Fact]
+	public async Task Параллельные_обновления_ожидают_один_запрос()
+	{
+		var response = new TaskCompletionSource<Result<JsonObject>>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var calls = 0;
+		var catalogue = Catalogue(_ =>
+		{
+			Interlocked.Increment(ref calls);
+			return response.Task;
+		});
+		var requests = Enumerable.Range(0, 10).Select(_ => catalogue.SnapshotAsync(true, default)).ToArray();
+		Assert.Equal(1, calls);
+		response.SetResult(Manifest());
+		var results = await Task.WhenAll(requests);
+		Assert.All(results, result => Assert.True(result.Value.FromNetwork));
+		Assert.Equal(1, calls);
+		Assert.False((await catalogue.SnapshotAsync(false, default)).Value.FromNetwork);
+	}
+
+	[Fact]
+	public async Task Отмена_зрителя_не_отменяет_общий_запрос()
+	{
+		var response = new TaskCompletionSource<Result<JsonObject>>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var calls = 0;
+		var catalogue = Catalogue(ct =>
+		{
+			Assert.False(ct.CanBeCanceled);
+			calls++;
+			return response.Task;
+		});
+		using var canceled = new CancellationTokenSource();
+		var first = catalogue.SnapshotAsync(true, canceled.Token);
+		var second = catalogue.SnapshotAsync(true, default);
+		await canceled.CancelAsync();
+		await Assert.ThrowsAnyAsync<OperationCanceledException>(() => first);
+		response.SetResult(Manifest());
+		Assert.True((await second).IsSuccess);
+		Assert.Equal(1, calls);
+	}
+
+	[Fact]
+	public async Task После_исключения_можно_обновить_каталог_снова()
+	{
+		var calls = 0;
+		var catalogue = Catalogue(_ => ++calls == 1
+			? Task.FromException<Result<JsonObject>>(new IOException("failed"))
+			: Task.FromResult<Result<JsonObject>>(Manifest()));
+		await Assert.ThrowsAsync<IOException>(() => catalogue.SnapshotAsync(true, default));
+		Assert.True((await catalogue.SnapshotAsync(true, default)).IsSuccess);
+		Assert.Equal(2, calls);
+	}
+
+	[Fact]
+	public async Task Разобранный_кэш_не_зависит_от_последующих_изменений_файла_или_ответа()
+	{
+		var manifest = Manifest();
+		var catalogue = Catalogue(_ => Task.FromResult<Result<JsonObject>>(manifest));
+		var first = (await catalogue.SnapshotAsync(false, default)).Value;
+		manifest.Clear();
+		await File.WriteAllTextAsync(CacheFile, "invalid");
+		var second = (await catalogue.SnapshotAsync(false, default)).Value;
+		Assert.Same(first.Versions, second.Versions);
+		Assert.Equal("1.22.7", second.LatestStable!.Version.Text);
+		var list = Assert.IsAssignableFrom<IList<GamePackage>>(second.Versions);
+		Assert.True(list.IsReadOnly);
+		Assert.Throws<NotSupportedException>(() => list.Clear());
+	}
+
 	private static Task<Result<JsonObject>> Broken(CancellationToken ct) =>
 		Task.FromResult<Result<JsonObject>>(Failure.Unavailable("сеть недоступна"));
 

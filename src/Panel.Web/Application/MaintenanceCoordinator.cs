@@ -21,7 +21,7 @@ namespace Panel.Web.Application;
 /// </remarks>
 public sealed class MaintenanceCoordinator
 {
-	private readonly object sync = new();
+	private readonly Lock sync = new();
 	private readonly FileLeaseStore? store;
 	private readonly ProcessProbe probe;
 	private readonly TimeProvider clock;
