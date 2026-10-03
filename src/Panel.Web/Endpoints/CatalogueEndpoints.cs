@@ -169,7 +169,7 @@ public static class CatalogueEndpoints
 			return details.IsSuccess ? PanelResults.Json(details.Value.Json) : Upstream(details.Failure!);
 		});
 
-		// Только проверка: массового обновления без подтверждения нет (INV-28), каждый найденный
+		// Только проверка: массового обновления без подтверждения нет, каждый найденный
 		// релиз ставится отдельным нажатием.
 		routes.MapGet("/api/mods/updates", async (
 			HttpContext http,

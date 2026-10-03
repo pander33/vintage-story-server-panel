@@ -10,8 +10,8 @@ namespace Panel.Configuration.Infrastructure;
 /// <c>instances/&lt;id&gt;/config-apply.json</c>: отметка трекера применения.
 /// </summary>
 /// <remarks>
-/// Формат заморожен (ADR-04): ключи, их порядок, <c>ensure_ascii=False</c>, разделители по
-/// умолчанию и перевод строки в конце.
+/// Отметка записывается через PythonJson с переводом строки в конце.
+/// Ревизия настроек вычисляется отдельно через CanonicalJson.
 /// </remarks>
 public sealed class FileApplyMarkerStore : IApplyMarkerStore
 {

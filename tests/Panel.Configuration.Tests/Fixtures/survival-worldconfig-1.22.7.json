@@ -233,4 +233,4 @@
         { "category": "multiplayer", "code": "classExclusiveRecipes", "dataType": "bool", "default": "true" },
         { "category": "multiplayer", "code": "auctionHouse", "dataType": "bool", "default": "true" }
     ]
-}
+}

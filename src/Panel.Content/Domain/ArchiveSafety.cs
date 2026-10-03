@@ -73,7 +73,7 @@ public readonly record struct SafeArchiveEntry
 /// <para>
 /// В <c>System.Formats.Tar</c> нет аналога <c>filter="data"</c>: у
 /// <c>TarFile.ExtractToDirectory</c> есть только <c>overwriteFiles</c>, пути и виды записей он
-/// не проверяет. Поэтому по ADR-08 правила написаны здесь, в предметной области, где их можно
+/// не проверяет. Поэтому правила написаны здесь, в предметной области, где их можно
 /// проверить тестами без настоящего архива.
 /// </para>
 /// <para>

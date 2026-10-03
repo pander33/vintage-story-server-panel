@@ -4,8 +4,8 @@ using Panel.SharedKernel;
 namespace Panel.Contracts.Content;
 
 /// <summary>
-/// Один мод в ответе <c>GET /api/mods</c>. Имена полей заморожены (ADR-16): фронтенд читает
-/// именно их.
+/// Один мод в ответе <c>GET /api/mods</c>. Имена полей меняются вместе с их чтением
+/// во фронтенде.
 /// </summary>
 public sealed record ModEntryPayload
 {

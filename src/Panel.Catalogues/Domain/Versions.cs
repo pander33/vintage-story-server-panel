@@ -53,7 +53,7 @@ public readonly partial record struct ModVersion : IComparable<ModVersion>
 
 	public bool IsPrerelease => Rank < 3;
 
-	/// <summary>Только цифры ASCII, без цифр других письменностей (findings §48).</summary>
+	/// <summary>Только цифры ASCII, без цифр других письменностей.</summary>
 	[GeneratedRegex(
 		@"\Av?([0-9]+)\.([0-9]+)(?:\.([0-9]+))?(?:-(dev|pre|preview|rc|alpha|beta)(?:[.-]?([0-9]+))?)?(?:\+.*)?\z",
 		RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]

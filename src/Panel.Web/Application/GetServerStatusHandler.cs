@@ -12,7 +12,7 @@ namespace Panel.Web.Application;
 /// </summary>
 /// <remarks>
 /// Обработчику нужен IRegistryStore из контекста Fleet, а контекст Runtime не может ссылаться
-/// на другой контекст (ADR-01), поэтому обработчик находится в композиционном корне.
+/// на другой контекст, поэтому обработчик находится в композиционном корне.
 /// </remarks>
 public sealed class GetServerStatusHandler
 {

@@ -244,7 +244,7 @@ public sealed class ModCatalogueTests
 
 	private static readonly byte[] png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3];
 
-	private const string Cdn = "https://moddbcdn.vintagestory.at/logo.png";
+	private const string cdn = "https://moddbcdn.vintagestory.at/logo.png";
 
 	[Fact]
 	public async Task Картинка_отдаётся_с_типом_по_первым_байтам_и_кэшируется()
@@ -252,8 +252,8 @@ public sealed class ModCatalogueTests
 		var calls = 0;
 		var proxy = Proxy(_ => { calls++; return Image(png, "image/png"); });
 
-		var first = await proxy.GetAsync(Cdn, default);
-		var second = await proxy.GetAsync(Cdn, default);
+		var first = await proxy.GetAsync(cdn, default);
+		var second = await proxy.GetAsync(cdn, default);
 
 		Assert.Equal("image/png", first.Value.ContentType);
 		Assert.Equal(png, second.Value.Data);
@@ -282,7 +282,7 @@ public sealed class ModCatalogueTests
 	{
 		var proxy = Proxy(_ => new HttpResponseMessage(HttpStatusCode.Redirect) { Headers = { Location = new Uri("https://example.com/x.png") } });
 
-		Assert.False((await proxy.GetAsync(Cdn, default)).IsSuccess);
+		Assert.False((await proxy.GetAsync(cdn, default)).IsSuccess);
 	}
 
 	[Fact]
@@ -290,8 +290,8 @@ public sealed class ModCatalogueTests
 	{
 		var svg = Encoding.UTF8.GetBytes("<svg xmlns=\"http://www.w3.org/2000/svg\"><script>alert(1)</script></svg>");
 
-		Assert.False((await Proxy(_ => Image(svg, "image/svg+xml")).GetAsync(Cdn, default)).IsSuccess);
-		Assert.False((await Proxy(_ => Image(svg, "image/png")).GetAsync(Cdn, default)).IsSuccess);
+		Assert.False((await Proxy(_ => Image(svg, "image/svg+xml")).GetAsync(cdn, default)).IsSuccess);
+		Assert.False((await Proxy(_ => Image(svg, "image/png")).GetAsync(cdn, default)).IsSuccess);
 	}
 
 	[Fact]
@@ -299,7 +299,7 @@ public sealed class ModCatalogueTests
 	{
 		var html = Encoding.UTF8.GetBytes("<html><script>alert(1)</script></html>");
 
-		Assert.False((await Proxy(_ => Image(html, "image/png")).GetAsync(Cdn, default)).IsSuccess);
+		Assert.False((await Proxy(_ => Image(html, "image/png")).GetAsync(cdn, default)).IsSuccess);
 	}
 
 	[Fact]
@@ -308,7 +308,7 @@ public sealed class ModCatalogueTests
 		var big = new byte[ModImageProxy.MaxImageBytes + 1];
 		png.CopyTo(big, 0);
 
-		Assert.False((await Proxy(_ => Image(big, "image/png")).GetAsync(Cdn, default)).IsSuccess);
+		Assert.False((await Proxy(_ => Image(big, "image/png")).GetAsync(cdn, default)).IsSuccess);
 	}
 
 	[Fact]
@@ -343,7 +343,7 @@ public sealed class ModCatalogueTests
 	[Fact]
 	public void Адрес_картинки_для_браузера_только_с_CDN()
 	{
-		Assert.Equal("/api/moddb/image?url=" + Uri.EscapeDataString(Cdn), ModDbClient.ProxiedImage(Cdn));
+		Assert.Equal("/api/moddb/image?url=" + Uri.EscapeDataString(cdn), ModDbClient.ProxiedImage(cdn));
 		Assert.Null(ModDbClient.ProxiedImage("https://example.com/a.png"));
 		Assert.Null(ModDbClient.ProxiedImage(null));
 	}
@@ -359,7 +359,7 @@ public sealed class ModCatalogueTests
 			{
 				["name"] = "Example",
 				["text"] = "<p>hello</p>",
-				["logofile"] = Cdn,
+				["logofile"] = cdn,
 				["screenshots"] = new JsonArray(
 					new JsonObject { ["mainfile"] = "https://moddbcdn.vintagestory.at/a.png", ["thumbnailfilename"] = "https://moddbcdn.vintagestory.at/a_t.png" },
 					new JsonObject { ["mainfile"] = "https://example.com/evil.png" }),

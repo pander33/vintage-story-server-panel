@@ -57,7 +57,7 @@ try {
 	Assert (([IO.File]::ReadAllText($props) -match '0.3.0') -and -not (Test-Path $notes) -and $global:releaseTestCalls.Count -eq 0) 'WhatIf must not edit or execute build tools.'
 	& $release -Version '0.4.0'
 	Assert (([IO.File]::ReadAllText($props) -match '0.4.0') -and (Test-Path $notes)) 'Preparation did not create the version and notes.'
-	Assert ($global:releaseTestCalls.Count -eq 5 -and $global:releaseTestCalls[-1] -like 'node *') 'Preparation did not invoke every build/frontend check.'
+	Assert ($global:releaseTestCalls.Count -eq 6 -and $global:releaseTestCalls[2] -eq 'dotnet format style VintageStoryPanel.slnx --no-restore --verify-no-changes --severity warn' -and $global:releaseTestCalls[-1] -like 'node *') 'Preparation did not invoke every build/frontend check.'
 	Assert-Fails { & $release -Version '0.4.0' -Mode Check } 'TODO'
 	[IO.File]::WriteAllText($notes, "# Vintage Story Panel 0.4.0`r`n`r`nReviewed release notes.`r`n")
 	$before = [IO.File]::ReadAllText($notes)
@@ -74,7 +74,7 @@ try {
 	$global:releaseTestFailBuild = $true
 	$global:releaseTestCalls = @()
 	Assert-Fails { & $release -Version '0.5.0' } 'exit 7'
-	Assert ($global:releaseTestCalls.Count -eq 3) 'Failure must stop before tests and frontend checks.'
+	Assert ($global:releaseTestCalls.Count -eq 4) 'Failure must stop before tests and frontend checks.'
 	Assert ([IO.File]::ReadAllText($props) -match '0.5.0') 'Failed checks must retain prepared edits.'
 	$global:releaseTestFailBuild = $false
 	& $release -Version '0.5.0-rc.1' -WhatIf

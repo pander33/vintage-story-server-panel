@@ -527,7 +527,7 @@ internal sealed class WindowsInstaller
 	}
 
 	/// <summary>
-	/// Первый сервер, только при пустом реестре и незавершённом мастере (INV-45). Ошибка не
+	/// Первый сервер, только при пустом реестре и незавершённом мастере. Ошибка не
 	/// прерывает установку. Панель в этот момент остановлена, мастер и расписание не вмешаются.
 	/// </summary>
 	private async Task<int> CreateFirstServerAsync(InstallOptions options, bool dotnetReady)

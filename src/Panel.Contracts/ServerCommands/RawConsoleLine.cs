@@ -3,7 +3,7 @@ using Panel.SharedKernel;
 namespace Panel.Contracts.ServerCommands;
 
 /// <summary>
-/// Произвольная строка для консоли игры (ADR-17).
+/// Произвольная строка для консоли игры.
 /// </summary>
 /// <remarks>
 /// <para>

@@ -9,7 +9,7 @@ using Panel.SharedKernel;
 namespace Panel.Access.Sessions;
 
 /// <summary>
-/// Разбор cookie <c>vs_session</c>. Формат заморожен (ADR-06): сессии, выданные до
+/// Разбор cookie <c>vs_session</c>. Формат сохраняет совместимость: сессии, выданные до
 /// обновления панели, продолжают действовать.
 /// </summary>
 /// <remarks>

@@ -12,7 +12,7 @@ public sealed record IssuedSession(string Token, string CsrfToken, DateTimeOffse
 /// Выдача сессий: HMAC-SHA256 над base64url полезной нагрузки, обе части без выравнивания.
 /// </summary>
 /// <remarks>
-/// Своя схема вместо Data Protection (ADR-06): поле <c>generation</c> отзывает сессии, а
+/// Своя схема вместо Data Protection: поле <c>generation</c> отзывает сессии, а
 /// встроенная cookie-аутентификация его не поддерживает.
 /// </remarks>
 public sealed class SessionWriter

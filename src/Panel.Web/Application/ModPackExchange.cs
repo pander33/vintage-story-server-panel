@@ -18,7 +18,7 @@ public sealed record ModPackContents(
 
 /// <summary>
 /// Обмен сборками модов: выгрузка с сервера, разбор чужой сборки и применение её настроек и
-/// включения модов (findings §75). Суждение о записях и описи — <see cref="ModPack"/>.
+/// включения модов. Суждение о записях и описи — <see cref="ModPack"/>.
 /// </summary>
 public static class ModPackExchange
 {

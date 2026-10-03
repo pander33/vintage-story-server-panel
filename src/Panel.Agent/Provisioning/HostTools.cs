@@ -33,7 +33,7 @@ public sealed record HostCommandResult(int ExitCode, string StandardOutput, stri
 /// его ищут в известных местах, затем в PATH.
 /// </para>
 /// <para>
-/// Понижение привилегий по ADR-07, вариант B. В .NET нет точки между fork и exec, где можно
+/// Понижение привилегий через setpriv. В .NET нет точки между fork и exec, где можно
 /// сделать <c>setgid</c>, <c>setgroups([])</c> и <c>setuid</c>. Вместо этого
 /// <c>setpriv --reuid --regid --clear-groups</c>; без <c>setpriv</c> игра не запускается
 /// совсем, то есть и от root тоже.

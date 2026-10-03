@@ -109,7 +109,7 @@ public sealed class ServerControlHandler
 		return await runtime.SendAsync(server.Value.Id, dispatch.Value, ct).ConfigureAwait(false);
 	}
 
-	/// <summary>Произвольная строка консоли (ADR-17); правила в <see cref="GameServer.PlanRawCommand"/>.</summary>
+	/// <summary>Произвольная строка консоли; правила в <see cref="GameServer.PlanRawCommand"/>.</summary>
 	public async Task<Result<ConsoleEcho>> SendRawAsync(InstanceId instance, RawConsoleLine line, CancellationToken ct)
 	{
 		var server = await LoadAsync(instance, ct).ConfigureAwait(false);

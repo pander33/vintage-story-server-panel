@@ -4,8 +4,8 @@ using Panel.SharedKernel;
 namespace Panel.Contracts.Http;
 
 /// <summary>
-/// Тело ответа <c>GET /api/status</c>: состояние службы и поле <c>health</c>. Форма объявлена и
-/// заморожена (ADR-16), изменения только дополняющие.
+/// Тело ответа <c>GET /api/status</c>: состояние службы и поле <c>health</c>.
+/// Изменения формы ответа согласуются с фронтендом в той же правке.
 /// </summary>
 public sealed record StatusResponse
 {
@@ -24,8 +24,8 @@ public sealed record StatusResponse
 	[JsonPropertyName("health")] public required HealthResponse Health { get; init; }
 
 	/// <summary>
-	/// Занят ли сервер долгой операцией (строка операций, интерфейс 2.1 §1); <c>null</c>, если
-	/// свободен. Поле дополняющее (ADR-16).
+	/// Занят ли сервер долгой операцией; <c>null</c>, если
+	/// свободен.
 	/// </summary>
 	[JsonPropertyName("maintenance")]
 	[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

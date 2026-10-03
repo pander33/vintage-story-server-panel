@@ -19,7 +19,7 @@ public sealed record ChangeAutomation : ICommand;
 /// 409, пока на сервере идёт обслуживание.
 /// </summary>
 /// <remarks>
-/// Метка стоит на команде, как и право (findings §19): запрет зависит от того, что делает
+/// Метка стоит на команде, как и право: запрет зависит от того, что делает
 /// маршрут, а не от его адреса.
 /// </remarks>
 [AttributeUsage(AttributeTargets.Class, Inherited = false)]

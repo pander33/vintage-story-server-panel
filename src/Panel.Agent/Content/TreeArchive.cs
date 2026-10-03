@@ -14,7 +14,7 @@ namespace Panel.Agent.Content;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Реализация ADR-08. В <c>System.Formats.Tar</c> нет аналога <c>filter="data"</c>, у
+/// Проверка безопасности архива до распаковки. В <c>System.Formats.Tar</c> нет аналога <c>filter="data"</c>, у
 /// <c>TarFile.ExtractToDirectory</c> есть только <c>overwriteFiles</c>. Поэтому файлы
 /// пишутся здесь по одному, и каждую запись сначала проверяет <see cref="ArchiveSafety"/>.
 /// </para>

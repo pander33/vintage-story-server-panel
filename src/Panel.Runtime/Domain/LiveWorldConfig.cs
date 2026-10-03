@@ -7,7 +7,7 @@ namespace Panel.Runtime.Domain;
 /// Живой <c>World.Config</c> работающего мира: проекция телеметрии, только для чтения.
 /// </summary>
 /// <remarks>
-/// Парный тип к <c>WorldTemplate</c> контекста Configuration (INV-20), находится в другой
+/// Парный тип к <c>WorldTemplate</c> контекста Configuration, находится в другой
 /// сборке, и преобразования между ними нет. Изменить живую конфигурацию можно только
 /// командой <c>WorldConfigCommand</c> через порт <c>ILiveWorldConfig</c>; изменяющих методов у
 /// этого типа нет.

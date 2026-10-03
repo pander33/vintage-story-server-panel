@@ -4,7 +4,7 @@ using System.Security.Cryptography;
 namespace Panel.Access.Passwords;
 
 /// <summary>
-/// scrypt по RFC 7914. В BCL его нет, реализация своя (ADR-05, вариант A).
+/// scrypt по RFC 7914. В BCL его нет, реализация своя.
 /// </summary>
 /// <remarks>
 /// Тесты проверяют векторы RFC 7914. Совпадение с настоящими хешами из accounts.json

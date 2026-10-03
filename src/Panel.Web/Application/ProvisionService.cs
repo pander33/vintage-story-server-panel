@@ -24,7 +24,7 @@ namespace Panel.Web.Application;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Устроено как <see cref="UpdateService"/> (INV-29): та же <see cref="Operation"/>, та же
+/// Устроено как <see cref="UpdateService"/>: та же <see cref="Operation"/>, та же
 /// аренда обслуживания, история в JSONL и правило, по которому запись, прерванная остановкой
 /// панели, уходит в историю как прерванная. Разница в том, что ничего существующего не
 /// заменяется, поэтому откат — удаление дерева, которое демон только что создал, и только до
@@ -169,7 +169,7 @@ public sealed partial class ProvisionService : IHostedService
 			warnings.Add(PhraseJsonConverter.ToNode(Phrase.From("dotnet найден, но список сред выполнения пуст — сервер может не запуститься.")));
 		}
 
-		// ADR-07: без setpriv --genconfig пришлось бы запускать от root. На Windows setpriv не нужен:
+		// Без setpriv --genconfig пришлось бы запускать от root. На Windows setpriv не нужен:
 		// игру запускает служба-супервизор.
 		if (probed.IsSuccess && runtime.Platform != "windows" && runtime.Setpriv.Length == 0)
 		{

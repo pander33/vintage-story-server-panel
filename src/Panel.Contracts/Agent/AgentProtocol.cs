@@ -3,11 +3,11 @@ using System.Reflection;
 namespace Panel.Contracts.Agent;
 
 /// <summary>
-/// Протокол привилегированной стороны (ADR-02): один запрос — один JSON в ответ, по
+/// Протокол привилегированной стороны: один запрос — один JSON в ответ, по
 /// долгоживущему соединению.
 /// </summary>
 /// <remarks>
-/// Это транспорт, а не интерфейс <c>IAgent</c> с 62 методами (ADR-01). Прикладные порты
+/// Это транспорт, а не интерфейс <c>IAgent</c> с 62 методами. Прикладные порты
 /// (<c>IServerRuntime</c> и другие) узкие и находятся в своих контекстах.
 /// </remarks>
 public static class AgentProtocol
@@ -17,7 +17,7 @@ public static class AgentProtocol
 
 	/// <summary>
 	/// Сборка панели: <c>PanelVersion</c> и коммит, из которых собраны все три программы поставки.
-	/// Панель и демон обмениваются ею в каждом запросе и ответе (findings §82).
+	/// Панель и демон обмениваются ею в каждом запросе и ответе.
 	/// </summary>
 	/// <remarks>
 	/// Чужая сборка — не отказ: совместимость решает <see cref="Version"/>. Разные сборки на одной
@@ -45,7 +45,7 @@ public static class AgentProtocol
 	public const string OpLogsFrom = "logs-from";
 	public const string OpConsole = "console";
 
-	/// <summary>Произвольная строка консоли (ADR-17). Демон заново проверяет её через <c>RawConsoleLine</c>.</summary>
+	/// <summary>Произвольная строка консоли. Демон заново проверяет её через <c>RawConsoleLine</c>.</summary>
 	public const string OpConsoleRaw = "console-raw";
 	public const string OpCapabilities = "capabilities";
 
@@ -91,7 +91,7 @@ public static class AgentProtocol
 	public const string OpHistoryPrune = "history-prune";
 
 	// Настройки сервера. Живая конфигурация мира меняется отдельной операцией консоли, а не
-	// записью serverconfig.json (INV-20).
+	// записью serverconfig.json.
 	public const string OpConfigGet = "config-get";
 	public const string OpConfigPut = "config-put";
 	public const string OpConfigBackups = "config-backups";

@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 namespace Panel.Contracts.Http;
 
 /// <summary>
-/// Ответ <c>GET /api/players/lists</c> (ADR-17, интерфейс 2.1 §3): списки бана и белого списка,
+/// Ответ <c>GET /api/players/lists</c>: списки бана и белого списка,
 /// прочитанные демоном из файлов игры, и режим белого списка из <c>serverconfig.json</c>.
 /// </summary>
 public sealed record PlayerListsResponse

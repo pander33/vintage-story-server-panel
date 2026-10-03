@@ -67,9 +67,9 @@ public static class ModDependencyReport
 				{
 					DependencyIssues = [.. issues[index].Select(ToPayload)],
 
-                    // missing_dependencies пересчитывается по итогам той же проверки: отсутствующие в порядке
-                    // кодов символов.
-                    MissingDependencies = DependencyPolicy.Missing(issues[index]),
+					// missing_dependencies пересчитывается по итогам той же проверки: отсутствующие в порядке
+					// кодов символов.
+					MissingDependencies = DependencyPolicy.Missing(issues[index]),
 				}),
 			],
 		};

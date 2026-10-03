@@ -27,7 +27,7 @@ public sealed record RuntimeProbePayload
 	[JsonPropertyName("majors")] public IReadOnlyList<int> Majors { get; init; } = [];
 
 	/// <summary>
-	/// Путь к <c>setpriv</c>; пусто, если не найден. Новое в 2.0 (ADR-07): без него
+	/// Путь к <c>setpriv</c>; пусто, если не найден. Новое в 2.0: без него
 	/// <c>--genconfig</c> пришлось бы запускать от root, поэтому создание отказывает заранее.
 	/// </summary>
 	[JsonPropertyName("setpriv")] public string Setpriv { get; init; } = string.Empty;

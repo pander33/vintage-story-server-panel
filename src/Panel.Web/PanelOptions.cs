@@ -4,7 +4,7 @@ namespace Panel.Web;
 
 /// <summary>
 /// Настройки панели. Имена переменных окружения те же, что в vs-panel.env: установщик пишет
-/// шесть ключей, у каждого своё регулярное выражение, и этот список менять нельзя (ADR-11).
+/// допустимые изменения из браузера проверяет PanelSetting, установщик задаёт также сетевой доступ.
 /// </summary>
 public sealed record PanelOptions
 {
@@ -52,7 +52,7 @@ public sealed record PanelOptions
 
 	public string AccountsPath => Path.Combine(StateDirectory, "accounts.json");
 
-	/// <summary>API-токены учётных записей: только хеши секретов (findings §82).</summary>
+	/// <summary>API-токены учётных записей: только хеши секретов.</summary>
 	public string ApiTokensPath => Path.Combine(StateDirectory, "api-tokens.json");
 
 	/// <summary>Устаревший файл пароля; читается один раз, при переносе.</summary>

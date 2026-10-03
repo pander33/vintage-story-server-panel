@@ -18,8 +18,8 @@ public enum ModPackEntryKind
 public readonly record struct ModPackEntry(ModPackEntryKind Kind, ModConfigName Config);
 
 /// <summary>
-/// Сборка модов — ZIP с описью <c>modpack.json</c> и файлами настроек в <c>config/</c>
-/// (findings §75). Самих модов в ней нет: их ставит ModDB, по одному и с подтверждением (INV-28).
+/// Сборка модов — ZIP с описью <c>modpack.json</c> и файлами настроек в <c>config/</c>.
+/// Самих модов в ней нет: их ставит ModDB, по одному и с подтверждением.
 /// </summary>
 /// <remarks>
 /// Сборка приходит от другого человека, поэтому суждение строгое: другие файлы, ссылки и

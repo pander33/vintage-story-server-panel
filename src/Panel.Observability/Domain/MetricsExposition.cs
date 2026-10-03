@@ -7,7 +7,7 @@ namespace Panel.Observability.Domain;
 
 /// <summary>
 /// Последний замер одного сервера в виде, нужном Prometheus: только числа, без имён и адресов
-/// игроков (INV-38).
+/// игроков.
 /// </summary>
 public sealed record ServerMetricsSample
 {

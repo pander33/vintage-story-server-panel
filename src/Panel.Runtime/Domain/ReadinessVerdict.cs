@@ -58,7 +58,7 @@ public sealed record ReadinessVerdict
 }
 
 /// <summary>
-/// Имена состояний в протоколе (ADR-16): фронтенд сравнивает их со строками и раскрашивает
+/// Имена состояний в протоколе: фронтенд сравнивает их со строками и раскрашивает
 /// плашку.
 /// </summary>
 public static class HealthStateWire

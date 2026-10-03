@@ -8,7 +8,7 @@ public sealed record Credentials(string Password, OneTimeCode OneTimeCode = defa
 
 /// <summary>
 /// Учётная запись панели. Хранит исходный JSON-узел, чтобы при записи не терялись поля,
-/// о которых эта версия не знает (ADR-04).
+/// о которых эта версия не знает.
 /// </summary>
 public sealed record Account
 {

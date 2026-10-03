@@ -54,7 +54,7 @@ public sealed record WorldExport(WorldFileName Name, StagedFile Staged, long Siz
 /// </para>
 /// <para>
 /// Если разбирать ответ в домен, чтобы тут же собрать из него тот же ответ, появится второе
-/// место, где форма ответа может разойтись с замороженной (ADR-16).
+/// место, где форма ответа может разойтись с контрактом в Panel.Contracts.
 /// </para>
 /// </remarks>
 public interface IModStore

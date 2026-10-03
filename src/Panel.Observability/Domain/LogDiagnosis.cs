@@ -27,7 +27,7 @@ public sealed record Diagnosis(Finding Startup, IReadOnlyList<Finding> Connectio
 /// </para>
 /// <para>
 /// «Сервер готов» определяет не журнал, а готовность: процесс активен и наблюдатель видит
-/// свежую телеметрию. Строка «Dedicated Server now running» готовностью не считается (INV-3).
+/// свежую телеметрию. Строка «Dedicated Server now running» готовностью не считается.
 /// </para>
 /// </remarks>
 public static partial class LogDiagnosis

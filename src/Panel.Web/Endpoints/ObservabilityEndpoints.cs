@@ -306,7 +306,7 @@ public static class ObservabilityEndpoints
 			return PanelResults.Json(sent.Value);
 		});
 
-		// Списки бана и белого списка из файлов игры (ADR-17, интерфейс 2.1 §3). Читаются и у
+		// Списки бана и белого списка из файлов игры. Читаются и у
 		// остановленного сервера: консоль для этого не нужна.
 		routes.MapGet("/api/players/lists", async (
 			HttpContext http,

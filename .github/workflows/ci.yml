@@ -85,6 +85,10 @@ jobs:
         if: runner.os == 'Linux'
         run: dotnet format whitespace VintageStoryPanel.slnx --verify-no-changes
 
+      - name: Code style
+        if: runner.os == 'Linux'
+        run: dotnet format style VintageStoryPanel.slnx --no-restore --verify-no-changes --severity warn
+
       - name: Build
         run: dotnet build VintageStoryPanel.slnx --no-restore --configuration Release
 

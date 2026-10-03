@@ -84,7 +84,7 @@ public sealed class SupervisedBackend : IServiceBackend
 				: string.Empty,
 			StartedAt = running ? state.StartedAt : 0,
 
-			// Идентичность в той же тройке, что у systemd (ADR-04), с меткой платформы на месте
+			// Идентичность в той же тройке, что у systemd, с меткой платформы на месте
 			// boot id. Момент создания в тиках FILETIME абсолютен и после перезагрузки не
 			// повторится, поэтому boot id не нужен.
 			Instance = running

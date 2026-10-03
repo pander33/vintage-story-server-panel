@@ -161,7 +161,7 @@ public sealed record ServerCommandResponse
 	[JsonPropertyName("reply")] public required IReadOnlyList<string> Reply { get; init; }
 }
 
-/// <summary>Тело <c>POST /api/server/console</c>, маршрута 2.0 (ADR-17).</summary>
+/// <summary>Тело <c>POST /api/server/console</c>, маршрута 2.0.</summary>
 public sealed record RawConsoleRequest
 {
 	[JsonPropertyName("command")] public string Command { get; init; } = string.Empty;

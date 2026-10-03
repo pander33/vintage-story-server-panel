@@ -38,7 +38,7 @@ public sealed record Identity
 	public Role Role { get; }
 
 	/// <summary>
-	/// Поколение учётной записи: при его смене все выданные сессии перестают действовать (ADR-06).
+	/// Поколение учётной записи: при его смене все выданные сессии перестают действовать.
 	/// </summary>
 	public int Generation { get; }
 

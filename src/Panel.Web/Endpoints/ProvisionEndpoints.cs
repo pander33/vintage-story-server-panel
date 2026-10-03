@@ -209,7 +209,7 @@ public static class ProvisionEndpoints
 			return PanelResults.Json(new LaunchResponse { Run = launched.Value.ToString() });
 		});
 
-		// Каталог новых серверов — маршруты 2.0 (ADR-17).
+		// Каталог новых серверов — маршруты 2.0.
 		routes.MapGet("/api/settings/servers-root", async (
 			HttpContext http,
 			CommandAuthorizer authorizer,

@@ -13,7 +13,7 @@ namespace Panel.Configuration.Domain;
 /// <remarks>
 /// <para>
 /// Форма унаследована от 1.2.x. Ревизия от неё больше не зависит (её считает
-/// <see cref="CanonicalJson"/>, findings §82), поэтому запись файлов можно менять свободно.
+/// <see cref="CanonicalJson"/>), поэтому запись файлов можно менять свободно.
 /// </para>
 /// <para>
 /// <c>System.Text.Json</c> не подходит ни в одном режиме: он экранирует кириллицу (или

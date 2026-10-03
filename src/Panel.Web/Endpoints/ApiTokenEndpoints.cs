@@ -11,7 +11,7 @@ using Panel.Web.Application;
 namespace Panel.Web.Endpoints;
 
 /// <summary>
-/// API-токены: выпуск, список и отзыв (findings §82). Всё — только из сессии браузера
+/// API-токены: выпуск, список и отзыв. Всё — только из сессии браузера
 /// (<see cref="RequiresSessionAttribute"/>): токен не управляет токенами.
 /// </summary>
 public static class ApiTokenEndpoints

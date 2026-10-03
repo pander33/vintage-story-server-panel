@@ -13,7 +13,7 @@ public readonly record struct PeerIdentity(int Pid, uint Uid, uint Gid);
 /// SO_PEERCRED через getsockopt. В .NET этот параметр сокета недоступен, поэтому P/Invoke.
 /// </summary>
 /// <remarks>
-/// На этом держится ADR-02: долгоживущий root-демон на UDS допустим только с проверкой пира,
+/// Долгоживущий root-демон на UDS допустим только с проверкой пира,
 /// без неё root получает любой локальный процесс. Скрипт <c>scripts/spikes/peercred.sh</c>
 /// проверяет на сервере, что возвращается uid вызывающего процесса, в том числе при socket
 /// activation.

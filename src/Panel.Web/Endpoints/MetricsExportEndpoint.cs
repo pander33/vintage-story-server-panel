@@ -13,7 +13,7 @@ using Panel.Web.Application;
 namespace Panel.Web.Endpoints;
 
 /// <summary>
-/// <c>GET /metrics</c> для Prometheus (findings §82): последний замер каждого сервера реестра и
+/// <c>GET /metrics</c> для Prometheus: последний замер каждого сервера реестра и
 /// вердикт готовности. Ни демон, ни игра здесь не опрашиваются: числа берутся из того, что уже
 /// собрал <see cref="MonitoringService"/>, поэтому частый опрос Prometheus не добавляет нагрузки.
 /// </summary>

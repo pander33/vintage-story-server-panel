@@ -7,7 +7,7 @@ namespace Panel.Cli;
 /// Раскладка программы описана в §3 заметки «Установщик и поставка .NET-панели»: каждая версия
 /// в своём каталоге, активная — символическая ссылка <c>current</c>. Юниты ссылаются на
 /// <c>current</c>, поэтому смена версии и откат сводятся к замене ссылки. Пути к файлам
-/// состояния и настроек заморожены (ADR-04, ADR-11).
+/// состояния и настроек сохраняются при обновлении установки.
 /// </remarks>
 internal sealed record InstallPaths(string Root)
 {
@@ -63,7 +63,7 @@ internal sealed record InstallPaths(string Root)
 
 	public string LegacyModsDirectory => At("srv/vintagestory/data/Mods");
 
-	/// <summary>sudo-правило прежней версии панели. Панели sudo не нужен, правило удаляется (INV-51).</summary>
+	/// <summary>sudo-правило прежней версии панели. Панели sudo не нужен, правило удаляется.</summary>
 	public string LegacySudoers => At("etc/sudoers.d/vs-panel");
 
 	public string LegacyHelper => At("usr/local/libexec/vs-panel-helper");

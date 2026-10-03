@@ -3,8 +3,8 @@ using System.Text.Json.Serialization;
 namespace Panel.Contracts.Agent;
 
 /// <summary>
-/// Состояние службы сервера. Форма заморожена: этот объект уходит в HTTP-ответ
-/// <c>/api/status</c> (ADR-16).
+/// Состояние службы сервера: этот объект также уходит в HTTP-ответ
+/// <c>/api/status</c>.
 /// </summary>
 public sealed record ServiceStatusPayload
 {

@@ -135,7 +135,7 @@ public sealed class DiagnosticsHandler
 
 	/// <summary>
 	/// Причины по журналу, плюс <c>journal_error</c>, если журнал не прочитался. «Готов»
-	/// определяется вердиктом наблюдателя <c>ready</c>, а не строкой журнала (INV-3).
+	/// определяется вердиктом наблюдателя <c>ready</c>, а не строкой журнала.
 	/// </summary>
 	public static JsonObject Causes(
 		bool active,

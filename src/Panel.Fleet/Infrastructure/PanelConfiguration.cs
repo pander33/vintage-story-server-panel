@@ -5,7 +5,7 @@ using Panel.SharedKernel;
 namespace Panel.Fleet.Infrastructure;
 
 /// <summary>
-/// Файл настроек панели <c>/etc/vs-panel.json</c>. Поддерживаются обе его версии (ADR-11).
+/// Файл настроек панели <c>/etc/vs-panel.json</c>. Поддерживаются обе его версии.
 /// </summary>
 /// <remarks>
 /// Версия 1 — плоский файл: один сервер, описанный прямо в корне объекта. Из него получается

@@ -75,7 +75,7 @@ public sealed class AgentServerRuntime : IServerRuntime
 
 		// Демону уходит действие и значение, а не готовая строка: строку он собирает сам по своей
 		// копии каталога: веб-процесс не может прислать команду в обход списка разрешённых.
-		// Произвольная строка (ADR-17) идёт отдельной операцией со своей проверкой.
+		// Произвольная строка идёт отдельной операцией со своей проверкой.
 		var echo = dispatch.IsRaw
 			? await client
 				.CallAsync<ConsoleEchoPayload>(AgentProtocol.OpConsoleRaw, instance, [dispatch.Line], ct)

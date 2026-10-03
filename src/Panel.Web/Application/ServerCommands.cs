@@ -18,7 +18,7 @@ public sealed record ReadLogs : ICommand;
 public sealed record SendServerCommand : ICommand;
 
 /// <summary>
-/// Произвольная строка консоли (ADR-17), только для администратора и не по API-токену
+/// Произвольная строка консоли, только для администратора и не по API-токену
 /// (<see cref="RequiresSessionAttribute"/>): скриптам хватает команд из каталога.
 /// </summary>
 [Requires(Permission.SendRawConsole)]

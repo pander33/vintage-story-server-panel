@@ -23,8 +23,8 @@ namespace Panel.Agent.Provisioning;
 /// </para>
 /// <para>
 /// Игра, в том числе <c>--genconfig</c>, работает от той же учётной записи, что и демон:
-/// LocalSystem, от которой установщик ставит службы (findings §69). Отдельной учётной записи
-/// для игры нет. INV-42 относится к Linux, где демон работает от root.
+/// LocalSystem, от которой установщик ставит службы. Отдельной учётной записи
+/// для игры нет. На Linux демон работает от root, а игру запускает от vsgame.
 /// </para>
 /// </remarks>
 [SupportedOSPlatform("windows")]

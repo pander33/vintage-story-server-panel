@@ -27,6 +27,7 @@ function Invoke-Checked([string] $Tool, [string[]] $Arguments) {
 function Test-Release {
 	Invoke-Checked dotnet @('restore', 'VintageStoryPanel.slnx')
 	Invoke-Checked dotnet @('format', 'whitespace', 'VintageStoryPanel.slnx', '--no-restore', '--verify-no-changes')
+	Invoke-Checked dotnet @('format', 'style', 'VintageStoryPanel.slnx', '--no-restore', '--verify-no-changes', '--severity', 'warn')
 	Invoke-Checked dotnet @('build', 'VintageStoryPanel.slnx', '--no-restore', '--configuration', 'Release')
 	Invoke-Checked dotnet @('test', 'VintageStoryPanel.slnx', '--no-build', '--configuration', 'Release')
 	Invoke-Checked node @('--test', 'tests/frontend/api-token-session.test.js')

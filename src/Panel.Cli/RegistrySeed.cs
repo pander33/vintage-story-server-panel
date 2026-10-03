@@ -26,7 +26,7 @@ internal abstract record RegistryDecision
 /// </summary>
 /// <remarks>
 /// Решение без побочных эффектов: на входе прочитанное с диска, на выходе то, что нужно
-/// записать. Формат файла заморожен (ADR-11): <c>json.dumps(ensure_ascii=False, indent=2)</c>
+/// записать. Файл записывается в форме <c>json.dumps(ensure_ascii=False, indent=2)</c>
 /// и перевод строки в конце.
 /// </remarks>
 internal static class RegistrySeed

@@ -358,8 +358,8 @@ internal sealed class Installer
 
 	/// <summary>
 	/// <summary>
-	/// sudo-правило и привилегированный помощник прежней версии панели. Панели sudo не нужен
-	/// (ADR-02, INV-51), а правило, открывающее её учётной записи доступ к root, осталось бы после
+	/// sudo-правило и привилегированный помощник прежней версии панели. Панели sudo не нужен,
+	/// а правило, открывающее её учётной записи доступ к root, осталось бы после
 	/// обновления.
 	/// </summary>
 	private void RemoveLegacyPrivilege()
@@ -441,8 +441,8 @@ internal sealed class Installer
 	}
 
 	/// <summary>
-	/// Первый сервер с настройками мастера, только при пустом реестре и незавершённом мастере
-	/// (INV-45). Ошибка не прерывает установку: сервер можно создать в мастере. Возвращает порт
+	/// Первый сервер с настройками мастера, только при пустом реестре и незавершённом мастере.
+	/// Ошибка не прерывает установку: сервер можно создать в мастере. Возвращает порт
 	/// созданного сервера или 0.
 	/// </summary>
 	private async Task<int> CreateFirstServerAsync(InstallOptions options, bool dotnetReady)
@@ -557,7 +557,7 @@ internal sealed class Installer
 
 	/// <summary>
 	/// Среда .NET для игры через официальный <c>dotnet-install.sh</c>, только среда выполнения.
-	/// Панели она не нужна: панель и демон self-contained (ADR-09).
+	/// Панели она не нужна: панель и демон self-contained.
 	/// </summary>
 	private async Task<bool> InstallDotnetAsync(string channel)
 	{

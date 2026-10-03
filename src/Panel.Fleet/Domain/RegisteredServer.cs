@@ -63,7 +63,7 @@ public sealed record RegisteredServer
 
 	/// <summary>
 	/// Запись целиком, как в файле, чтобы сохранить её обратно без потери неизвестных этой
-	/// версии ключей (ADR-04).
+	/// версии ключей.
 	/// </summary>
 	public System.Text.Json.Nodes.JsonObject? Raw { get; init; }
 }

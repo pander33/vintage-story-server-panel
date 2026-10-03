@@ -20,10 +20,10 @@ public sealed record PlayerListEntry(
 	/// «навсегда» (переход через это значение — часть открытого вопроса плана, требует сверки
 	/// с фикстурой настоящего сервера).
 	/// </summary>
-	public bool Forever => UntilSeconds is null || UntilSeconds.Value > DistantFuture;
+	public bool Forever => UntilSeconds is null || UntilSeconds.Value > distantFuture;
 
 	/// <summary>Условная граница «далёкого будущего» — год 3000 в секундах Unix.</summary>
-	private const long DistantFuture = 32503680000;
+	private const long distantFuture = 32503680000;
 }
 
 /// <summary>

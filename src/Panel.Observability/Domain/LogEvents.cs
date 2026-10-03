@@ -144,7 +144,7 @@ public sealed partial record LogEvent(
 	/// Признаки мода: слова о модах и метка в скобках, которую моды ставят перед своими строками
 	/// (<c>[carryon]</c>). Метка с одними цифрами — это pid из <c>ident[pid]:</c>, а уровни журнала
 	/// игры (<c>[Notification]</c>, <c>[Event]</c>) моду не принадлежат: прежнее правило 1.2.x
-	/// принимало и то и другое, и в «Моды» попадал почти весь журнал (findings §31).
+	/// принимало и то и другое, и в «Моды» попадал почти весь журнал.
 	/// </summary>
 	[GeneratedRegex(
 		@"\b(?:mod|mods|modsystem|modinfo|patch(?:es|ing)?|loaded assembly|instantiate mod systems)\b|" +

@@ -9,7 +9,7 @@ public sealed record NameRequest
 }
 
 /// <summary>
-/// Тело запроса с подтверждением. Форма заморожена: фронтенд посылает именно эти два поля.
+/// Тело запроса с именем и подтверждением, которое посылает фронтенд.
 /// </summary>
 public sealed record ConfirmedNameRequest
 {

@@ -97,8 +97,8 @@ public static class ServerCommandCatalogue
 			Action = "autosave-now", Template = "/autosavenow", ReadsBack = true,
 			Group = Phrase.From("Обслуживание"), Label = Phrase.From("Сохранить мир сейчас"),
 
-            // /autosavenow одним словом: «/autosave now» сервер не распознает.
-            Hint = Phrase.From("/autosavenow"),
+			// /autosavenow одним словом: «/autosave now» сервер не распознает.
+			Hint = Phrase.From("/autosavenow"),
 		},
 		new()
 		{
@@ -123,9 +123,9 @@ public static class ServerCommandCatalogue
 			Action = "time-set", Template = "/time set {value}",
 			Group = Phrase.From("Время"), Label = Phrase.From("Установить время"),
 
-            // Привилегированная сторона всегда принимала и час, и пресет; теперь это описано в
-            // одном месте и для интерфейса.
-            Hint = Phrase.From("/time set — момент суток или час от 0 до 23.99"),
+			// Привилегированная сторона всегда принимала и час, и пресет; теперь это описано в
+			// одном месте и для интерфейса.
+			Hint = Phrase.From("/time set — момент суток или час от 0 до 23.99"),
 			Value = new ValueDomain.TimeOfDay(TimePresets, Phrase.From("Момент суток")),
 		},
 		new()

@@ -23,7 +23,7 @@ namespace Panel.Web.Application;
 /// </remarks>
 public static class ModListCsv
 {
-	private const string ModDbSite = "https://mods.vintagestory.at/";
+	private const string modDbSite = "https://mods.vintagestory.at/";
 
 	public static byte[] Build(ModsPayload payload, PanelLanguage language)
 	{
@@ -51,7 +51,7 @@ public static class ModListCsv
 					.Select(dependency => dependency.Value.Length > 0 ? $"{dependency.Key} ≥ {dependency.Value}" : dependency.Key)),
 				string.Join("; ", Problems(mod, duplicates).Select(text)),
 				mod.Name,
-				mod.ModId is { Length: > 0 } id ? ModDbSite + Uri.EscapeDataString(id) : string.Empty,
+				mod.ModId is { Length: > 0 } id ? modDbSite + Uri.EscapeDataString(id) : string.Empty,
 			]);
 		}
 

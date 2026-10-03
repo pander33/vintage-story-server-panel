@@ -9,7 +9,7 @@ namespace Panel.Runtime.Domain;
 /// </summary>
 /// <remarks>
 /// Пустая идентичность — <see cref="Unknown"/>, и с другой пустой она не совпадает. Строковая
-/// форма <c>boot_id:pid:start_ticks</c> нужна для формата файлов (ADR-04).
+/// форма <c>boot_id:pid:start_ticks</c> нужна для формата файлов.
 /// </remarks>
 public readonly record struct ProcessIdentity(string BootId, int Pid, long StartTicks)
 {

@@ -322,8 +322,7 @@ public sealed record ServerSpec
 }
 
 /// <summary>
-/// Описание сервера для демона. Набор ключей закрыт, лишний или недостающий ключ — отказ
-/// (INV-43).
+/// Описание сервера для демона. Набор ключей закрыт, лишний или недостающий ключ — отказ.
 /// </summary>
 public static partial class InstanceSpecification
 {

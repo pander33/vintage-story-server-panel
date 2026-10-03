@@ -172,7 +172,7 @@ public static class ModEndpoints
 			}
 
 			// В отличие от остальных подтверждений, здесь ожидается только имя файла, без глагола: фразу
-			// человек набирает по подсказке фронтенда (ADR-16).
+			// человек набирает по подсказке фронтенда.
 			var confirmed = Confirmation.ByNameAlone(name.Value.Value).Check(body.Confirmation);
 			if (!confirmed.IsSuccess)
 			{
@@ -234,7 +234,7 @@ public static class ModEndpoints
 		MapPacks(routes);
 	}
 
-	/// <summary>Сборка модов: опись модов и файлы настроек одним ZIP (findings §75).</summary>
+	/// <summary>Сборка модов: опись модов и файлы настроек одним ZIP.</summary>
 	private static void MapPacks(IEndpointRouteBuilder routes)
 	{
 		// Настройки модов бывают с ключами и паролями, поэтому выгрузка — право администратора, как и их чтение.
