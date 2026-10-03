@@ -77,6 +77,10 @@ jobs:
       - name: Frontend tests
         run: node --test tests/frontend/api-token-session.test.js
 
+      - name: Release script tests
+        shell: pwsh
+        run: pwsh -NoProfile -File tests/scripts/release.test.ps1
+
       - name: Format
         if: runner.os == 'Linux'
         run: dotnet format whitespace VintageStoryPanel.slnx --verify-no-changes
