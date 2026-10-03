@@ -30,3 +30,22 @@ public static class RoleWire
 		_ => Role.Viewer,
 	};
 }
+
+/// <summary>
+/// Старшинство ролей для токенов: наблюдатель ниже оператора, оператор ниже администратора.
+/// Права по-прежнему задаёт таблица (<see cref="RolePermissions"/>); старшинство отвечает только
+/// на вопрос «не больше ли это, чем у владельца».
+/// </summary>
+public static class RoleOrder
+{
+	public static bool AtMost(Role role, Role limit) => Rank(role) <= Rank(limit);
+
+	public static Role Lower(Role left, Role right) => Rank(left) <= Rank(right) ? left : right;
+
+	private static int Rank(Role role) => role switch
+	{
+		Role.Admin => 2,
+		Role.Operator => 1,
+		_ => 0,
+	};
+}

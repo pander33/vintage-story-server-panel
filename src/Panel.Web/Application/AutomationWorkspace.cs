@@ -9,6 +9,9 @@ using Panel.SharedKernel;
 
 namespace Panel.Web.Application;
 
+/// <summary>Изменение состояния автоматизации: значение для ответа и его отмена.</summary>
+internal readonly record struct WorkspaceChange<T>(T Value, Action Undo);
+
 /// <summary>
 /// Состояние автоматизации одного сервера: <c>automation.json</c> и
 /// <c>automation-runs.jsonl</c>; прежнее состояние установок 2.0 продолжает читаться.
@@ -108,6 +111,99 @@ internal sealed class AutomationWorkspace
 		await saving.WaitAsync(ct).ConfigureAwait(false);
 		try
 		{
+			return await WriteAsync(ct).ConfigureAwait(false);
+		}
+		finally
+		{
+			saving.Release();
+		}
+	}
+
+	/// <summary>
+	/// Изменение заданий или объявлений вместе с записью файла. Изменение и запись идут под тем
+	/// же затвором, что и <see cref="SaveAsync"/>: иначе чужая запись успела бы унести в файл
+	/// изменение, которое потом отменится. Если файл не записан, изменение отменяется в памяти,
+	/// и вызывающий получает отказ, а не успех, который исчез бы после перезапуска.
+	/// </summary>
+	/// <param name="change">Выполняется под <see cref="Sync"/>; возвращает значение для ответа и
+	/// отмену (<see cref="WorkspaceChange{T}"/>). Отмена тоже выполняется под <see cref="Sync"/>. Учёт
+	/// расписания (<see cref="RecordScheduleAsync"/>) ждёт того же затвора, поэтому, пока идёт запись,
+	/// задания и объявления меняет только это изменение, и отмена не затрёт сдвинутый срок.</param>
+	/// <remarks>
+	/// Запись не отменяется токеном запроса: отменённая на середине запись оставила бы
+	/// неизвестным, попало ли изменение в файл.
+	/// </remarks>
+	public async Task<Result<T>> ChangeAsync<T>(Func<Result<WorkspaceChange<T>>> change, CancellationToken ct)
+	{
+		ArgumentNullException.ThrowIfNull(change);
+
+		await saving.WaitAsync(ct).ConfigureAwait(false);
+		try
+		{
+			Result<WorkspaceChange<T>> changed;
+			lock (Sync)
+			{
+				changed = change();
+			}
+
+			if (!changed.IsSuccess)
+			{
+				return changed.Failure!;
+			}
+
+			var written = await WriteAsync(CancellationToken.None).ConfigureAwait(false);
+			if (!written.IsSuccess)
+			{
+				lock (Sync)
+				{
+					changed.Value.Undo();
+				}
+
+				return written.Failure!;
+			}
+
+			return changed.Value.Value;
+		}
+		finally
+		{
+			saving.Release();
+		}
+	}
+
+	/// <summary>
+	/// Учёт расписания — сдвиг срока задания или объявления, итог прогона — вместе с записью, под
+	/// тем же затвором, что и <see cref="ChangeAsync{T}"/>. Иначе такт, сдвинувший срок изменённого
+	/// задания, пока шла запись, потерял бы сдвиг при отмене, и обслуживание или объявление
+	/// выполнилось бы второй раз.
+	/// </summary>
+	/// <param name="record">Выполняется под <see cref="Sync"/>; <c>false</c> — ничего не изменилось,
+	/// и файл не пишется.</param>
+	internal async Task<Result<Done>> RecordScheduleAsync(Func<bool> record, CancellationToken ct)
+	{
+		ArgumentNullException.ThrowIfNull(record);
+
+		await saving.WaitAsync(ct).ConfigureAwait(false);
+		try
+		{
+			bool changed;
+			lock (Sync)
+			{
+				changed = record();
+			}
+
+			return changed ? await WriteAsync(CancellationToken.None).ConfigureAwait(false) : Done.Ok;
+		}
+		finally
+		{
+			saving.Release();
+		}
+	}
+
+	/// <summary>Запись файла; затвор <c>saving</c> уже взят вызывающим.</summary>
+	private async Task<Result<Done>> WriteAsync(CancellationToken ct)
+	{
+		try
+		{
 			JsonObject document;
 			lock (Sync)
 			{
@@ -148,10 +244,6 @@ internal sealed class AutomationWorkspace
 		catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
 		{
 			return Failure.Unavailable($"Не удалось записать {stateFile}: {exception.Message}");
-		}
-		finally
-		{
-			saving.Release();
 		}
 	}
 

@@ -570,6 +570,15 @@
                 <div class="hidden" id="totp-setup"></div>
               </article>
             </div>
+            <article class="surface work-card">
+              <div class="card-header"><div><h3 data-i18n="tokens.title">API tokens</h3><p data-i18n="tokens.sub">For scripts and Prometheus: send the token in the Authorization: Bearer header. A token never has more rights than its owner; a new password or role revokes all tokens of the account.</p></div></div>
+              <div class="data-list" id="token-list"></div>
+              <form id="token-form">
+                <div class="form-grid"><label class="form-field"><span data-i18n="tokens.name">Name</span><input id="token-name" maxlength="64" required data-i18n-placeholder="tokens.namePlaceholder" placeholder="prometheus"></label><label class="form-field"><span data-i18n="common.role">Role</span><select id="token-role"><option value="viewer" data-i18n="role.viewer">Viewer</option><option value="operator" data-i18n="role.operator">Operator</option><option value="admin" data-i18n="role.admin">Administrator</option></select></label><label class="form-field"><span data-i18n="tokens.expires">Expires</span><select id="token-expires"><option value="30" data-i18n="tokens.days30">In 30 days</option><option value="90" selected data-i18n="tokens.days90">In 90 days</option><option value="365" data-i18n="tokens.days365">In a year</option><option value="0" data-i18n="tokens.never">Never</option></select></label><label class="form-field"><span data-i18n="tokens.password">Current password</span><input id="token-password" type="password" autocomplete="current-password" required></label><label class="form-field hidden" id="token-code-field"><span data-i18n="login.otp">One-time code</span><input id="token-code" inputmode="numeric" autocomplete="one-time-code" maxlength="8"></label></div>
+                <div class="inline-actions"><button class="button primary" type="submit" data-i18n="tokens.create">Create token</button></div>
+              </form>
+              <div class="hidden" id="token-issued"></div>
+            </article>
           </section>
 
           <section class="work-panel" data-panel="settings:notifications">

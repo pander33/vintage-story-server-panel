@@ -40,7 +40,16 @@ public sealed record ReadDiagnostics : ICommand;
 public sealed record ReadPanelLogs : ICommand;
 
 /// <summary>
-/// Настройки уведомлений доступны администратору: в них адреса вебхуков и токен бота.
+/// Настройки уведомлений доступны администратору: в них адреса вебхуков и токен бота. Не по
+/// API-токену (<see cref="RequiresSessionAttribute"/>): подменённый вебхук уносил бы события панели наружу.
 /// </summary>
 [Requires(Permission.Administer)]
+[RequiresSession]
 public sealed record ConfigureNotifications : ICommand;
+
+/// <summary>
+/// Метрики всех серверов для Prometheus (<c>GET /metrics</c>): те же числа, что видит любая роль
+/// на «Обзоре», без имён и адресов игроков.
+/// </summary>
+[Requires(Permission.ObserveServer)]
+public sealed record ExportMetrics : ICommand;

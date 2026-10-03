@@ -11,6 +11,13 @@ public sealed record AgentRequest
 	[JsonPropertyName("v")]
 	public int Version { get; init; } = AgentProtocol.Version;
 
+	/// <summary>
+	/// Сборка панели (<see cref="AgentProtocol.Build"/>). Умолчания нет намеренно: запрос старой
+	/// панели без поля должен разобраться как «сборка неизвестна», а не как своя.
+	/// </summary>
+	[JsonPropertyName("build")]
+	public string? Build { get; init; }
+
 	[JsonPropertyName("op")]
 	public required string Op { get; init; }
 
@@ -30,6 +37,10 @@ public sealed record AgentReply
 {
 	[JsonPropertyName("v")]
 	public int Version { get; init; } = AgentProtocol.Version;
+
+	/// <summary>Сборка демона; как и в запросе, без умолчания. Ставят фабрики ответа.</summary>
+	[JsonPropertyName("build")]
+	public string? Build { get; init; }
 
 	[JsonPropertyName("ok")]
 	public required bool Ok { get; init; }
@@ -52,12 +63,12 @@ public sealed record AgentReply
 	public JsonNode? Result { get; init; }
 
 	public static AgentReply Success(JsonNode? result) =>
-		new() { Ok = true, Result = result };
+		new() { Build = AgentProtocol.Build, Ok = true, Result = result };
 
 	public static AgentReply Failure(string code, string message) => Failure(code, SharedKernel.Phrase.From(message));
 
 	public static AgentReply Failure(string code, Phrase message) =>
-		new() { Ok = false, Code = code, Error = message.ToString(), Phrase = message };
+		new() { Build = AgentProtocol.Build, Ok = false, Code = code, Error = message.ToString(), Phrase = message };
 
 	[OverloadResolutionPriority(1)]
 	public static AgentReply Failure(string code, ref PhraseHandler message) => Failure(code, message.ToPhrase());

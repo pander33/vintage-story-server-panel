@@ -111,7 +111,7 @@ internal sealed partial class ScheduledMaintenanceRunner(
 			}
 			finally
 			{
-				lock (workspace.Sync)
+				var written = await workspace.RecordScheduleAsync(() =>
 				{
 					var index = workspace.Jobs.FindIndex(item => item.Id == job.Id);
 					if (index >= 0)
@@ -120,10 +120,10 @@ internal sealed partial class ScheduledMaintenanceRunner(
 					}
 
 					workspace.Running = null;
-				}
+					return true;
+				}, CancellationToken.None).ConfigureAwait(false);
 
 				await journal.RecordAsync(instance, workspace, run, withTrigger: true, CancellationToken.None).ConfigureAwait(false);
-				var written = await workspace.SaveAsync(CancellationToken.None).ConfigureAwait(false);
 				if (!written.IsSuccess)
 				{
 					StateSaveFailed(log, instance.Value, written.Failure!.Message);

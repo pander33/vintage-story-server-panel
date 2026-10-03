@@ -771,6 +771,7 @@ const VS = (() => {
 	function showLogin() {
 		releaseAll();
 		state.csrf = '';
+		emit('session-ended');
 		$('#panel-view').classList.add('hidden');
 		$('#login-view').classList.remove('hidden');
 		$('#login-password').focus();

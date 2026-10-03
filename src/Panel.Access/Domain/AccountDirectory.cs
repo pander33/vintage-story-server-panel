@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Panel.Access.Passwords;
 using Panel.SharedKernel;
 
@@ -63,6 +64,11 @@ public sealed class AccountDirectory
 	/// Создать или заменить учётную запись. Поколение увеличивается всегда: и смена пароля,
 	/// и смена роли отзывают выданные сессии.
 	/// </summary>
+	/// <remarks>
+	/// Новая запись начинает со случайного поколения, а не с единицы. Сессии и API-токены удалённой
+	/// записи хранят её имя и поколение; запись с тем же именем, начавшая бы с прежнего числа,
+	/// вернула бы их к жизни, а токены без срока — навсегда.
+	/// </remarks>
 	public Result<AccountDirectory> Put(UserName name, PasswordHash password, Role role)
 	{
 		if (name.IsAdministrator && role != Role.Admin)
@@ -72,7 +78,7 @@ public sealed class AccountDirectory
 
 		var current = Find(name);
 		var updated = current is null
-			? new Account { Name = name, Password = password, Role = role, Generation = 1 }
+			? new Account { Name = name, Password = password, Role = role, Generation = FirstGeneration() }
 			: current with { Password = password, Role = role, Generation = current.Generation + 1 };
 
 		return With(updated);
@@ -148,6 +154,12 @@ public sealed class AccountDirectory
 			PendingTotpSecret = string.Empty,
 		});
 	}
+
+	/// <summary>
+	/// Случайное начало из [2^20, 2^30): далеко от поколений записей, созданных с единицы, и с
+	/// запасом до переполнения при сменах пароля.
+	/// </summary>
+	private static int FirstGeneration() => RandomNumberGenerator.GetInt32(1 << 20, 1 << 30);
 
 	private Result<AccountDirectory> With(Account account)
 	{

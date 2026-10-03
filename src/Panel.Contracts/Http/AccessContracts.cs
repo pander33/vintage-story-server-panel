@@ -75,3 +75,43 @@ public sealed record TotpBeginResponse
 	[JsonPropertyName("secret")] public required string Secret { get; init; }
 	[JsonPropertyName("uri")] public required string Uri { get; init; }
 }
+
+/// <summary><c>GET /api/tokens</c>: свои токены, а администратору — все.</summary>
+public sealed record ApiTokensResponse
+{
+	[JsonPropertyName("tokens")] public required IReadOnlyList<ApiTokenSummary> Tokens { get; init; }
+
+	/// <summary>Включён ли второй фактор у спрашивающего: тогда выпуск требует кода.</summary>
+	[JsonPropertyName("totp_enabled")] public required bool TotpEnabled { get; init; }
+}
+
+/// <summary>Токен без секрета: секрет показывается один раз, при выпуске.</summary>
+public sealed record ApiTokenSummary
+{
+	[JsonPropertyName("id")] public required string Id { get; init; }
+	[JsonPropertyName("name")] public required string Name { get; init; }
+	[JsonPropertyName("user")] public required string User { get; init; }
+	[JsonPropertyName("role")] public required string Role { get; init; }
+	[JsonPropertyName("created_at")] public required long CreatedAt { get; init; }
+	[JsonPropertyName("expires_at")] public long? ExpiresAt { get; init; }
+}
+
+/// <summary>
+/// Выпуск токена: имя, роль, срок в днях (0 — без срока) и подтверждение текущим паролем и, если
+/// включён, одноразовым кодом.
+/// </summary>
+public sealed record ApiTokenRequest
+{
+	[JsonPropertyName("name")] public string Name { get; init; } = string.Empty;
+	[JsonPropertyName("role")] public string Role { get; init; } = "viewer";
+	[JsonPropertyName("expires_days")] public int ExpiresDays { get; init; } = 90;
+	[JsonPropertyName("password")] public string Password { get; init; } = string.Empty;
+	[JsonPropertyName("code")] public string Code { get; init; } = string.Empty;
+}
+
+/// <summary>Выпущенный токен: <see cref="Token"/> больше нигде и никогда не показывается.</summary>
+public sealed record ApiTokenIssuedResponse
+{
+	[JsonPropertyName("token")] public required string Token { get; init; }
+	[JsonPropertyName("summary")] public required ApiTokenSummary Summary { get; init; }
+}

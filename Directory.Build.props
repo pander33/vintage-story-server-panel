@@ -12,6 +12,18 @@
     <NeutralLanguage>ru-RU</NeutralLanguage>
   </PropertyGroup>
 
+  <!-- Известные уязвимости зависимостей, включая транзитивные, валят restore: NU1901–NU1904
+       становятся ошибками через TreatWarningsAsErrors. У привилегированного демона есть
+       сторонняя зависимость (Microsoft.Data.Sqlite), и уязвимая транзитивная версия уже
+       попадалась (findings §16). Недоступный источник сведений (NU1900, сборка без сети)
+       остаётся предупреждением; новые уязвимости без правок ловит .github/workflows/audit.yml. -->
+  <PropertyGroup>
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
+    <NuGetAuditLevel>low</NuGetAuditLevel>
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1900</WarningsNotAsErrors>
+  </PropertyGroup>
+
   <!-- Панель общается с systemd, /proc и Unix-сокетами: эти вызовы допустимы только
        в привилегированной сборке, поэтому предупреждения о платформе гасятся точечно,
        а не глобально. См. архитектурные тесты. -->

@@ -17,6 +17,11 @@ public sealed class CommandAuthorizer
 		ArgumentNullException.ThrowIfNull(identity);
 		ArgumentNullException.ThrowIfNull(commandType);
 
+		if (identity.ViaApiToken && commandType.IsDefined(typeof(RequiresSessionAttribute), inherit: false))
+		{
+			return Failure.Forbidden("Это действие недоступно по API-токену: войдите в панель");
+		}
+
 		var permission = RequiredBy(commandType);
 		return identity.Can(permission)
 			? Result.Ok(identity)

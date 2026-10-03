@@ -50,6 +50,8 @@ public static class PanelServices
 		services.AddSingleton<LoginThrottle>();
 		services.AddSingleton<IAccountStore>(_ =>
 			new FileAccountStore(options.AccountsPath, options.LegacyPasswordPath));
+		services.AddSingleton<IApiTokenStore>(_ => new FileApiTokenStore(options.ApiTokensPath));
+		services.AddSingleton<ApiTokenGuard>();
 
 		services.AddSingleton(_ => new JsonLinesFile(
 			options.AuditPath, keep: 10_000, retentionDays: options.AuditRetentionDays));

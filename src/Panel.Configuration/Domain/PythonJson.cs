@@ -7,39 +7,31 @@ using System.Text.Json.Nodes;
 namespace Panel.Configuration.Domain;
 
 /// <summary>
-/// Текст JSON точно в том виде, в каком его пишет <c>json.dumps</c> в Python.
+/// Текст JSON в том виде, в каком его пишет <c>json.dumps</c> в Python: так панель пишет
+/// <c>serverconfig.json</c> и <c>config-apply.json</c> и оценивает размер настроек.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Ревизия конфигурации — SHA-256 от
-/// <c>json.dumps(config, ensure_ascii=False, sort_keys=True, separators=(",", ":"))</c>, и она
-/// записана в <c>config-apply.json</c>, формат которого заморожен (ADR-04). Хеш, посчитанный
-/// иначе, не совпадёт с записанным, и панель не узнает, что сохранённые настройки ждут
-/// перезапуска.
+/// Форма унаследована от 1.2.x. Ревизия от неё больше не зависит (её считает
+/// <see cref="CanonicalJson"/>, findings §82), поэтому запись файлов можно менять свободно.
 /// </para>
 /// <para>
 /// <c>System.Text.Json</c> не подходит ни в одном режиме: он экранирует кириллицу (или
-/// требует ослабленного кодировщика, который экранирует другое), не сортирует ключи и пишет
-/// числа исходным текстом. Python разбирает <c>20.0</c> как float и печатает <c>20.0</c>, а
-/// <c>1e5</c> печатает как <c>100000.0</c>.
+/// требует ослабленного кодировщика, который экранирует другое) и пишет числа исходным
+/// текстом. Python разбирает <c>20.0</c> как float и печатает <c>20.0</c>, а <c>1e5</c>
+/// печатает как <c>100000.0</c>.
 /// </para>
 /// </remarks>
 public static class PythonJson
 {
 	private enum Layout
 	{
-		/// <summary><c>separators=(",", ":")</c> и <c>sort_keys=True</c>: для ревизии.</summary>
-		Canonical,
-
 		/// <summary>Разделители по умолчанию <c>", "</c> и <c>": "</c>: для оценки размера.</summary>
 		Spaced,
 
 		/// <summary><c>indent=2</c>: файл, который увидит администратор.</summary>
 		Indented,
 	}
-
-	/// <summary>Каноническая форма, от которой считается ревизия.</summary>
-	public static string Canonical(JsonNode? node) => Write(node, Layout.Canonical);
 
 	/// <summary>Форма <c>json.dumps(value, ensure_ascii=False)</c> без параметров.</summary>
 	public static string Spaced(JsonNode? node) => Write(node, Layout.Spaced);
@@ -136,33 +128,6 @@ public static class PythonJson
 		return raw.IndexOfAny(['.', 'e', 'E']) < 0;
 	}
 
-	/// <summary>Сравнение строк по кодовым точкам, как <c>sorted()</c> в Python.</summary>
-	private static int CompareCodePoints(string left, string right)
-	{
-		ArgumentNullException.ThrowIfNull(left);
-		ArgumentNullException.ThrowIfNull(right);
-
-		var a = left.EnumerateRunes();
-		var b = right.EnumerateRunes();
-
-		while (true)
-		{
-			var hasA = a.MoveNext();
-			var hasB = b.MoveNext();
-
-			if (!hasA || !hasB)
-			{
-				return hasA.CompareTo(hasB);
-			}
-
-			var order = a.Current.Value.CompareTo(b.Current.Value);
-			if (order != 0)
-			{
-				return order;
-			}
-		}
-	}
-
 	private static string Write(JsonNode? node, Layout layout)
 	{
 		var builder = new StringBuilder();
@@ -200,23 +165,15 @@ public static class PythonJson
 			return;
 		}
 
-		IEnumerable<KeyValuePair<string, JsonNode?>> members = map;
-		if (layout == Layout.Canonical)
-		{
-			var sorted = map.ToList();
-			sorted.Sort((x, y) => CompareCodePoints(x.Key, y.Key));
-			members = sorted;
-		}
-
 		builder.Append('{');
 		var first = true;
-		foreach (var (key, item) in members)
+		foreach (var (key, item) in map)
 		{
 			Separate(builder, layout, depth + 1, first);
 			first = false;
 
 			AppendString(builder, key);
-			builder.Append(layout == Layout.Canonical ? ":" : ": ");
+			builder.Append(": ");
 			Append(builder, item, layout, depth + 1);
 		}
 
@@ -245,7 +202,7 @@ public static class PythonJson
 
 	/// <summary>
 	/// Разделитель перед элементом. С <c>indent</c> Python ставит <c>","</c> без пробела и перевод
-	/// строки, без него — <c>", "</c> или <c>","</c>.
+	/// строки, без него — <c>", "</c>.
 	/// </summary>
 	private static void Separate(StringBuilder builder, Layout layout, int depth, bool first)
 	{
@@ -257,10 +214,6 @@ public static class PythonJson
 
 			case Layout.Spaced when !first:
 				builder.Append(", ");
-				break;
-
-			case Layout.Canonical when !first:
-				builder.Append(',');
 				break;
 		}
 	}

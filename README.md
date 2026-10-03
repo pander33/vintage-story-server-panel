@@ -87,6 +87,8 @@ cleanup rules for old backups.
 - The template for new worlds and the settings of the running world.
 - Mod settings.
 - Accounts and roles, two-factor sign-in.
+- API tokens for scripts and monitoring; metrics for Prometheus and Grafana, see
+  [API tokens and Prometheus](#api-tokens-and-prometheus).
 - Notifications to Discord, Telegram or your own address (webhook).
 
 ### Roles
@@ -440,6 +442,31 @@ sudo vs-panel repair --trusted-proxies 127.0.0.1,::1,10.0.0.2
 List only your own proxies, never the networks your visitors come from: anyone connecting
 from a trusted address can put any address into the header.
 
+#### At home behind NAT, without a public IP
+
+If your provider gives you no public address (CGNAT) or you do not want to forward ports,
+the panel can still be reached from outside through a tunnel. The panel itself has no
+built-in tunnel: a privileged panel should not depend on a third-party relay it does not
+control. Two common options:
+
+- **[Tailscale](https://tailscale.com/)** — a private network between your devices. Install
+  it on the server and on your computer or phone, and open the panel at the server's
+  Tailscale address, for example `http://100.101.102.103:8080`. The panel stays invisible to
+  the internet. Keep `--access lan` or, to be stricter, listen on the Tailscale address only
+  (`--bind 100.101.102.103`).
+- **[Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/)**
+  (`cloudflared`) — the panel on your own domain with HTTPS and no open ports: the tunnel
+  connects out to Cloudflare. Point the tunnel at `http://127.0.0.1:8080` and set the panel up
+  as behind Caddy: `--access localhost --allowed-hosts panel.example.com --secure-cookie true`.
+  Cloudflare sees the traffic to the panel; consider
+  [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/) as
+  an extra sign-in in front of it.
+
+**Neither carries the game for ordinary players.** Vintage Story needs its game port (TCP and
+UDP) reachable directly. Cloudflare Tunnel passes only web traffic, and through Tailscale
+only players inside your tailnet can connect. For a public server you still need a public
+address with port forwarding, or a VPS.
+
 ### Settings file
 
 All of this lives in `/etc/vs-panel.env` on Linux and `C:\ProgramData\vs-panel\vs-panel.env`
@@ -497,6 +524,10 @@ Accounts, servers, worlds and settings are kept. The two previous versions are s
 `vs-panel rollback` returns to the latest of them. After an interface update, reload the
 open browser tab so that it picks up the icon and styles.
 
+The panel and its agent should come from the same build. If an update was interrupted, both
+keep working, and the diagnostics package shows the two builds under `agent`. When they
+differ, run `vs-panel repair`: it restarts both from the installed version.
+
 ### Uninstalling
 
 `vs-panel uninstall` removes the panel services and the firewall rule for its port: the
@@ -507,6 +538,63 @@ Game servers — their program, worlds and backups — are not touched when the 
 removed. To delete a server completely, do it in the panel before removing the panel. On
 Windows `--purge` does not remove the firewall rule for the game port or the .NET runtime
 for the game.
+
+## API tokens and Prometheus
+
+### API tokens
+
+Scripts, monitoring and CI use a token instead of a browser session. Create one in
+**Settings → Access → API tokens**: give it a name, a role, an expiry (30 days, 90 days, a
+year or none), and confirm with your current password and, if two-factor sign-in is on, a
+one-time code. The token is shown once; the panel keeps only its SHA-256 hash.
+
+```bash
+curl -H "Authorization: Bearer vsp_…" http://localhost:8080/api/status
+curl -H "Authorization: Bearer vsp_…" -H "X-Instance: main" http://localhost:8080/api/players
+```
+
+- A token never has more rights than its owner. A Viewer token is enough for reading and for
+  Prometheus; it does not see players' addresses, just like a Viewer.
+- A new password or role for the account revokes all its tokens, as it does its sessions.
+  Deleting the account revokes them too, and an account created again under the same name
+  does not bring them back. Any token can be revoked in the same list; administrators see and
+  can revoke the tokens of every account.
+- Some actions need a browser session even with an Administrator token, so that a leaked token
+  cannot widen access: accounts, two-factor sign-in and tokens; the raw console; notification
+  settings; the setup wizard and the panel address; the servers folder; creating, renaming and
+  deleting servers.
+- Changes made with a token are recorded in the audit log with the user and the token name; so
+  is a failed password confirmation when creating a token.
+- If the token file cannot be read, the panel answers 503 rather than reporting an invalid
+  token.
+- The token travels in a header: over plain HTTP anyone on the way can read it. Outside your
+  own network use HTTPS (see [Publishing on the internet](#publishing-on-the-internet)).
+
+### Prometheus
+
+`GET /metrics` returns the latest sample of every server in the
+[Prometheus text format](https://prometheus.io/docs/instrumenting/exposition_formats/). The
+panel answers from what it has already collected and does not query the game, so the scrape
+interval does not add load. Create a Viewer token and add a job to `prometheus.yml`:
+
+```yaml
+scrape_configs:
+  - job_name: vintage-story
+    scrape_interval: 60s
+    metrics_path: /metrics
+    authorization:
+      credentials: vsp_…
+    static_configs:
+      - targets: ['panel.example.com:8080']
+```
+
+Every server is labelled `server="<id>"`. The main metrics: `vs_server_up`, `vs_server_ready`,
+`vs_server_health{state}`, `vs_server_players`, `vs_server_ticks_per_second`,
+`vs_server_tick_gap_milliseconds`, `vs_server_cpu_percent`, `vs_server_memory_bytes`,
+`vs_server_disk_free_bytes`, `vs_server_world_size_bytes`,
+`vs_server_last_backup_timestamp_seconds`, `vs_server_restarts_total`; the panel version is
+in `vs_panel_build_info{version}`. Values refresh once a minute (`PANEL_METRICS_INTERVAL`,
+in seconds). A server the panel has not sampled yet shows only its readiness state.
 
 ## Where things are
 
@@ -544,12 +632,19 @@ The panel is two processes:
 The panel sends the agent only a server ID and an operation; the agent works out every
 path itself from its own registry. It answers only the panel: on Linux it checks the
 caller's user ID on its Unix socket (`SO_PEERCRED`), on Windows its named pipe is open to
-the service account and administrators only.
+the service account and administrators only. The trust goes both ways: on Windows the panel
+talks to the pipe only if it is held by LocalSystem (another program that grabs the name
+while the agent restarts is refused), and it does not let the pipe act on its behalf. The
+panel and the agent also refuse each other when they come from different builds, which
+catches a half-finished update.
 
 - The game never runs as root: on Linux it is started as a separate `vsgame` user.
 - An uploaded archive is judged as a whole — every path and link in it — before anything
   is extracted.
-- Passwords are hashed with scrypt; two-factor sign-in (TOTP) is available.
+- Passwords are hashed with scrypt; two-factor sign-in (TOTP) is available. API tokens are
+  stored as hashes only and never exceed their owner's role.
+- Known vulnerabilities in dependencies, transitive ones included, fail the build; a weekly
+  check catches advisories published later.
 - Changes made through the panel are recorded in the audit log; the free-form game console
   is for administrators only, and every line sent to it is recorded in full.
 

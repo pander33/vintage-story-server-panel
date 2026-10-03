@@ -10,7 +10,9 @@ namespace Panel.Configuration.Domain;
 /// </summary>
 /// <remarks>
 /// Её возвращает <c>GET /api/config</c>, её присылает редактор при сохранении, и она записана
-/// в <c>config-apply.json</c>. Способ подсчёта заморожен вместе с форматом файла (ADR-04).
+/// в <c>config-apply.json</c>. Каноническая форма — <see cref="CanonicalJson"/>; в 0.3.0 и раньше
+/// ревизия считалась от формы <c>json.dumps</c> Python. Отметка, записанная прежней версией, не совпадёт
+/// ни с одной новой ревизией, и трекер один раз судит по времени правки файла (findings §82).
 /// </remarks>
 public readonly record struct ConfigRevision
 {
@@ -22,7 +24,7 @@ public readonly record struct ConfigRevision
 	{
 		ArgumentNullException.ThrowIfNull(document);
 
-		var hash = SHA256.HashData(Encoding.UTF8.GetBytes(PythonJson.Canonical(document)));
+		var hash = SHA256.HashData(Encoding.UTF8.GetBytes(CanonicalJson.Write(document)));
 		return new ConfigRevision(Convert.ToHexStringLower(hash));
 	}
 

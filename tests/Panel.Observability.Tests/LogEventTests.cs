@@ -22,17 +22,28 @@ public sealed class LogEventTests
 		Assert.Equal(expected, LogEvent.FromLine(prefix + message).Category);
 
 	/// <summary>
-	/// Известный дефект правил (findings §31): шаблон мода <c>\[[a-z0-9_.-]+\]</c> совпадает с
-	/// <c>[1234]</c> из <c>ident[pid]:</c>. Поэтому любая строка игры без признаков ошибки или игрока
-	/// попадает в «мод», а в «систему» — только строки без pid. Исправление изменит фильтр вкладки
-	/// «Журнал», и решать это должен владелец.
+	/// Дефект 1.2.x исправлен (findings §31): <c>[1234]</c> из <c>ident[pid]:</c> и уровни журнала
+	/// игры больше не делают строку строкой мода.
 	/// </summary>
-	[Fact]
-	public void Строка_с_pid_попадает_в_моды()
+	[Theory]
+	[InlineData("Saving world")]
+	[InlineData("[Notification] Saving world")]
+	[InlineData("[Event] Dedicated Server now running")]
+	[InlineData("[Warning] Chunk took long to generate")]
+	[InlineData("[Audit] Alice ran /time")]
+	public void Строка_игры_без_признаков_мода_системная(string message)
 	{
-		Assert.Equal(LogCategory.Mod, LogEvent.FromLine(prefix + "Saving world").Category);
-		Assert.Equal(LogCategory.System, LogEvent.FromLine("2026-09-21T14:30:00+0300 host systemd: Saving world").Category);
+		Assert.Equal(LogCategory.System, LogEvent.FromLine(prefix + message).Category);
+		Assert.Equal(LogCategory.System, LogEvent.FromLine("2026-09-21T14:30:00+0300 host systemd: " + message).Category);
 	}
+
+	[Theory]
+	[InlineData("[RPVoiceChat] TcpNetServer was successfully patched")]
+	[InlineData("[tungsten] 11 potential patch conflicts")]
+	[InlineData("[Notification] [hexsmech] ready")]
+	[InlineData("[my-mod.v2] ready")]
+	public void Метка_мода_в_скобках(string message) =>
+		Assert.Equal(LogCategory.Mod, LogEvent.FromLine(prefix + message).Category);
 
 	/// <summary>Ошибка важнее игрока: строка с обоими признаками считается ошибкой.</summary>
 	[Fact]

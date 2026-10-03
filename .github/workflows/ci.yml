@@ -70,6 +70,13 @@ jobs:
       - name: Restore
         run: dotnet restore VintageStoryPanel.slnx
 
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Frontend tests
+        run: node --test tests/frontend/api-token-session.test.js
+
       - name: Format
         if: runner.os == 'Linux'
         run: dotnet format whitespace VintageStoryPanel.slnx --verify-no-changes

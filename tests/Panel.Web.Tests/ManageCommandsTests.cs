@@ -138,13 +138,15 @@ public sealed class ManageCommandsTests : IDisposable
 	[Fact]
 	public async Task Пароль_создаёт_admin_и_поднимает_поколение()
 	{
+		var store = new FileAccountStore(Options.AccountsPath, Options.LegacyPasswordPath);
 		Assert.True((await ManageCommands.SetPasswordAsync(Options, ("первый пароль!", "первый пароль!"), TextWriter.Null, CancellationToken.None)).IsSuccess);
+		var first = (await store.LoadAsync(CancellationToken.None)).Value.Find(UserName.Administrator)!.Generation;
 		Assert.True((await ManageCommands.SetPasswordAsync(Options, ("второй пароль!", "второй пароль!"), TextWriter.Null, CancellationToken.None)).IsSuccess);
 
-		var directoryOfAccounts = (await new FileAccountStore(Options.AccountsPath, Options.LegacyPasswordPath).LoadAsync(CancellationToken.None)).Value;
+		var directoryOfAccounts = (await store.LoadAsync(CancellationToken.None)).Value;
 		var admin = directoryOfAccounts.Find(UserName.Administrator)!;
 		Assert.Equal(Role.Admin, admin.Role);
-		Assert.Equal(2, admin.Generation);
+		Assert.Equal(first + 1, admin.Generation);
 		Assert.True(admin.Password.Verify("второй пароль!"));
 	}
 

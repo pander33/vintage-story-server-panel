@@ -140,8 +140,16 @@ public sealed partial record LogEvent(
 		RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
 	private static partial Regex Player();
 
+	/// <summary>
+	/// Признаки мода: слова о модах и метка в скобках, которую моды ставят перед своими строками
+	/// (<c>[carryon]</c>). Метка с одними цифрами — это pid из <c>ident[pid]:</c>, а уровни журнала
+	/// игры (<c>[Notification]</c>, <c>[Event]</c>) моду не принадлежат: прежнее правило 1.2.x
+	/// принимало и то и другое, и в «Моды» попадал почти весь журнал (findings §31).
+	/// </summary>
 	[GeneratedRegex(
-		@"\b(?:mod|mods|modsystem|modinfo|patch(?:es|ing)?|loaded assembly|instantiate mod systems)\b|\[[a-z0-9_.-]+\]",
+		@"\b(?:mod|mods|modsystem|modinfo|patch(?:es|ing)?|loaded assembly|instantiate mod systems)\b|" +
+		@"\[(?!(?:notification|event|storyevent|build|verbosedebug|debug|warning|error|fatal|audit|chat|worldgen|info)\])" +
+		@"(?=[a-z0-9_.-]*[a-z])[a-z0-9_.-]+\]",
 		RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
 	private static partial Regex Mod();
 

@@ -52,6 +52,9 @@ public sealed record PanelOptions
 
 	public string AccountsPath => Path.Combine(StateDirectory, "accounts.json");
 
+	/// <summary>API-токены учётных записей: только хеши секретов (findings §82).</summary>
+	public string ApiTokensPath => Path.Combine(StateDirectory, "api-tokens.json");
+
 	/// <summary>Устаревший файл пароля; читается один раз, при переносе.</summary>
 	public string LegacyPasswordPath => Path.Combine(StateDirectory, "admin.password");
 

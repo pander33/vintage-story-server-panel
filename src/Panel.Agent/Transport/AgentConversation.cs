@@ -89,6 +89,7 @@ public sealed class AgentConversation
 			return AgentReply.Failure("version", $"Версия протокола {request.Version} не поддерживается");
 		}
 
+
 		return await dispatcher.DispatchAsync(request, ct).ConfigureAwait(false);
 	}
 

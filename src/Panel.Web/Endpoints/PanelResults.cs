@@ -67,7 +67,9 @@ public static partial class PanelResults
 			return Failure.Unauthenticated("Требуется вход");
 		}
 
-		if (requireCsrf)
+		// API-токен приходит в заголовке Authorization, который чужой сайт прислать не может: CSRF
+		// возможен только там, где браузер сам прикладывает cookie.
+		if (requireCsrf && !identity.ViaApiToken)
 		{
 			var csrf = CsrfGuard.Check(identity, http.Request.Headers[CsrfGuard.HeaderName]);
 			if (!csrf.IsSuccess)

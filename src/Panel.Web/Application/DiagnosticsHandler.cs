@@ -1,6 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Panel.Agent.Client;
 using Panel.Contracts;
+using Panel.Contracts.Agent;
 using Panel.Observability.Domain;
 using Panel.Observability.Ports;
 using Panel.Provisioning.Ports;
@@ -17,7 +19,8 @@ namespace Panel.Web.Application;
 /// Ключи: <c>status</c> — состояние службы без вердикта (он в <c>watchdog</c>), <c>metrics</c> —
 /// свежий замер, <c>causes</c> — разбор последней тысячи строк журнала, <c>config_apply</c> —
 /// применены ли настройки, <c>recent_events</c> — пятьдесят последних событий панели,
-/// <c>panel_journal</c> — хвост журнала служб панели и демона: отказ операции виден только там.
+/// <c>panel_journal</c> — хвост журнала служб панели и демона: отказ операции виден только там,
+/// <c>agent</c> — сборки панели и демона: разные означают незавершённое обновление.
 /// </para>
 /// <para>
 /// Недоступный журнал или конфигурация не мешают собрать пакет: он нужен как раз тогда, когда
@@ -38,6 +41,7 @@ public sealed class DiagnosticsHandler
 	private readonly UpdateService updates;
 	private readonly EventBus events;
 	private readonly IProvisioningHost host;
+	private readonly AgentClient agent;
 
 	public DiagnosticsHandler(
 		GetServerStatusHandler status,
@@ -47,7 +51,8 @@ public sealed class DiagnosticsHandler
 		ServerConfigurationHandler configuration,
 		UpdateService updates,
 		EventBus events,
-		IProvisioningHost host)
+		IProvisioningHost host,
+		AgentClient agent)
 	{
 		this.status = status;
 		this.metrics = metrics;
@@ -57,6 +62,7 @@ public sealed class DiagnosticsHandler
 		this.updates = updates;
 		this.events = events;
 		this.host = host;
+		this.agent = agent;
 	}
 
 	/// <summary>Пакет уже очищен через <see cref="DiagnosticsRedaction"/>.</summary>
@@ -103,6 +109,12 @@ public sealed class DiagnosticsHandler
 			["causes"] = causes,
 			["recent_events"] = new JsonArray([.. recent.Select(item => (JsonNode?) item.DeepClone())]),
 			["panel_journal"] = await PanelJournalAsync(ct).ConfigureAwait(false),
+			["agent"] = new JsonObject
+			{
+				["panel_build"] = AgentProtocol.Build,
+				["daemon_build"] = agent.DaemonBuild,
+				["same_build"] = !agent.BuildsDiffer,
+			},
 		};
 
 		return DiagnosticsRedaction.Redact(payload)!.AsObject();

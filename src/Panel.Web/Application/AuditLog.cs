@@ -15,7 +15,8 @@ namespace Panel.Web.Application;
 /// <para>
 /// Журнал общий для панели, а не для сервера: действие «удалил учётную запись» не относится ни
 /// к одному игровому серверу. Запись: ts, ip, event, detail с обрезкой до 500 символов,
-/// кириллица без экранирования.
+/// кириллица без экранирования; у запроса с удостоверением ещё user и, если запрос пришёл
+/// с API-токеном, api_token — имя токена.
 /// </para>
 /// <para>
 /// Важность события — <c>warning</c>, если в имени действия есть «failed», «restore»,
@@ -51,6 +52,7 @@ public sealed class AuditLog
 	{
 		ArgumentNullException.ThrowIfNull(http);
 
+		var identity = PanelContext.Get(http)?.Identity;
 		var record = new JsonObject
 		{
 			["ts"] = time.GetUtcNow().ToUnixTimeSeconds(),
@@ -58,6 +60,17 @@ public sealed class AuditLog
 			["event"] = action,
 			["detail"] = detail.Length > maxDetailLength ? detail[..maxDetailLength] : detail,
 		};
+
+		// Кто действовал: вошедший пользователь и, если запрос пришёл с API-токеном, его имя. Вход и
+		// неудачная попытка входа идут без сессии: имя тогда — в detail.
+		if (identity is not null)
+		{
+			record["user"] = identity.User;
+			if (identity.ApiToken is { } token)
+			{
+				record["api_token"] = token;
+			}
+		}
 
 		await file.AppendAsync(record.ToJsonString(PanelJson.Options), ct).ConfigureAwait(false);
 

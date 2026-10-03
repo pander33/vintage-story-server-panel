@@ -74,10 +74,27 @@ public sealed class AccountDirectoryTests
 		var directory = Directory().Put(UserName.Parse("гость"), password, Role.Operator).Value;
 		var downgraded = directory.Put(UserName.Parse("гость"), password, Role.Viewer).Value;
 
-		var validated = downgraded.Validate(UserName.Parse("гость"), 2);
+		var validated = downgraded.Validate(UserName.Parse("гость"), downgraded.Find(UserName.Parse("гость"))!.Generation);
 
 		Assert.True(validated.IsSuccess);
 		Assert.Equal(Role.Viewer, validated.Value.Role);
+	}
+
+	/// <summary>
+	/// Сессии и API-токены удалённой записи хранят имя и поколение. Запись с тем же именем не
+	/// должна начинать с прежнего поколения, иначе они снова действовали бы.
+	/// </summary>
+	[Fact]
+	public void Пересозданная_запись_не_принимает_прежнее_поколение()
+	{
+		var bob = UserName.Parse("bob");
+		var first = Directory().Put(bob, password, Role.Operator).Value;
+		var generation = first.Find(bob)!.Generation;
+
+		var recreated = first.Delete(bob).Value.Put(bob, password, Role.Operator).Value;
+
+		Assert.False(recreated.Validate(bob, generation).IsSuccess);
+		Assert.NotEqual(1, generation);
 	}
 
 	[Fact]

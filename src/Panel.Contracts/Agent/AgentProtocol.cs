@@ -1,3 +1,5 @@
+using System.Reflection;
+
 namespace Panel.Contracts.Agent;
 
 /// <summary>
@@ -12,6 +14,25 @@ public static class AgentProtocol
 {
 	/// <summary>Версия протокола. При несовпадении запрос отвергается.</summary>
 	public const int Version = 1;
+
+	/// <summary>
+	/// Сборка панели: <c>PanelVersion</c> и коммит, из которых собраны все три программы поставки.
+	/// Панель и демон обмениваются ею в каждом запросе и ответе (findings §82).
+	/// </summary>
+	/// <remarks>
+	/// Чужая сборка — не отказ: совместимость решает <see cref="Version"/>. Разные сборки на одной
+	/// машине означают незавершённое обновление, и отказ превратил бы его в простой: прежняя
+	/// панель, пережившая сбой установщика после запуска нового демона, потеряла бы и статус, и
+	/// консоль, и наблюдателя до <c>vs-panel repair</c>. Поэтому несовпадение только показывается
+	/// (диагностический пакет, ключ <c>agent</c>).
+	/// </remarks>
+	public static string Build { get; } =
+		typeof(AgentProtocol).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+		?? typeof(AgentProtocol).Assembly.GetName().Version?.ToString()
+		?? "unknown";
+
+	/// <summary>Своя ли сборка у другой стороны; отсутствующая (сборка 0.3.0 и раньше) — чужая.</summary>
+	public static bool SameBuild(string? other) => string.Equals(other, Build, StringComparison.Ordinal);
 
 	/// <summary>Предел одного кадра. Ответ больше этого — ошибка, а не большой мир.</summary>
 	public const int MaxFrameBytes = 4 * 1024 * 1024;

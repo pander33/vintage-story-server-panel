@@ -13,6 +13,10 @@ public sealed record ReadInstances : ICommand;
 [Requires(Permission.ObserveServer)]
 public sealed record SelectInstance : ICommand;
 
-/// <summary>Переименовать и «забыть» может администратор: <c>/api/instances</c> закрыт для оператора.</summary>
+/// <summary>
+/// Переименовать, «забыть» и удалить сервер может администратор: <c>/api/instances</c> закрыт для
+/// оператора. Не по API-токену (<see cref="RequiresSessionAttribute"/>): удаление необратимо.
+/// </summary>
 [Requires(Permission.Administer)]
+[RequiresSession]
 public sealed record ManageInstances : ICommand;

@@ -1,7 +1,8 @@
 'use strict';
 
 // Настройки: serverconfig.json со схемой, диффом, откатом и состоянием применения; живая
-// конфигурация мира, шаблон нового мира и конфигурации модов; учётные записи и TOTP; уведомления.
+// конфигурация мира, шаблон нового мира и конфигурации модов; учётные записи, TOTP и API-токены;
+// уведомления.
 
 (() => {
 	const {$, $$, esc, fmtBytes, fmtDateTime, state, api, toast, fail, busy, dialog} = VS;
@@ -485,6 +486,68 @@
 		catch (error) { fail(error); }
 	});
 
+	// ---------- API-токены ----------
+
+	const TOKEN_ROLES = ['viewer', 'operator', 'admin'];
+	let tokenSession = 0;
+
+	function clearTokens() {
+		tokenSession++;
+		$('#token-issued').textContent = '';
+		$('#token-issued').className = 'hidden';
+		$('#token-list').textContent = '';
+		$('#token-code-field').classList.add('hidden');
+		for (const field of ['#token-password', '#token-code', '#token-name']) $(field).value = '';
+	}
+
+	VS.on('session-ended', clearTokens);
+	VS.on('session', clearTokens);
+
+	async function loadTokens() {
+		const session = tokenSession, csrf = state.csrf;
+		const data = await api('/api/tokens');
+		if (session !== tokenSession || csrf !== state.csrf) return;
+		// Роль токена не выше своей: старшие варианты недоступны, сервер всё равно откажет.
+		const own = TOKEN_ROLES.indexOf(state.role);
+		$$('#token-role option').forEach(option => { option.disabled = TOKEN_ROLES.indexOf(option.value) > own; });
+		if ($('#token-role').selectedOptions[0]?.disabled) $('#token-role').value = 'viewer';
+		$('#token-code-field').classList.toggle('hidden', !data.totp_enabled);
+		$('#token-list').innerHTML = (data.tokens || []).map(token => {
+			const owner = token.user === state.user ? '' : `${token.user} · `;
+			const expires = token.expires_at ? I18N.t('tokens.until', {date: fmtDateTime(token.expires_at)}) : I18N.t('tokens.noExpiry');
+			return `<div><span class="grow"><b>${esc(token.name)}</b><small>${esc(owner)}${esc(VS.roleTitles[token.role] || token.role)} · ${esc(I18N.t('tokens.created', {date: fmtDateTime(token.created_at)}))} · ${esc(expires)}</small></span><span class="row-actions"><button class="button small danger" type="button" data-token-revoke="${esc(token.id)}" data-token-name="${esc(token.name)}">${esc(I18N.t('tokens.revoke'))}</button></span></div>`;
+		}).join('') || `<div class="empty">${esc(I18N.t('tokens.none'))}</div>`;
+	}
+
+	$('#token-list').addEventListener('click', async event => {
+		const revoke = event.target.closest('[data-token-revoke]');
+		if (!revoke) return;
+		if (!await VS.confirmAction(I18N.t('tokens.revokeTitle', {name: revoke.dataset.tokenName}), I18N.t('tokens.revokeText'), I18N.t('tokens.revoke'), true)) return;
+		try { await busy(revoke, () => api(`/api/tokens/${encodeURIComponent(revoke.dataset.tokenRevoke)}`, {method: 'DELETE'})); toast(I18N.t('tokens.revoked'), 'ok'); await loadTokens(); }
+		catch (error) { fail(error); }
+	});
+
+	$('#token-form').addEventListener('submit', async event => {
+		event.preventDefault();
+		const session = tokenSession, csrf = state.csrf;
+		const body = {name: $('#token-name').value.trim(), role: $('#token-role').value, expires_days: Number($('#token-expires').value), password: $('#token-password').value, code: $('#token-code').value.trim()};
+		try {
+			const data = await busy(event.submitter, () => api('/api/tokens', {method: 'POST', body}));
+			// Выпуск мог закончиться уже после выхода или входа другой учётной записи.
+			if (session !== tokenSession || csrf !== state.csrf) return;
+			$('#token-password').value = '';
+			$('#token-code').value = '';
+			$('#token-name').value = '';
+			// Секрет показывается один раз: поле только для чтения, чтобы его можно было выделить и
+			// скопировать и без буфера обмена (он недоступен на странице по HTTP).
+			const box = $('#token-issued');
+			box.className = 'notice';
+			box.innerHTML = `<b>${esc(I18N.t('tokens.issuedTitle', {name: data.summary.name}))}</b><p>${esc(I18N.t('tokens.issuedText'))}</p><input class="mono" id="token-secret" readonly value="${esc(data.token)}">`;
+			$('#token-secret').select();
+			await loadTokens();
+		} catch (error) { fail(error); }
+	});
+
 	// ---------- уведомления ----------
 
 	const SECRETS = [['webhook_url', '#notifications-webhook'], ['discord_url', '#notifications-discord'], ['telegram_token', '#notifications-telegram-token'], ['telegram_chat_id', '#notifications-telegram-chat']];
@@ -550,7 +613,7 @@
 	VS.pages.settings = {
 		enter(tab) { this.tab(tab); },
 		tab(view) {
-			const loaders = {server: loadConfig, world: loadWorld, access: loadAccounts, notifications: loadNotifications, panel: loadPanel};
+			const loaders = {server: loadConfig, world: loadWorld, access: () => Promise.all([loadAccounts(), loadTokens()]), notifications: loadNotifications, panel: loadPanel};
 			(loaders[view] || loadConfig)().catch(fail);
 		},
 	};

@@ -265,7 +265,7 @@ public static class AccountEndpoints
 	/// Неизвестная роль — отказ, а не понижение до наблюдателя. При чтении токена умолчание
 	/// защищает, а здесь оно создало бы учётную запись не с той ролью, которую просили.
 	/// </summary>
-	private static Result<Role> ParseRole(string raw) => raw switch
+	internal static Result<Role> ParseRole(string raw) => raw switch
 	{
 		"viewer" => Role.Viewer,
 		"operator" => Role.Operator,

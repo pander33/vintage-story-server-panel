@@ -379,6 +379,7 @@ textarea { font-family: var(--mono); font-size: 11px; line-height: 1.6; resize: 
 .notice.warn { border-color: var(--warn); background: #382e1f; }
 .notice.error { border-color: var(--error); background: #3a221c; color: #f3c3b5; }
 .notice strong { color: var(--text); }
+.notice input[readonly] { display: block; width: 100%; margin-top: 8px; }
 .notice p { margin: 6px 0 0; }
 .status-chip { color: #ecd0bd; background: var(--surface-3); padding: 8px 10px; border-radius: 4px; font: 9px var(--mono); white-space: nowrap; text-transform: uppercase; }
 .status-chip.ok { background: var(--ok-bg); color: var(--ok); }

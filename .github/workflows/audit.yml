@@ -1,0 +1,48 @@
+name: Dependency audit
+
+# Уязвимость, опубликованную после последнего пуша, restore не увидит: проверка идёт ещё и
+# по расписанию. Отказ — известная уязвимость в любой зависимости, включая транзитивные и
+# зависимости привилегированного демона.
+on:
+  schedule:
+    - cron: '23 5 * * 1'
+  push:
+    branches: [master]
+    paths: ['**.csproj', 'Directory.Build.props', 'global.json', '.github/workflows/audit.yml']
+  pull_request:
+    paths: ['**.csproj', 'Directory.Build.props', 'global.json', '.github/workflows/audit.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  audit:
+    name: Vulnerable packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      # Аудит при restore (Directory.Build.props) свалил бы этот шаг раньше, чем следующий
+      # напечатает, какие пакеты уязвимы. Здесь его выключает свойство, а решает список.
+      - name: Restore
+        run: dotnet restore VintageStoryPanel.slnx -p:NuGetAudit=false
+
+      - name: List vulnerable packages
+        shell: bash
+        run: |
+          set -o pipefail
+          dotnet list VintageStoryPanel.slnx package --vulnerable --include-transitive | tee audit.txt
+          if grep -q 'has the following vulnerable packages' audit.txt; then
+            echo '::error::Vulnerable NuGet packages found, see the list above'
+            exit 1
+          fi

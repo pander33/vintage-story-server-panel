@@ -116,6 +116,65 @@ public sealed class WindowsTransportTests : IDisposable
 		await Assert.ThrowsAnyAsync<Exception>(() => server.RunAsync(CancellationToken.None));
 	}
 
+	/// <summary>
+	/// Панель доверяет каналу, только если его сервер — LocalSystem или её собственная учётная
+	/// запись: занявший имя посторонний процесс не выдаст себя за демон (findings §82).
+	/// </summary>
+	[Fact]
+	[SupportedOSPlatform("windows")]
+	public void Сервер_канала_от_чужой_учётной_записи_не_доверен()
+	{
+		if (!OperatingSystem.IsWindows())
+		{
+			return;
+		}
+
+		var system = new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null);
+		var service = new SecurityIdentifier(WellKnownSidType.LocalServiceSid, null);
+		var network = new SecurityIdentifier(WellKnownSidType.NetworkServiceSid, null);
+
+		Assert.True(PipeServerIdentity.Trusted(system, service));
+		Assert.True(PipeServerIdentity.Trusted(service, service));
+		Assert.False(PipeServerIdentity.Trusted(network, service));
+		Assert.False(PipeServerIdentity.Trusted(network, null));
+	}
+
+	/// <summary>
+	/// Демон прежней сборки не знает поля <c>build</c>, другой присылает своё. Ответ принимается,
+	/// а несовпадение запоминается для диагностики.
+	/// </summary>
+	[Theory]
+	[InlineData("{\"v\":1,\"ok\":true,\"result\":{\"ok\":true}}", "?")]
+	[InlineData("{\"v\":1,\"build\":\"0.0.1+other\",\"ok\":true,\"result\":{\"ok\":true}}", "0.0.1+other")]
+	[SupportedOSPlatform("windows")]
+	public async Task Ответ_демона_другой_сборки_принимается_и_отмечается(string reply, string build)
+	{
+		if (!OperatingSystem.IsWindows())
+		{
+			return;
+		}
+
+		var name = "vs-panel-test-" + Guid.NewGuid().ToString("n");
+		await using var server = new NamedPipeServerStream(name, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+		var answering = Task.Run(async () =>
+		{
+			await server.WaitForConnectionAsync();
+			using var reader = new StreamReader(server, Encoding.UTF8, false, 1024, leaveOpen: true);
+			await reader.ReadLineAsync();
+			await server.WriteAsync(Encoding.UTF8.GetBytes(reply + "\n"));
+			await server.FlushAsync();
+		});
+
+		var client = new AgentClient(AgentClient.PipePrefix + name);
+		Assert.False(client.BuildsDiffer);
+		var result = await client.CallAsync<AcknowledgedPayload>(AgentProtocol.OpPing, InstanceId.Parse("main"), [], CancellationToken.None);
+		await answering;
+
+		Assert.True(result.IsSuccess);
+		Assert.Equal(build, client.DaemonBuild);
+		Assert.True(client.BuildsDiffer);
+	}
+
 	[Fact]
 	[SupportedOSPlatform("windows")]
 	public async Task Дочерний_процесс_читает_stdin_и_дописывает_журнал()

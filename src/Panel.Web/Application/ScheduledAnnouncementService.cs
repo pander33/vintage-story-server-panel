@@ -67,7 +67,7 @@ internal sealed partial class ScheduledAnnouncementService(
 			outcomes[item.Id] = sent.IsSuccess ? AnnouncementOutcome.Sent : AnnouncementOutcome.Failed;
 		}
 
-		lock (workspace.Sync)
+		var written = await workspace.RecordScheduleAsync(() =>
 		{
 			for (var index = 0; index < workspace.Announcements.Count; index++)
 			{
@@ -77,9 +77,14 @@ internal sealed partial class ScheduledAnnouncementService(
 					workspace.Announcements[index] = workspace.Announcements[index].Advance(now, outcome);
 				}
 			}
-		}
 
-		await workspace.SaveRequiredAsync(ct).ConfigureAwait(false);
+			return true;
+		}, ct).ConfigureAwait(false);
+
+		if (!written.IsSuccess)
+		{
+			throw new IOException(written.Failure!.Message);
+		}
 	}
 
 	public async Task<Result<JsonObject>> AddAnnouncementAsync(InstanceId instance, AnnouncementDraft draft, CancellationToken ct)
@@ -91,18 +96,20 @@ internal sealed partial class ScheduledAnnouncementService(
 		}
 
 		var workspace = await workspaces.GetAsync(instance).ConfigureAwait(false);
-		lock (workspace.Sync)
-		{
-			if (workspace.Announcements.Count >= maxAnnouncements)
+		return await workspace.ChangeAsync<JsonObject>(
+			() =>
 			{
-				return Failure.Invalid($"Не больше {maxAnnouncements} объявлений на сервер");
-			}
+				if (workspace.Announcements.Count >= maxAnnouncements)
+				{
+					return Failure.Invalid($"Не больше {maxAnnouncements} объявлений на сервер");
+				}
 
-			workspace.Announcements.Add(created.Value);
-		}
-
-		var written = await workspace.SaveAsync(ct).ConfigureAwait(false);
-		return written.IsSuccess ? created.Value.ToJson() : written.Failure!;
+				workspace.Announcements.Add(created.Value);
+				return new WorkspaceChange<JsonObject>(
+					created.Value.ToJson(),
+					() => workspace.Announcements.RemoveAll(item => item.Id == created.Value.Id));
+			},
+			ct).ConfigureAwait(false);
 	}
 
 	/// <summary>Изменение и переключение: присланное накладывается на объявление.</summary>
@@ -113,45 +120,49 @@ internal sealed partial class ScheduledAnnouncementService(
 		CancellationToken ct)
 	{
 		var workspace = await workspaces.GetAsync(instance).ConfigureAwait(false);
-		Result<ScheduledAnnouncement> updated;
-
-		lock (workspace.Sync)
-		{
-			var index = workspace.Announcements.FindIndex(item => item.Id == id);
-			if (index < 0)
+		return await workspace.ChangeAsync<JsonObject>(
+			() =>
 			{
-				return Failure.NotFound("Объявление не найдено");
-			}
+				var index = workspace.Announcements.FindIndex(item => item.Id == id);
+				if (index < 0)
+				{
+					return Failure.NotFound("Объявление не найдено");
+				}
 
-			var current = workspace.Announcements[index];
-			updated = ScheduledAnnouncement.Create(change(current.ToDraft()), id, clock.GetUtcNow(), current);
-			if (updated.IsSuccess)
-			{
+				var current = workspace.Announcements[index];
+				var updated = ScheduledAnnouncement.Create(change(current.ToDraft()), id, clock.GetUtcNow(), current);
+				if (!updated.IsSuccess)
+				{
+					return updated.Failure!;
+				}
+
 				workspace.Announcements[index] = updated.Value;
-			}
-		}
-
-		if (!updated.IsSuccess)
-		{
-			return Result.Fail<JsonObject>(updated.Failure!);
-		}
-
-		var written = await workspace.SaveAsync(ct).ConfigureAwait(false);
-		return written.IsSuccess ? updated.Value.ToJson() : written.Failure!;
+				return new WorkspaceChange<JsonObject>(
+					updated.Value.ToJson(),
+					() => AutomationService.Replace(workspace.Announcements, item => item.Id == id, current));
+			},
+			ct).ConfigureAwait(false);
 	}
 
 	public async Task<Result<Done>> DeleteAnnouncementAsync(InstanceId instance, string id, CancellationToken ct)
 	{
 		var workspace = await workspaces.GetAsync(instance).ConfigureAwait(false);
-		lock (workspace.Sync)
-		{
-			if (workspace.Announcements.RemoveAll(item => item.Id == id) == 0)
+		return await workspace.ChangeAsync<Done>(
+			() =>
 			{
-				return Failure.NotFound("Объявление не найдено");
-			}
-		}
+				var index = workspace.Announcements.FindIndex(item => item.Id == id);
+				if (index < 0)
+				{
+					return Failure.NotFound("Объявление не найдено");
+				}
 
-		return await workspace.SaveAsync(ct).ConfigureAwait(false);
+				var removed = workspace.Announcements[index];
+				workspace.Announcements.RemoveAt(index);
+				return new WorkspaceChange<Done>(
+					Done.Value,
+					() => workspace.Announcements.Insert(Math.Min(index, workspace.Announcements.Count), removed));
+			},
+			ct).ConfigureAwait(false);
 	}
 
 	[LoggerMessage(Level = LogLevel.Warning, Message = "Объявление по расписанию на сервере {Instance} не отправлено: {Reason}")]

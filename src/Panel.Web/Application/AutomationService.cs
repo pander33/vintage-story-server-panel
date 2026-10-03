@@ -122,11 +122,11 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 		MaintenanceJob? due = null;
 		var skipped = new List<MaintenanceJob>();
 
-		lock (workspace.Sync)
+		var written = await workspace.RecordScheduleAsync(() =>
 		{
 			if (coordinator.IsLocked || workspace.Running is not null)
 			{
-				return;
+				return false;
 			}
 
 			for (var index = 0; index < workspace.Jobs.Count && due is null; index++)
@@ -150,10 +150,12 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 				due = workspace.Jobs[index];
 			}
 
-			if (due is null && skipped.Count == 0)
-			{
-				return;
-			}
+			return due is not null || skipped.Count > 0;
+		}, ct).ConfigureAwait(false);
+
+		if (due is null && skipped.Count == 0)
+		{
+			return;
 		}
 
 		foreach (var job in skipped)
@@ -168,7 +170,10 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 			Launch(instance, workspace, due, "schedule");
 		}
 
-		await workspace.SaveRequiredAsync(ct).ConfigureAwait(false);
+		if (!written.IsSuccess)
+		{
+			throw new IOException(written.Failure!.Message);
+		}
 	}
 
 	// ----- наблюдатель ---------------------------------------------------------------
@@ -219,13 +224,13 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 		}
 
 		var workspace = await workspaces.GetAsync(instance).ConfigureAwait(false);
-		lock (workspace.Sync)
-		{
-			workspace.Jobs.Add(job.Value);
-		}
-
-		var written = await workspace.SaveAsync(ct).ConfigureAwait(false);
-		return written.IsSuccess ? job.Value.ToJson() : written.Failure!;
+		return await workspace.ChangeAsync<JsonObject>(
+			() =>
+			{
+				workspace.Jobs.Add(job.Value);
+				return new WorkspaceChange<JsonObject>(job.Value.ToJson(), () => workspace.Jobs.RemoveAll(item => item.Id == job.Value.Id));
+			},
+			ct).ConfigureAwait(false);
 	}
 
 	/// <summary>Изменение и переключение: присланное накладывается на задание, как <c>current | raw</c>.</summary>
@@ -236,45 +241,55 @@ public sealed partial class AutomationService : BackgroundService, IReadinessWai
 		CancellationToken ct)
 	{
 		var workspace = await workspaces.GetAsync(instance).ConfigureAwait(false);
-		Result<MaintenanceJob> updated;
-
-		lock (workspace.Sync)
-		{
-			var index = workspace.Jobs.FindIndex(job => job.Id == id);
-			if (index < 0)
+		return await workspace.ChangeAsync<JsonObject>(
+			() =>
 			{
-				return Failure.NotFound("Задание не найдено");
-			}
+				var index = workspace.Jobs.FindIndex(job => job.Id == id);
+				if (index < 0)
+				{
+					return Failure.NotFound("Задание не найдено");
+				}
 
-			var current = workspace.Jobs[index];
-			updated = MaintenanceJob.Create(change(current.ToDraft()), id, clock.GetUtcNow(), zone, previous: current);
-			if (updated.IsSuccess)
-			{
+				var current = workspace.Jobs[index];
+				var updated = MaintenanceJob.Create(change(current.ToDraft()), id, clock.GetUtcNow(), zone, previous: current);
+				if (!updated.IsSuccess)
+				{
+					return updated.Failure!;
+				}
+
 				workspace.Jobs[index] = updated.Value;
-			}
-		}
-
-		if (!updated.IsSuccess)
-		{
-			return Result.Fail<JsonObject>(updated.Failure!);
-		}
-
-		var written = await workspace.SaveAsync(ct).ConfigureAwait(false);
-		return written.IsSuccess ? updated.Value.ToJson() : written.Failure!;
+				return new WorkspaceChange<JsonObject>(updated.Value.ToJson(), () => Replace(workspace.Jobs, job => job.Id == id, current));
+			},
+			ct).ConfigureAwait(false);
 	}
 
 	public async Task<Result<Done>> DeleteJobAsync(InstanceId instance, string id, CancellationToken ct)
 	{
 		var workspace = await workspaces.GetAsync(instance).ConfigureAwait(false);
-		lock (workspace.Sync)
-		{
-			if (workspace.Jobs.RemoveAll(job => job.Id == id) == 0)
+		return await workspace.ChangeAsync<Done>(
+			() =>
 			{
-				return Failure.NotFound("Задание не найдено");
-			}
-		}
+				var index = workspace.Jobs.FindIndex(job => job.Id == id);
+				if (index < 0)
+				{
+					return Failure.NotFound("Задание не найдено");
+				}
 
-		return await workspace.SaveAsync(ct).ConfigureAwait(false);
+				var removed = workspace.Jobs[index];
+				workspace.Jobs.RemoveAt(index);
+				return new WorkspaceChange<Done>(Done.Value, () => workspace.Jobs.Insert(Math.Min(index, workspace.Jobs.Count), removed));
+			},
+			ct).ConfigureAwait(false);
+	}
+
+	/// <summary>Отмена изменения: прежнее значение на место элемента с тем же идентификатором.</summary>
+	internal static void Replace<T>(List<T> items, Predicate<T> same, T previous)
+	{
+		var index = items.FindIndex(same);
+		if (index >= 0)
+		{
+			items[index] = previous;
+		}
 	}
 
 	/// <summary>Запуск вручную. Если панель занята, 409.</summary>

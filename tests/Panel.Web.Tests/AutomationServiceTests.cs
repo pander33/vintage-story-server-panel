@@ -98,6 +98,7 @@ public sealed class AutomationServiceTests : IDisposable
 		var announcementId = announcement.Value["id"]!.GetValue<string>();
 		File.Delete(StateFile);
 		Directory.CreateDirectory(StateFile);
+		var before = await service.SnapshotAsync(main, default);
 
 		Failure? failure = action switch
 		{
@@ -112,11 +113,56 @@ public sealed class AutomationServiceTests : IDisposable
 		};
 		Assert.NotNull(failure);
 		Assert.Equal(FailureCode.Unavailable, failure.Code);
+
+		// Отказ записи отменяет изменение и в памяти: иначе расписание выполняло бы то, о чём
+		// клиенту сказали «не сохранено», а после перезапуска оно исчезло бы.
+		var after = await service.SnapshotAsync(main, default);
+		Assert.Equal(before["jobs"]!.ToJsonString(), after["jobs"]!.ToJsonString());
+		Assert.Equal(before["announcements"]!.ToJsonString(), after["announcements"]!.ToJsonString());
 		if (action == "watchdog")
 		{
 			Assert.False((await service.WatchdogAsync(main)).AutoRestart);
 			Assert.False(readiness.Settings(main).AutoRestart);
 		}
+	}
+
+	/// <summary>
+	/// Такт расписания, сдвинувший срок, пока шла неудачная запись изменения, не теряет сдвиг при
+	/// отмене: учёт расписания ждёт того же затвора и видит уже отменённое изменение.
+	/// </summary>
+	[Fact]
+	public async Task Отмена_изменения_не_затирает_учёт_расписания()
+	{
+		var workspace = await AutomationWorkspace.OpenAsync(StateFile, Path.Combine(directory, "runs.jsonl"), TimeProvider.System, TimeZoneInfo.Utc);
+		var job = MaintenanceJob.Create(new JobDraft { Name = "backup" }, null, DateTimeOffset.UtcNow, TimeZoneInfo.Utc).Value;
+		workspace.Jobs.Add(job);
+		Directory.CreateDirectory(StateFile);
+		Task<Result<Done>>? recorded = null;
+		MaintenanceJob? seen = null;
+
+		var changed = await workspace.ChangeAsync<Done>(
+			() =>
+			{
+				var current = workspace.Jobs[0];
+				workspace.Jobs[0] = current with { Name = "edited" };
+				recorded = workspace.RecordScheduleAsync(
+					() =>
+					{
+						seen = workspace.Jobs[0];
+						workspace.Jobs[0] = workspace.Jobs[0] with { NextRun = 42 };
+						return true;
+					},
+					default);
+				Assert.False(recorded.IsCompleted);
+				return new WorkspaceChange<Done>(Done.Value, () => AutomationService.Replace(workspace.Jobs, item => item.Id == job.Id, current));
+			},
+			default);
+		await recorded!;
+
+		Assert.False(changed.IsSuccess);
+		Assert.Equal("backup", seen!.Name);
+		Assert.Equal("backup", workspace.Jobs[0].Name);
+		Assert.Equal(42, workspace.Jobs[0].NextRun);
 	}
 
 	[Fact]
