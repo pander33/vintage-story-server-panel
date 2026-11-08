@@ -12,3 +12,5 @@ fixtures/live/
 /templates/vintage-panel-concept
 *graphify-out
 /reports/Конкуренты панели Vintage Story.md
+/research_notes/
+/scripts/user-guide-html.py

@@ -175,7 +175,7 @@ irm https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/
 Установка — одна команда: она берёт пакет последнего [релиза](https://github.com/ruslan120p/vintage-story-panel-net/releases)
 для этой машины (`linux-x64`, `linux-arm64` или `win-x64`), сверяет его с `SHA256SUMS`
 релиза и запускает установщик из него. Определённый релиз задаёт переменная
-`VS_PANEL_VERSION`, например `VS_PANEL_VERSION=0.3.0`. Если собираете проект сами,
+`VS_PANEL_VERSION`, например `VS_PANEL_VERSION=0.4.0`. Если собираете проект сами,
 установщик запускается из [опубликованного пакета](#из-каталога-сборки).
 
 ### Linux
@@ -200,7 +200,7 @@ curl -fsSL https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/
 ```bash
 curl -fsSL …/deploy/get.sh | sudo sh -s -- --access internet    # открыть и для интернета
 curl -fsSL …/deploy/get.sh | sudo sh -s -- --access localhost   # только эта машина, вход через SSH-туннель
-curl -fsSL …/deploy/get.sh | sudo VS_PANEL_VERSION=0.3.0 sh     # определённый релиз
+curl -fsSL …/deploy/get.sh | sudo VS_PANEL_VERSION=0.4.0 sh     # определённый релиз
 ```
 
 ### Windows
@@ -218,7 +218,7 @@ irm https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/deploy/windows/get.ps1))) --access internet
 ```
 
-Определённый релиз — `$env:VS_PANEL_VERSION = '0.3.0'` перед командой.
+Определённый релиз — `$env:VS_PANEL_VERSION = '0.4.0'` перед командой.
 
 При первой установке откроется окно выбора папки для игровых серверов. «Отмена»
 оставляет `C:\ProgramData\vs-panel\servers`. Лучше выбрать папку прямо в корне диска,
@@ -516,7 +516,7 @@ Tailscale подключатся только игроки из вашей се�
 
 ```bash
 sudo vs-panel update                     # последний релиз
-sudo vs-panel update --version 0.3.0     # определённый релиз
+sudo vs-panel update --version 0.4.0     # определённый релиз
 sudo vs-panel update --from ./linux-x64  # свой пакет из каталога сборки
 ```
 
@@ -637,9 +637,15 @@ scrape_configs:
 пользователя на Unix-сокете (`SO_PEERCRED`), на Windows его именованный канал открыт
 только учётной записи службы и администраторам. Доверие взаимное: на Windows панель
 говорит с каналом, только если его держит LocalSystem (другую программу, занявшую имя, пока
-демон перезапускается, она отвергает), и не позволяет каналу действовать от её имени. Ещё
-панель и демон отвергают друг друга, если они разных сборок: так видно незавершённое
-обновление.
+демон перезапускается, она отвергает), и не позволяет каналу действовать от её имени.
+Каждый запрос и ответ несёт сборку своей стороны: чужая сборка не отказ (иначе прерванное
+обновление обернулось бы простоем), а отметка в диагностическом пакете — так видно
+незавершённое обновление.
+
+Своё состояние игра сообщает через мод **VS Panel Telemetry**: игроки, такты, готовность.
+Мод поставляется с панелью, установщик кладёт его в моды каждого сервера. Без него панель
+работает, но готовность видит лишь частично, и наблюдатель с автоперезапуском надёжны меньше.
+Не отключайте мод.
 
 - Игра никогда не запускается от root: на Linux — от отдельного пользователя `vsgame`.
 - Загруженный архив судится целиком — каждый путь и каждая ссылка в нём — до того, как
@@ -687,8 +693,10 @@ bash scripts/publish.sh linux-x64      # или linux-arm64
 ```
 
 Пакет появится в `artifacts/<цель>` — из этого каталога и запускается установщик. Релиз
-публикует тег `v<версия>`, совпадающий с `PanelVersion` в `Directory.Build.props`. Стиль
-задаёт `.editorconfig`, проверка — `dotnet format whitespace --verify-no-changes`.
+публикует тег `v<версия>`, совпадающий с `PanelVersion` в `Directory.Build.props`; порядок
+действий — в [docs/releasing.md](docs/releasing.md). Стиль задаёт `.editorconfig`, проверки —
+`dotnet format whitespace --verify-no-changes` и
+`dotnet format style --verify-no-changes --severity warn`.
 Устройство кода, правила, которые проверяют тесты, и работа установщика — в
 [docs/development.md](docs/development.md).
 

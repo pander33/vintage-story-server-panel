@@ -170,7 +170,7 @@ server's default port is 42420.
 Installation is one command: it takes the latest [release](https://github.com/ruslan120p/vintage-story-panel-net/releases)
 package for this machine (`linux-x64`, `linux-arm64` or `win-x64`), verifies it against the
 release `SHA256SUMS` and runs the installer from it. The `VS_PANEL_VERSION` variable selects
-a specific release, for example `VS_PANEL_VERSION=0.3.0`. If you build the project yourself,
+a specific release, for example `VS_PANEL_VERSION=0.4.0`. If you build the project yourself,
 run the installer from the [published package](#from-a-build-directory).
 
 ### Linux
@@ -195,7 +195,7 @@ Installer options go after `sh -s --`. Who can reach the panel is set here as we
 ```bash
 curl -fsSL …/deploy/get.sh | sudo sh -s -- --access internet    # open to the internet as well
 curl -fsSL …/deploy/get.sh | sudo sh -s -- --access localhost   # this machine only, sign in over an SSH tunnel
-curl -fsSL …/deploy/get.sh | sudo VS_PANEL_VERSION=0.3.0 sh     # a specific release
+curl -fsSL …/deploy/get.sh | sudo VS_PANEL_VERSION=0.4.0 sh     # a specific release
 ```
 
 ### Windows
@@ -213,7 +213,7 @@ continues in a new window. Installer options are passed like this:
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/deploy/windows/get.ps1))) --access internet
 ```
 
-A specific release — `$env:VS_PANEL_VERSION = '0.3.0'` before the command.
+A specific release — `$env:VS_PANEL_VERSION = '0.4.0'` before the command.
 
 On first installation a folder picker opens for game servers. "Cancel" keeps
 `C:\ProgramData\vs-panel\servers`. A folder right at the root of a drive is best, for
@@ -511,7 +511,7 @@ After installing on Windows open a new window: the `vs-panel` command appears th
 
 ```bash
 sudo vs-panel update                     # the latest release
-sudo vs-panel update --version 0.3.0     # a specific release
+sudo vs-panel update --version 0.4.0     # a specific release
 sudo vs-panel update --from ./linux-x64  # your own package from a build directory
 ```
 
@@ -634,9 +634,15 @@ path itself from its own registry. It answers only the panel: on Linux it checks
 caller's user ID on its Unix socket (`SO_PEERCRED`), on Windows its named pipe is open to
 the service account and administrators only. The trust goes both ways: on Windows the panel
 talks to the pipe only if it is held by LocalSystem (another program that grabs the name
-while the agent restarts is refused), and it does not let the pipe act on its behalf. The
-panel and the agent also refuse each other when they come from different builds, which
-catches a half-finished update.
+while the agent restarts is refused), and it does not let the pipe act on its behalf. Every
+request and answer carries the build of its side: a different build is not refused (that
+would turn an interrupted update into downtime), but it is shown in the diagnostic bundle,
+which makes a half-finished update visible.
+
+The game reports its state through the **VS Panel Telemetry** mod: players, ticks, readiness.
+It ships with the panel, and the installer puts it into every server's mods. Without it the
+panel still works, but sees readiness only partly, so the watchdog and automatic restarts are
+less reliable. Keep the mod enabled.
 
 - The game never runs as root: on Linux it is started as a separate `vsgame` user.
 - An uploaded archive is judged as a whole — every path and link in it — before anything
@@ -685,10 +691,11 @@ bash scripts/publish.sh linux-x64      # or linux-arm64
 
 The package lands in `artifacts/<target>` — that is the directory the installer runs
 from. A release is published by the tag `v<version>`, matching `PanelVersion` in
-`Directory.Build.props`. Style follows `.editorconfig`; check it with
-`dotnet format whitespace --verify-no-changes`. How the code is organised, the rules the
-tests enforce and how the installer works — in [docs/development.md](docs/development.md)
-(in Russian).
+`Directory.Build.props`; the steps are in [docs/releasing.md](docs/releasing.md). Style
+follows `.editorconfig`; check it with `dotnet format whitespace --verify-no-changes` and
+`dotnet format style --verify-no-changes --severity warn`. How the code is organised, the
+rules the tests enforce and how the installer works — in
+[docs/development.md](docs/development.md). Both documents are in Russian.
 
 ## License
 
