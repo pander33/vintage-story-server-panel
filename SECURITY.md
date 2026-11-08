@@ -6,7 +6,7 @@ a web interface, so security reports are taken seriously.
 ## Reporting a vulnerability
 
 Please report vulnerabilities privately through
-[a GitHub security advisory](https://github.com/ruslan120p/vintage-story-panel-net/security/advisories/new),
+[a GitHub security advisory](https://github.com/pander33/vintage-story-server-panel/security/advisories/new),
 not in a public issue, discussion or pull request.
 
 Include what you can:

@@ -1,7 +1,7 @@
 # Install or update the panel with one command: download the Windows package from GitHub
 # Releases, verify its checksum and run the installer from it. In PowerShell:
 #
-#   irm https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/deploy/windows/get.ps1 | iex
+#   irm https://raw.githubusercontent.com/pander33/vintage-story-server-panel/master/deploy/windows/get.ps1 | iex
 #
 # With installer options (the same as install.cmd):
 #
@@ -18,7 +18,7 @@
 	# times slower with it.
 	$ProgressPreference = 'SilentlyContinue'
 	$installerArguments = @($args)
-	$repository = 'ruslan120p/vintage-story-panel-net'
+	$repository = 'pander33/vintage-story-server-panel'
 	$self = "https://raw.githubusercontent.com/$repository/master/deploy/windows/get.ps1"
 	$elevated = $env:VS_PANEL_GET_ELEVATED -eq '1'
 

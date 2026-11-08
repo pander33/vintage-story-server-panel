@@ -1,4 +1,4 @@
-#requires -Version 7.0
+﻿#requires -Version 7.0
 <#
 .SYNOPSIS
 Prepare a release version and notes, or check a committed release before tagging.
@@ -95,7 +95,7 @@ TODO: Record checks actually performed and outstanding integration checks.
 - ``vs-panel-win-x64.zip`` — Windows x86-64.
 - ``get.sh``, ``get.ps1`` and ``SHA256SUMS`` — bootstrap scripts and checksums.
 
-See the [README](https://github.com/ruslan120p/vintage-story-panel-net/blob/$tag/README.md) for installation instructions.
+See the [README](https://github.com/pander33/vintage-story-server-panel/blob/$tag/README.md) for installation instructions.
 "@
 			[IO.Directory]::CreateDirectory((Split-Path $notesPath)) | Out-Null
 			[IO.File]::WriteAllText($notesPath, ($template -replace '\r?\n', "`r`n") + "`r`n", $utf8)

@@ -1,8 +1,8 @@
 <img src="src/Panel.Web/Static/favicon.svg" width="72" alt="">
 
-# Vintage Story Panel
+# Vintage Story Server Panel
 
-[![CI](https://github.com/ruslan120p/vintage-story-panel-net/actions/workflows/ci.yml/badge.svg)](https://github.com/ruslan120p/vintage-story-panel-net/actions/workflows/ci.yml)
+[![CI](https://github.com/pander33/vintage-story-server-panel/actions/workflows/ci.yml/badge.svg)](https://github.com/pander33/vintage-story-server-panel/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![.NET 10](https://img.shields.io/badge/.NET-10-512BD4.svg)](https://dotnet.microsoft.com/)
 ![Platforms: Linux | Windows](https://img.shields.io/badge/platforms-Linux%20%7C%20Windows-lightgrey.svg)
@@ -27,13 +27,13 @@ The interface is available in English and Russian.
 **Linux** — one command on the server:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/deploy/get.sh | sudo sh
+curl -fsSL https://raw.githubusercontent.com/pander33/vintage-story-server-panel/master/deploy/get.sh | sudo sh
 ```
 
 **Windows** — one command in PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/deploy/windows/get.ps1 | iex
+irm https://raw.githubusercontent.com/pander33/vintage-story-server-panel/master/deploy/windows/get.ps1 | iex
 ```
 
 The command downloads the latest release package for this machine and runs the installer.
@@ -167,7 +167,7 @@ server's default port is 42420.
 
 ## Installation
 
-Installation is one command: it takes the latest [release](https://github.com/ruslan120p/vintage-story-panel-net/releases)
+Installation is one command: it takes the latest [release](https://github.com/pander33/vintage-story-server-panel/releases)
 package for this machine (`linux-x64`, `linux-arm64` or `win-x64`), verifies it against the
 release `SHA256SUMS` and runs the installer from it. The `VS_PANEL_VERSION` variable selects
 a specific release, for example `VS_PANEL_VERSION=0.4.0`. If you build the project yourself,
@@ -176,7 +176,7 @@ run the installer from the [published package](#from-a-build-directory).
 ### Linux
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/deploy/get.sh | sudo sh
+curl -fsSL https://raw.githubusercontent.com/pander33/vintage-story-server-panel/master/deploy/get.sh | sudo sh
 ```
 
 It needs `curl` or `wget`, `tar` and `sha256sum` — Debian and Ubuntu have them out of the box.
@@ -203,14 +203,14 @@ curl -fsSL …/deploy/get.sh | sudo VS_PANEL_VERSION=0.4.0 sh     # a specific r
 In PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/deploy/windows/get.ps1 | iex
+irm https://raw.githubusercontent.com/pander33/vintage-story-server-panel/master/deploy/windows/get.ps1 | iex
 ```
 
 If PowerShell is not running as administrator, the command asks for the rights and
 continues in a new window. Installer options are passed like this:
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/deploy/windows/get.ps1))) --access internet
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/pander33/vintage-story-server-panel/master/deploy/windows/get.ps1))) --access internet
 ```
 
 A specific release — `$env:VS_PANEL_VERSION = '0.4.0'` before the command.
@@ -656,14 +656,14 @@ less reliable. Keep the mod enabled.
 
 ## Reporting problems
 
-Open an [issue](https://github.com/ruslan120p/vintage-story-panel-net/issues) with:
+Open an [issue](https://github.com/pander33/vintage-story-server-panel/issues) with:
 - the operating system and the panel version (`vs-panel version`);
 - what you did and what happened;
 - the output of `vs-panel doctor` and, if possible, the diagnostic bundle (see
   [Troubleshooting](#troubleshooting)).
 
 Please report security problems privately, through
-[a security advisory](https://github.com/ruslan120p/vintage-story-panel-net/security/advisories/new),
+[a security advisory](https://github.com/pander33/vintage-story-server-panel/security/advisories/new),
 not in a public issue.
 
 Pull requests are welcome. For anything larger than a fix, open an issue first so we can

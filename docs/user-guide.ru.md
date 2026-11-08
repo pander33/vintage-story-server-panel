@@ -28,20 +28,20 @@
 **Windows, PowerShell:**
 
 ```powershell
-irm https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/deploy/windows/get.ps1 | iex
+irm https://raw.githubusercontent.com/pander33/vintage-story-server-panel/master/deploy/windows/get.ps1 | iex
 ```
 
 **Linux, терминал:**
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/deploy/get.sh | sudo sh
+curl -fsSL https://raw.githubusercontent.com/pander33/vintage-story-server-panel/master/deploy/get.sh | sudo sh
 ```
 
 После запуска выберите каталог для игровых серверов и завершите первый вход по инструкции ниже.
 
 ### Ручная установка: скачать выпуск
 
-1. Откройте [страницу последнего выпуска на GitHub](https://github.com/ruslan120p/vintage-story-panel-net/releases/latest).
+1. Откройте [страницу последнего выпуска на GitHub](https://github.com/pander33/vintage-story-server-panel/releases/latest).
 2. Разверните список **Assets** и скачайте архив для своей системы:
 
 | Система | Архив |

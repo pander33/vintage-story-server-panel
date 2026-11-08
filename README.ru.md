@@ -2,7 +2,7 @@
 
 # Vintage Story Panel
 
-[![CI](https://github.com/ruslan120p/vintage-story-panel-net/actions/workflows/ci.yml/badge.svg)](https://github.com/ruslan120p/vintage-story-panel-net/actions/workflows/ci.yml)
+[![CI](https://github.com/pander33/vintage-story-server-panel/actions/workflows/ci.yml/badge.svg)](https://github.com/pander33/vintage-story-server-panel/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![.NET 10](https://img.shields.io/badge/.NET-10-512BD4.svg)](https://dotnet.microsoft.com/)
 ![Platforms: Linux | Windows](https://img.shields.io/badge/platforms-Linux%20%7C%20Windows-lightgrey.svg)
@@ -29,13 +29,13 @@
 **Linux** — одна команда на сервере:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/deploy/get.sh | sudo sh
+curl -fsSL https://raw.githubusercontent.com/pander33/vintage-story-server-panel/master/deploy/get.sh | sudo sh
 ```
 
 **Windows** — одна команда в PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/deploy/windows/get.ps1 | iex
+irm https://raw.githubusercontent.com/pander33/vintage-story-server-panel/master/deploy/windows/get.ps1 | iex
 ```
 
 Команда скачивает пакет последнего релиза для этой машины и запускает установщик.
@@ -172,7 +172,7 @@ irm https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/
 
 ## Установка
 
-Установка — одна команда: она берёт пакет последнего [релиза](https://github.com/ruslan120p/vintage-story-panel-net/releases)
+Установка — одна команда: она берёт пакет последнего [релиза](https://github.com/pander33/vintage-story-server-panel/releases)
 для этой машины (`linux-x64`, `linux-arm64` или `win-x64`), сверяет его с `SHA256SUMS`
 релиза и запускает установщик из него. Определённый релиз задаёт переменная
 `VS_PANEL_VERSION`, например `VS_PANEL_VERSION=0.4.0`. Если собираете проект сами,
@@ -181,7 +181,7 @@ irm https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/
 ### Linux
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/deploy/get.sh | sudo sh
+curl -fsSL https://raw.githubusercontent.com/pander33/vintage-story-server-panel/master/deploy/get.sh | sudo sh
 ```
 
 Нужны `curl` или `wget`, `tar` и `sha256sum` — в Debian и Ubuntu они есть сразу.
@@ -208,14 +208,14 @@ curl -fsSL …/deploy/get.sh | sudo VS_PANEL_VERSION=0.4.0 sh     # опреде
 В PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/deploy/windows/get.ps1 | iex
+irm https://raw.githubusercontent.com/pander33/vintage-story-server-panel/master/deploy/windows/get.ps1 | iex
 ```
 
 Если PowerShell открыт не от имени администратора, команда попросит права и продолжит в
 новом окне. Ключи установщика передаются так:
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/deploy/windows/get.ps1))) --access internet
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/pander33/vintage-story-server-panel/master/deploy/windows/get.ps1))) --access internet
 ```
 
 Определённый релиз — `$env:VS_PANEL_VERSION = '0.4.0'` перед командой.
@@ -659,14 +659,14 @@ scrape_configs:
 
 ## Сообщить о проблеме
 
-Откройте [issue](https://github.com/ruslan120p/vintage-story-panel-net/issues) и приложите:
+Откройте [issue](https://github.com/pander33/vintage-story-server-panel/issues) и приложите:
 - операционную систему и версию панели (`vs-panel version`);
 - что вы делали и что произошло;
 - вывод `vs-panel doctor` и, если можно, диагностический пакет (см.
   [Если что-то не работает](#если-что-то-не-работает)).
 
 О проблемах безопасности сообщайте закрыто, через
-[security advisory](https://github.com/ruslan120p/vintage-story-panel-net/security/advisories/new),
+[security advisory](https://github.com/pander33/vintage-story-server-panel/security/advisories/new),
 а не в открытом issue.
 
 Pull request приветствуются. Если правка больше исправления, сначала откройте issue,

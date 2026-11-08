@@ -19,7 +19,7 @@ namespace Panel.Cli;
 /// </remarks>
 internal static class ReleaseSource
 {
-	public const string Repository = "ruslan120p/vintage-story-panel-net";
+	public const string Repository = "pander33/vintage-story-server-panel";
 
 	public const string ChecksumFile = "SHA256SUMS";
 

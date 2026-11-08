@@ -2,7 +2,7 @@
 # Install or update the panel with one command: download the package for this machine from
 # GitHub Releases, verify its checksum and run install.sh from it.
 #
-#   curl -fsSL https://raw.githubusercontent.com/ruslan120p/vintage-story-panel-net/master/deploy/get.sh | sudo sh
+#   curl -fsSL https://raw.githubusercontent.com/pander33/vintage-story-server-panel/master/deploy/get.sh | sudo sh
 #   ... | sudo sh -s -- --access internet            install.sh options after "-s --"
 #   ... | sudo VS_PANEL_VERSION=0.3.0 sh             a specific release instead of the latest
 #
@@ -10,7 +10,7 @@
 # broken download cannot run half of it.
 set -eu
 
-repository=ruslan120p/vintage-story-panel-net
+repository=pander33/vintage-story-server-panel
 
 fail() {
     printf 'vs-panel: %s\n' "$1" >&2

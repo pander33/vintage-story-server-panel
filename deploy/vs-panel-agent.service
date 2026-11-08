@@ -1,6 +1,6 @@
 [Unit]
 Description=Vintage Story Panel privileged agent
-Documentation=https://github.com/ruslan120p/vintage-story-panel-net
+Documentation=https://github.com/pander33/vintage-story-server-panel
 After=network.target
 
 [Service]
