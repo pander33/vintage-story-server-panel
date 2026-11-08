@@ -35,9 +35,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 
@@ -70,7 +70,7 @@ jobs:
       - name: Restore
         run: dotnet restore VintageStoryPanel.slnx
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
 
@@ -115,9 +115,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 
@@ -160,7 +160,7 @@ jobs:
             (Join-Path (Resolve-Path artifacts/release).Path 'vs-panel-${{ matrix.rid }}.zip'),
             [IO.Compression.CompressionLevel]::Optimal, $true)
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.x'
 
@@ -168,7 +168,7 @@ jobs:
         run: python scripts/verify-release.py artifacts/release
 
       # И ручная сборка, и релиз хранят готовые архивы: права Linux не теряются.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ startsWith(github.ref, 'refs/tags/v') && format('release-{0}', matrix.rid) || format('vs-panel-{0}', matrix.rid) }}
           path: artifacts/release
@@ -185,15 +185,15 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: release-*
           path: dist
           merge-multiple: true
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.x'
 
