@@ -19,14 +19,14 @@
        высокого уровня (GHSA-2m69-gcr7-jv3q). Это единственная сторонняя зависимость
        ПРИВИЛЕГИРОВАННОГО процесса, и она обязана быть свежей. -->
   <ItemGroup>
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.14" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
   </ItemGroup>
 
   <!-- На Windows демон — служба: диспетчер служб ждёт ответа на старт и стоп и снимает
        процесс, который не отвечает. ServiceBase — пакет Microsoft, на Linux не загружается. -->
   <ItemGroup>
-    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.12" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.14" />
   </ItemGroup>
 
   <PropertyGroup>

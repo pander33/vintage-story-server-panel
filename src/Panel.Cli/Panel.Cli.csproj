@@ -34,7 +34,7 @@
   <!-- Службы Windows: запуск, остановка и ожидание состояния. Создавать службы и задавать
        их учётную запись ServiceController не умеет — это P/Invoke в ServiceManager. -->
   <ItemGroup>
-    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.12" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.14" />
   </ItemGroup>
 
   <ItemGroup>
